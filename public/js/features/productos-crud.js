@@ -153,17 +153,17 @@ export function formulario(p = null) {
         </select></div>
 
       <div class="fila">
-        <div class="campo"><label>Precio de venta (USD)</label>
+        <div class="campo"><label>Precio al cliente (USD)</label>
           <input name="precio" inputmode="decimal" value="${p ? aMayores(p.precioUSD) : ''}" placeholder="0,50"></div>
-        <div class="campo"><label>Costo (USD)</label>
+        <div class="campo"><label>Lo que te cuesta a ti (USD)</label>
           <input name="costo" inputmode="decimal" value="${p ? aMayores(p.costoUSD) : ''}" placeholder="0,30"></div>
       </div>
       <div id="margen" style="margin:-.4rem 0 .9rem;font-weight:600"></div>
 
       <div class="fila">
-        <div class="campo"><label>Precio mínimo (USD)</label>
+        <div class="campo"><label>Precio mínimo al cliente (USD)</label>
           <input name="minimo" inputmode="decimal" value="${p && p.precioMinimoUSD ? aMayores(p.precioMinimoUSD) : ''}" placeholder="opcional">
-          <small style="color:var(--texto-suave)">Por debajo de esto pide tu PIN.</small></div>
+          <small style="color:var(--texto-suave)">Si alguien quiere cobrar menos que esto, le pide tu PIN.</small></div>
         <div class="campo"><label>Unidad</label>
           <input name="unidad" value="${esc(p?.unidad || 'unidad')}"></div>
       </div>

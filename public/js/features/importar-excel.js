@@ -25,8 +25,8 @@ import { leerCSV } from '../data/csv.js';
 // Cómo se suele llamar cada columna en la vida real.
 const CAMPOS = {
   nombre: { titulo: 'Nombre', obligatorio: true, pistas: ['nombre', 'producto', 'descripcion', 'articulo', 'item', 'detalle'] },
-  precioUSD: { titulo: 'Precio de venta', pistas: ['precio', 'venta', 'pvp', 'precio venta', 'valor'] },
-  costoUSD: { titulo: 'Costo', pistas: ['costo', 'compra', 'precio compra', 'costo unitario'] },
+  precioUSD: { titulo: 'Precio al cliente', pistas: ['precio', 'venta', 'pvp', 'precio venta', 'valor'] },
+  costoUSD: { titulo: 'Lo que te cuesta a ti', pistas: ['costo', 'compra', 'precio compra', 'costo unitario'] },
   stock: { titulo: 'Cantidad', pistas: ['cantidad', 'stock', 'existencia', 'inventario', 'disponible'] },
   categoria: { titulo: 'Categoría', pistas: ['categoria', 'rubro', 'tipo', 'grupo', 'linea'] },
   codigoBarras: { titulo: 'Código de barras', pistas: ['codigo barras', 'barras', 'ean', 'upc', 'codigo de barras'] },
@@ -377,8 +377,8 @@ async function descargarPlantilla() {
     [''],
     ['Nombre', 'Obligatorio. Es lo único que no puede faltar.'],
     ['Otros nombres', 'Sinónimos separados por coma. ESTO ES LO MÁS ÚTIL: hace que el producto aparezca aunque lo escriban mal o le digan de otra forma.'],
-    ['Precio de venta', 'En dólares. Puede ir 0,50 o 0.50, da igual.'],
-    ['Costo', 'En dólares. Sin esto no se puede calcular la ganancia.'],
+    ['Precio de venta', 'Lo que PAGA EL CLIENTE. En dólares; puede ir 0,50 o 0.50, da igual.'],
+    ['Costo', 'Lo que TE COSTÓ A TI comprarlo. Sin esto no se puede saber cuánto ganas. El trabajador nunca ve esta columna.'],
     ['Cantidad', 'Cuántos hay ahora mismo.'],
     ['Stock mínimo', 'Cuando baje de aquí, la app avisa.'],
     [''],
