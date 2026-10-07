@@ -148,7 +148,7 @@ function pintarCascara() {
         el('div.saludo', { html: esc(u.nombre) }),
       ]),
       el('button.btn.plano', { style: 'min-height:40px;padding:0 1rem', texto: 'Salir', onclick: () => cerrarSesion() }),
-      el('img.logo-barra', { src: '/icons/logo-256.webp', width: '46', height: '46', alt: 'Mis Detallitos G&M C.A' }),
+      el('img.logo-barra', { src: 'icons/logo-256.webp', width: '46', height: '46', alt: 'Mis Detallitos G&M C.A' }),
     ]),
     nav,
     contenido
@@ -211,7 +211,7 @@ const puedeSW = 'serviceWorker' in navigator
   && (location.protocol === 'https:' || location.hostname === 'localhost');
 if (puedeSW) {
   addEventListener('load', () => {
-    navigator.serviceWorker?.register('/service-worker.js').catch((e) => console.warn('[sw]', e));
+    navigator.serviceWorker?.register('service-worker.js').catch((e) => console.warn('[sw]', e));
   });
 }
 

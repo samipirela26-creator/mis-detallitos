@@ -177,7 +177,7 @@ async function pintarSolicitudes(caja, alCambiar) {
       texto: 'Manda este link a tu mamá y a tu trabajador. Ellos crean su cuenta y aparecen aquí; hasta que les des acceso no ven nada.',
     }),
     el('div.fila', { style: 'margin-bottom:1rem' }, [
-      el('input', { id: 'link-invitacion', readonly: '', value: `${location.origin}/#/registro` }),
+      el('input', { id: 'link-invitacion', readonly: '', value: linkDeRegistro() }),
       el('button.btn.principal', { style: 'flex:0 0 auto', texto: '📤 Compartir', onclick: compartirLink }),
     ])
   );
@@ -214,8 +214,14 @@ async function pintarSolicitudes(caja, alCambiar) {
   }
 }
 
+/** La dirección de la app + #/registro. Incluye la subcarpeta si la hay
+ *  (en GitHub Pages la app vive en /mis-detallitos/, no en la raíz). */
+function linkDeRegistro() {
+  return location.href.split('#')[0] + '#/registro';
+}
+
 async function compartirLink() {
-  const link = `${location.origin}/#/registro`;
+  const link = linkDeRegistro();
   const texto = `Te paso el acceso al sistema de Mis Detallitos 🖇️\n\n${link}\n\nAbre el link, crea tu cuenta con tu correo, y avísame para habilitarte.`;
   try {
     if (navigator.share) { await navigator.share({ title: 'Mis Detallitos', text: texto }); return; }

@@ -4,6 +4,5 @@ functions/node_modules/
 firebase-debug.log
 firestore-debug.log
 ui-debug.log
-public/js/core/firebase-config.js
 .env
 *.local

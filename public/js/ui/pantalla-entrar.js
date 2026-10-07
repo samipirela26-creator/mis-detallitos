@@ -27,7 +27,7 @@ export function montarEntrar(nodo) {
   function pintar() {
     nodo.innerHTML = '';
     const panel = el('div.panel', {}, [
-      el('img', { src: '/icons/logo.webp', width: '128', height: '128', alt: 'Mis Detallitos G&M C.A' }),
+      el('img', { src: 'icons/logo.webp', width: '128', height: '128', alt: 'Mis Detallitos G&M C.A' }),
       el('h1', { style: 'color:#fff;margin:.75rem 0 0', texto: 'Mis Detallitos' }),
       el('p', { class: 'lema', texto: 'Tus ventas, tu inventario y lo que de verdad estás ganando.' }),
     ]);
@@ -103,7 +103,7 @@ export function montarEnEspera(nodo, usuario, alSalir) {
   nodo.innerHTML = '';
   pegar(nodo, el('div.login', {}, [
     el('div.panel', {}, [
-      el('img', { src: '/icons/logo.webp', width: '110', height: '110', alt: '' }),
+      el('img', { src: 'icons/logo.webp', width: '110', height: '110', alt: '' }),
       el('h1', { style: 'color:#fff;margin:.75rem 0 0', texto: 'Mis Detallitos' }),
     ]),
     el('div.forma', {}, [
