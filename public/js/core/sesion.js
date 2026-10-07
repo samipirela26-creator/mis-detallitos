@@ -9,9 +9,11 @@ import { auth, ref } from './firebase.js';
 import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  updateProfile,
   signOut,
 } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js';
-import { getDoc } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js';
+import { getDoc, setDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js';
 
 let usuario = null;        // { uid, email, nombre, rol }
 const oyentes = new Set();
@@ -31,6 +33,8 @@ export const PERMISOS = {
 
 export const usuarioActual = () => usuario;
 export const esDueno = () => usuario?.rol === 'dueno';
+/** Entró bien, pero el dueño todavía no lo ha habilitado. */
+export const enEspera = () => !!usuario && !usuario.activo;
 export const puede = (permiso) => !!PERMISOS[usuario?.rol]?.[permiso];
 
 export function alCambiarSesion(fn) {
@@ -45,6 +49,24 @@ function avisar() {
 
 export function iniciarSesion(email, clave) {
   return signInWithEmailAndPassword(auth, email.trim(), clave);
+}
+
+/**
+ * Registro por invitación: el que recibe el link se crea su propia cuenta.
+ * Nace APAGADA (`activo: false`) y no ve nada hasta que el dueño la encienda.
+ * Esa es la razón de que se pueda repartir el link sin miedo.
+ */
+export async function crearCuenta(nombre, email, clave) {
+  const cuenta = await createUserWithEmailAndPassword(auth, email.trim(), clave);
+  await updateProfile(cuenta.user, { displayName: nombre.trim() }).catch(() => {});
+  await setDoc(ref('usuarios', cuenta.user.uid), {
+    nombre: nombre.trim(),
+    email: cuenta.user.email,
+    rol: 'empleado',
+    activo: false,
+    creado: serverTimestamp(),
+  });
+  return cuenta.user;
 }
 
 export function cerrarSesion() {
@@ -70,10 +92,12 @@ export function iniciar() {
         usuario = {
           uid: cuenta.uid,
           email: cuenta.email,
-          nombre: datos.nombre || cuenta.email?.split('@')[0] || 'Usuario',
+          nombre: datos.nombre || cuenta.displayName || cuenta.email?.split('@')[0] || 'Usuario',
           // Sin doc o sin rol se asume el rol MENOS privilegiado.
           rol: datos.rol === 'dueno' ? 'dueno' : 'empleado',
-          activo: datos.activo !== false,
+          // Sin documento todavía (o apagado) = en espera de aprobación.
+          activo: datos.rol === 'dueno' ? true : datos.activo === true,
+          sinDocumento: !datos.rol,
         };
       }
       avisar();

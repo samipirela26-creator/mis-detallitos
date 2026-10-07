@@ -108,3 +108,12 @@ Probado de punta a punta:
   que sirve para pegar anime".
 - Las ventas que registra un empleado guardan costo 0 (no lo puede leer); los
   reportes lo completan con el costo actual del catálogo y lo avisan en pantalla.
+
+### El emulador tiene que usar el MISMO id de proyecto que la app
+
+`firebase emulators:start --project mis-detallitos`. Si se arranca con otro id
+(por ejemplo `demo-detallitos`) el emulador **no aplica `firestore.rules`** a los
+datos de la app: las pruebas por REST pasan contra un proyecto y el navegador
+escribe contra otro, y aparecen `permission-denied` imposibles de explicar
+(errores que señalan números de línea que en el archivo son comentarios).
+Ya pasó una vez; de ahí el `--project mis-detallitos` fijo en `npm run emuladores`.

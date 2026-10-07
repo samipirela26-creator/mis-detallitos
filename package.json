@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "test": "node --test test/",
-    "emuladores": "firebase emulators:start --project demo-detallitos --only auth,firestore,hosting",
+    "emuladores": "firebase emulators:start --project mis-detallitos --only auth,firestore,hosting",
     "sembrar": "node scripts/sembrar-emulador.mjs",
     "reglas": "node --test test/reglas.test.mjs",
     "publicar": "firebase deploy"

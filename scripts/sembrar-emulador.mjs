@@ -1,7 +1,7 @@
 // Siembra los usuarios de prueba en el emulador (dueño y empleado).
 // Uso:  node scripts/sembrar-emulador.mjs
 // Antes hay que tener el emulador corriendo:  npm run emuladores
-const PROY = process.env.PROYECTO || 'demo-detallitos';
+const PROY = process.env.PROYECTO || 'mis-detallitos';
 const NEGOCIO = 'mis-detallitos';
 const AUTH = 'http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1/accounts:signUp?key=fake-api-key';
 const FS = `http://127.0.0.1:8080/v1/projects/${PROY}/databases/(default)/documents`;

@@ -1,10 +1,10 @@
 // app.js — arranque. Es el único script que carga index.html: todo lo demás
 // entra por imports de módulos ES, así que el orden se resuelve solo.
 
-import { iniciar as iniciarSesionVigilada, alCambiarSesion, cerrarSesion, usuarioActual, esDueno } from './core/sesion.js';
+import { iniciar as iniciarSesionVigilada, alCambiarSesion, cerrarSesion, usuarioActual, esDueno, enEspera } from './core/sesion.js';
 import { iniciarRouter, registrar, pantallasDeMenu, ir } from './core/router.js';
 import { observar, leer } from './core/estado.js';
-import { montarEntrar } from './ui/pantalla-entrar.js';
+import { montarEntrar, montarEnEspera } from './ui/pantalla-entrar.js';
 import { el, esc, diaISO, pegar } from './ui/html.js';
 import { sincronizarCatalogo, parar as pararCatalogo, productos as catalogo } from './data/catalogo.js';
 import { cargarTasas } from './data/tasas.js';
@@ -181,6 +181,12 @@ alCambiarSesion(async (u) => {
     pararCatalogo();
     app.innerHTML = '';
     montarEntrar(app);
+    return;
+  }
+  // Se registró con el link pero el dueño todavía no lo habilitó: no ve nada.
+  if (enEspera()) {
+    pararCatalogo();
+    montarEnEspera(app, u, () => cerrarSesion());
     return;
   }
   pintarCascara();

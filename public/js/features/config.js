@@ -5,7 +5,7 @@ import { registrar } from '../core/router.js';
 import { el, esc, $, fecha, pegar } from '../ui/html.js';
 import { avisar, avisarOk, avisarMal, confirmar } from '../ui/avisos.js';
 import { ref, col } from '../core/firebase.js';
-import { setDoc, getDoc, getDocs } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js';
+import { setDoc, getDoc, getDocs, deleteDoc } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js';
 import { cargarTasas, guardarTasas, sugerirTasas, hoyISO } from '../data/tasas.js';
 import { pendientes, aprobar, descartar } from '../data/sinonimos.js';
 import { productos as catalogo } from '../data/catalogo.js';
@@ -20,12 +20,14 @@ registrar('config', {
       <div class="tarjeta" id="tasas"><div class="cargando">Cargando tasas…</div></div>
       <div class="tarjeta" id="sinonimos" style="margin-top:1rem"><div class="cargando">Cargando sinónimos…</div></div>
       <div class="tarjeta" id="pin" style="margin-top:1rem"></div>
+      <div class="tarjeta" id="solicitudes" style="margin-top:1rem"><div class="cargando">Revisando solicitudes…</div></div>
       <div class="tarjeta" id="usuarios" style="margin-top:1rem"><div class="cargando">Cargando usuarios…</div></div>
       <div class="tarjeta" id="datos" style="margin-top:1rem"></div>`;
 
     pintarTasas($('#tasas', nodo));
     pintarSinonimos($('#sinonimos', nodo));
     pintarPin($('#pin', nodo));
+    pintarSolicitudes($('#solicitudes', nodo), () => pintarUsuarios($('#usuarios', nodo)));
     pintarUsuarios($('#usuarios', nodo));
     pintarDatos($('#datos', nodo));
   },
@@ -157,6 +159,73 @@ async function pintarPin(caja) {
   );
 }
 
+// --- solicitudes de acceso ---------------------------------------------------
+// Quien recibe el link se crea su cuenta solo, pero nace apagada. Aquí el dueño
+// la enciende de un toque. Mientras esté apagada esa persona no ve ni un dato.
+async function pintarSolicitudes(caja, alCambiar) {
+  let lista = [];
+  try {
+    const snap = await getDocs(col('usuarios'));
+    lista = snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((u) => u.rol !== 'dueno' && u.activo !== true);
+  } catch { /* nada */ }
+
+  caja.innerHTML = '';
+  pegar(caja,
+    el('h2', { texto: '🔑 Dar acceso' }),
+    el('p', {
+      style: 'color:var(--texto-suave);font-size:.9rem',
+      texto: 'Manda este link a tu mamá y a tu trabajador. Ellos crean su cuenta y aparecen aquí; hasta que les des acceso no ven nada.',
+    }),
+    el('div.fila', { style: 'margin-bottom:1rem' }, [
+      el('input', { id: 'link-invitacion', readonly: '', value: `${location.origin}/#/registro` }),
+      el('button.btn.principal', { style: 'flex:0 0 auto', texto: '📤 Compartir', onclick: compartirLink }),
+    ])
+  );
+
+  if (!lista.length) {
+    pegar(caja, el('p', { style: 'color:var(--texto-suave)', texto: 'No hay nadie esperando acceso.' }));
+    return;
+  }
+
+  for (const u of lista) {
+    const fila = el('div', {
+      style: 'display:flex;gap:.5rem;align-items:center;padding:.6rem 0;border-bottom:1px solid var(--borde)',
+    }, [
+      el('div', { style: 'flex:1;min-width:0' }, [
+        el('div', { style: 'font-weight:600', html: esc(u.nombre || '(sin nombre)') }),
+        el('div', { style: 'font-size:.8rem;color:var(--texto-suave)', html: esc(u.email || u.id) }),
+      ]),
+      el('button.btn.plano', { style: 'min-height:38px', texto: '✕', onclick: async () => {
+        if (!await confirmar(`¿Rechazar a ${u.nombre}?`, {
+          detalle: 'Se borra su solicitud. Puede volver a pedir acceso con el link.',
+          aceptar: 'Rechazar', peligro: true,
+        })) return;
+        await deleteDoc(ref('usuarios', u.id));
+        fila.remove();
+      } }),
+      el('button.btn.principal', { style: 'min-height:38px', texto: '✓ Dar acceso', onclick: async () => {
+        await setDoc(ref('usuarios', u.id), { activo: true, rol: 'empleado' }, { merge: true });
+        avisarOk(`${u.nombre} ya puede vender`);
+        fila.remove();
+        alCambiar?.();
+      } }),
+    ]);
+    pegar(caja, fila);
+  }
+}
+
+async function compartirLink() {
+  const link = `${location.origin}/#/registro`;
+  const texto = `Te paso el acceso al sistema de Mis Detallitos 🖇️\n\n${link}\n\nAbre el link, crea tu cuenta con tu correo, y avísame para habilitarte.`;
+  try {
+    if (navigator.share) { await navigator.share({ title: 'Mis Detallitos', text: texto }); return; }
+    await navigator.clipboard.writeText(texto);
+    avisarOk('Link copiado: pégalo en WhatsApp');
+  } catch (e) {
+    if (e?.name !== 'AbortError') avisar('Copia el link a mano: ' + link);
+  }
+}
+
 // --- usuarios ----------------------------------------------------------------
 async function pintarUsuarios(caja) {
   let lista = [];
@@ -167,7 +236,7 @@ async function pintarUsuarios(caja) {
 
   caja.innerHTML = '';
   pegar(caja, el('h2', { texto: '👥 Usuarios' }));
-  for (const u of lista) {
+  for (const u of lista.filter((x) => x.rol === 'dueno' || x.activo === true)) {
     caja.appendChild(el('div', {
       style: 'display:flex;justify-content:space-between;align-items:center;padding:.5rem 0;border-bottom:1px solid var(--borde)',
     }, [

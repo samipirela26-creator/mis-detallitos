@@ -31,14 +31,34 @@ service cloud.firestore {
       allow read: if delEquipo();
       allow write: if false;
 
-      // --- usuarios: nadie se asciende solo ---
+      // --- usuarios ---
+      //
+      // Quien recibe el link puede registrarse solo, PERO su cuenta nace
+      // apagada: `rol: 'empleado'` y `activo: false`. Mientras esté apagada no
+      // puede leer ni el catálogo ni nada (ver `esEmpleado()`, que exige
+      // activo == true). Encenderla es un toque del dueño.
+      //
+      // Lo que esto impide: que alguien que consiga el link se meta a ver las
+      // ventas, y que un empleado se ascienda a dueño editando su propio
+      // documento.
       match /usuarios/{uid} {
-        allow read: if delEquipo();
-        allow create, delete: if esDueno();
+        function soyEsteUsuario() { return request.auth != null && request.auth.uid == uid; }
+
+        // El que está en espera tiene que poder leer SU propio documento, si no
+        // la app no sabría que está esperando.
+        allow read: if delEquipo() || soyEsteUsuario();
+
+        allow create: if soyEsteUsuario()
+          && request.resource.data.rol == 'empleado'
+          && request.resource.data.activo == false
+          && request.resource.data.keys().hasOnly(['nombre', 'email', 'rol', 'activo', 'creado']);
+
         allow update: if esDueno()
-          || (request.auth.uid == uid
+          || (soyEsteUsuario()
               && !request.resource.data.diff(resource.data).affectedKeys()
                    .hasAny(['rol', 'activo', 'pinHash']));
+
+        allow delete: if esDueno();
       }
 
       // --- configuración y tasas ---

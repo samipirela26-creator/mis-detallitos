@@ -11,7 +11,7 @@
 import { test, before, describe } from 'node:test';
 import assert from 'node:assert/strict';
 
-const PROY = 'demo-detallitos';
+const PROY = 'mis-detallitos';
 const NEGOCIO = 'mis-detallitos';
 const AUTH = 'http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1';
 const FS = `http://127.0.0.1:8080/v1/projects/${PROY}/databases/(default)/documents`;
@@ -33,8 +33,17 @@ const como = (sesion) => ({ Authorization: `Bearer ${sesion.token}`, 'Content-Ty
 const comoAdmin = { Authorization: 'Bearer owner', 'Content-Type': 'application/json' };
 
 const leer = (ruta, cab) => fetch(`${NEG}/${ruta}`, { headers: cab });
+
+// OJO: un PATCH sin updateMask REEMPLAZA el documento entero. Eso es lo que
+// queremos para probar una escritura completa...
 const escribir = (ruta, campos, cab) =>
   fetch(`${NEG}/${ruta}`, { method: 'PATCH', headers: cab, body: JSON.stringify({ fields: campos }) });
+
+// ...y esto es lo que hace la app de verdad: setDoc(..., { merge: true }).
+const fusionar = (ruta, campos, cab) => {
+  const mascara = Object.keys(campos).map((k) => `updateMask.fieldPaths=${k}`).join('&');
+  return fetch(`${NEG}/${ruta}?${mascara}`, { method: 'PATCH', headers: cab, body: JSON.stringify({ fields: campos }) });
+};
 const borrar = (ruta, cab) => fetch(`${NEG}/${ruta}`, { method: 'DELETE', headers: cab });
 
 describe('reglas de seguridad', { skip: hayEmulador ? false : 'el emulador de Firestore no está corriendo' }, () => {
@@ -125,6 +134,61 @@ describe('reglas de seguridad', { skip: hayEmulador ? false : 'el emulador de Fi
     }, como(empleado))).status, 200, 'descontar del inventario al vender, sí');
     assert.equal((await escribir(`movimientos/${mov}`, { cantidad: { integerValue: '999' } }, como(empleado))).status, 403);
     assert.equal((await borrar(`movimientos/${mov}`, como(dueno))).status, 403);
+  });
+
+  test('REGISTRO POR LINK: la cuenta nueva nace apagada y no ve nada', async () => {
+    // Alguien que recibió el link se registra solo.
+    const email = `invitado${Date.now()}@detallitos.test`;
+    const r = await fetch(`${AUTH}/accounts:signUp?key=fake-api-key`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password: 'detallitos123', returnSecureToken: true }),
+    });
+    const nuevo = await r.json();
+    const sesion = { token: nuevo.idToken, uid: nuevo.localId };
+
+    // Puede crear SU documento, pero solo apagado y como empleado.
+    const comoDebe = await escribir(`usuarios/${sesion.uid}`, {
+      nombre: { stringValue: 'Invitado' }, email: { stringValue: email },
+      rol: { stringValue: 'empleado' }, activo: { booleanValue: false },
+    }, como(sesion));
+    assert.equal(comoDebe.status, 200, 'registrarse sí');
+
+    // Y mientras esté apagado, no ve absolutamente nada del negocio.
+    assert.equal((await leer('productos_venta/prueba-reglas', como(sesion))).status, 403, 'no ve el catálogo');
+    assert.equal((await leer('clientes', como(sesion))).status, 403, 'no ve los clientes');
+    assert.equal((await leer(`usuarios/${sesion.uid}`, como(sesion))).status, 200, 'pero sí su propia solicitud');
+
+    // No puede encenderse solo.
+    assert.equal((await fusionar(`usuarios/${sesion.uid}`, { activo: { booleanValue: true } }, como(sesion))).status, 403);
+
+    // El dueño lo habilita y ahí sí entra.
+    assert.equal((await fusionar(`usuarios/${sesion.uid}`, { activo: { booleanValue: true } }, como(dueno))).status, 200);
+    assert.equal((await leer('productos_venta/prueba-reglas', como(sesion))).status, 200, 'ya habilitado, vende');
+    assert.equal((await leer('productos/prueba-reglas', como(sesion))).status, 403, 'pero los costos siguen siendo del dueño');
+  });
+
+  test('nadie se registra directamente como dueño', async () => {
+    const email = `vivo${Date.now()}@detallitos.test`;
+    const r = await fetch(`${AUTH}/accounts:signUp?key=fake-api-key`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password: 'detallitos123', returnSecureToken: true }),
+    });
+    const nuevo = await r.json();
+    const sesion = { token: nuevo.idToken, uid: nuevo.localId };
+
+    assert.equal((await escribir(`usuarios/${sesion.uid}`, {
+      nombre: { stringValue: 'Vivo' }, email: { stringValue: email },
+      rol: { stringValue: 'dueno' }, activo: { booleanValue: true },
+    }, como(sesion))).status, 403, 'registrarse como dueño: no');
+
+    assert.equal((await escribir(`usuarios/${sesion.uid}`, {
+      nombre: { stringValue: 'Vivo' }, email: { stringValue: email },
+      rol: { stringValue: 'empleado' }, activo: { booleanValue: true },
+    }, como(sesion))).status, 403, 'registrarse ya habilitado: tampoco');
+
+    assert.equal((await escribir(`usuarios/otro-uid-cualquiera`, {
+      nombre: { stringValue: 'Vivo' }, rol: { stringValue: 'empleado' }, activo: { booleanValue: false },
+    }, como(sesion))).status, 403, 'crear la solicitud de otro: tampoco');
   });
 
   test('sin sesión no se lee absolutamente nada', async () => {
