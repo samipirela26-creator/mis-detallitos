@@ -1,0 +1,43 @@
+/* 2-layout.css — estructura: barra superior, contenido, navegación inferior. */
+#app { min-height: 100dvh; display: flex; flex-direction: column; }
+
+.barra {
+  position: sticky; top: 0; z-index: 20;
+  display: flex; align-items: center; gap: .75rem;
+  padding: .6rem 1rem;
+  background: var(--superficie);
+  border-bottom: 1px solid var(--borde);
+}
+.barra h1 { font-size: 1.05rem; margin: 0; }
+.barra .crece { flex: 1; }
+
+#contenido {
+  flex: 1;
+  width: 100%; max-width: var(--ancho);
+  margin: 0 auto;
+  padding: 1rem 1rem calc(var(--toque) + 2.5rem);
+}
+
+.nav {
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 20;
+  display: flex;
+  background: var(--superficie);
+  border-top: 1px solid var(--borde);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.nav button {
+  flex: 1; min-height: var(--toque);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  border: 0; background: none; cursor: pointer;
+  font-size: .72rem; color: var(--texto-suave);
+}
+.nav button .ico { font-size: 1.25rem; line-height: 1; }
+.nav button[aria-current="page"] { color: var(--azul); font-weight: 600; }
+
+.rejilla { display: grid; gap: 1rem; }
+@media (min-width: 720px) {
+  .rejilla.dos { grid-template-columns: 1fr 1fr; }
+  .rejilla.tres { grid-template-columns: repeat(3, 1fr); }
+  .nav { position: sticky; top: 0; bottom: auto; border-top: 0; border-bottom: 1px solid var(--borde); }
+  #contenido { padding-bottom: 2rem; }
+}

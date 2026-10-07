@@ -1,0 +1,16 @@
+{
+  "name": "Mis Detallitos",
+  "short_name": "Detallitos",
+  "description": "Ventas, inventario y ganancias de la papelería Mis Detallitos.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f6f7f9",
+  "theme_color": "#1d4ed8",
+  "lang": "es-VE",
+  "icons": [
+    { "src": "/icons/icono.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/icons/icono-maskable.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}

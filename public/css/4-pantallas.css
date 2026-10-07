@@ -1,0 +1,27 @@
+/* 4-pantallas.css — lo propio de cada pantalla. */
+
+/* Entrar */
+.login { max-width: 360px; margin: 10vh auto; }
+.login .marca { text-align: center; margin-bottom: 1.5rem; }
+.login .marca .logo { font-size: 2.5rem; }
+
+/* Panel del dueño */
+.kpis { display: grid; grid-template-columns: repeat(2, 1fr); gap: .75rem; }
+@media (min-width: 720px) { .kpis { grid-template-columns: repeat(4, 1fr); } }
+.kpi { background: var(--superficie); border: 1px solid var(--borde); border-radius: var(--r); padding: .9rem; }
+.kpi .rotulo { font-size: .78rem; color: var(--texto-suave); text-transform: uppercase; letter-spacing: .03em; }
+.kpi .valor { font-size: 1.5rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.kpi.bueno .valor { color: var(--verde); }
+.kpi.malo .valor { color: var(--rojo); }
+
+/* Vender */
+.buscador-pos input { min-height: 56px; font-size: 1.1rem; }
+.resultados { list-style: none; margin: .5rem 0 0; padding: 0; }
+.resultados li { display: flex; align-items: center; gap: .75rem; padding: .6rem; border-bottom: 1px solid var(--borde); cursor: pointer; }
+.resultados .miniatura { width: 44px; height: 44px; border-radius: var(--r-chico); object-fit: cover; background: var(--fondo); flex: 0 0 auto; }
+
+/* Estudio de fotos: a pantalla completa, un producto a la vez */
+.estudio { text-align: center; }
+.estudio .nombre { font-size: 1.6rem; font-weight: 700; margin: .5rem 0; }
+.estudio .visor { width: 100%; max-height: 50dvh; background: #000; border-radius: var(--r); }
+.estudio .contador { color: var(--texto-suave); font-size: .9rem; }

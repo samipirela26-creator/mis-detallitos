@@ -1,0 +1,140 @@
+rules_version = '2';
+
+// Mis Detallitos — reglas de seguridad.
+//
+// Principio: el EMPLEADO nunca debe poder leer costos ni ganancias. Firestore no
+// puede filtrar campos, así que el empleado NO lee `productos` (que tiene
+// costoUSD): lee el espejo `productos_venta`, que se escribe sin los campos
+// sensibles. Ocultarlo en la interfaz no sirve de nada: con la consola del
+// navegador cualquiera lee lo que el cliente descargó.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /negocios/{negocioId} {
+
+      function miDoc() {
+        return get(/databases/$(database)/documents/negocios/$(negocioId)/usuarios/$(request.auth.uid));
+      }
+      function autenticado() {
+        return request.auth != null;
+      }
+      function miRol() {
+        return autenticado() && exists(/databases/$(database)/documents/negocios/$(negocioId)/usuarios/$(request.auth.uid))
+          ? miDoc().data.rol : 'ninguno';
+      }
+      function esDueno()    { return miRol() == 'dueno'; }
+      function esEmpleado() { return miRol() == 'empleado' && miDoc().data.activo == true; }
+      function delEquipo()  { return esDueno() || esEmpleado(); }
+      function soyYo()      { return request.auth.uid == request.resource.data.uid; }
+
+      allow read: if delEquipo();
+      allow write: if false;
+
+      // --- usuarios: nadie se asciende solo ---
+      match /usuarios/{uid} {
+        allow read: if delEquipo();
+        allow create, delete: if esDueno();
+        allow update: if esDueno()
+          || (request.auth.uid == uid
+              && !request.resource.data.diff(resource.data).affectedKeys()
+                   .hasAny(['rol', 'activo', 'pinHash']));
+      }
+
+      // --- configuración y tasas ---
+      match /config/{doc} {
+        allow read: if delEquipo();
+        allow write: if esDueno();
+      }
+      match /tasas/{fecha} {
+        allow read: if delEquipo();
+        allow create, update: if esDueno();   // la tasa la fija el dueño
+        allow delete: if false;
+      }
+
+      // --- catálogo con costos: SOLO el dueño ---
+      match /productos/{id} {
+        allow read, write: if esDueno();
+      }
+
+      // --- espejo sin costos: lo que ve el empleado ---
+      // Lo escribe el DUEÑO desde su propia app (data/productos.js escribe
+      // siempre los dos documentos en el mismo writeBatch). Así no hace falta
+      // Cloud Functions y el proyecto se queda en el plan gratuito.
+      // El empleado nunca escribe aquí; el stock lo ajusta el ledger.
+      match /productos_venta/{id} {
+        allow read: if delEquipo();
+        allow create, update, delete: if esDueno();
+      }
+
+      // --- ledger de inventario: append-only, nunca se edita ni se borra ---
+      match /movimientos/{id} {
+        allow read: if esDueno();
+        allow create: if delEquipo() && soyYo();
+        allow update, delete: if false;
+      }
+
+      // --- ventas: el empleado crea; anular es del dueño ---
+      match /ventas/{id} {
+        allow read: if esDueno() || (esEmpleado() && resource.data.uid == request.auth.uid);
+        allow create: if delEquipo() && soyYo()
+                      && request.resource.data.estado == 'ok';
+        allow update: if esDueno();
+        allow delete: if false;
+      }
+      match /anulaciones/{id} {        // el empleado PIDE, el dueño aprueba
+        allow read: if delEquipo();
+        allow create: if delEquipo() && soyYo();
+        allow update: if esDueno();
+        allow delete: if false;
+      }
+
+      // --- gastos ---
+      match /gastos/{id} {
+        allow read: if esDueno() || (esEmpleado() && resource.data.uid == request.auth.uid);
+        allow create: if delEquipo() && soyYo();
+        allow update, delete: if esDueno();
+      }
+
+      // --- caja / turnos: una vez cerrada, intocable ---
+      match /cajas/{id} {
+        allow read: if esDueno() || (esEmpleado() && resource.data.uid == request.auth.uid);
+        allow create: if delEquipo() && soyYo();
+        allow update: if esDueno()
+          || (esEmpleado() && resource.data.uid == request.auth.uid
+              && resource.data.estado == 'abierta');
+        allow delete: if false;
+      }
+
+      // --- clientes y deudas ---
+      match /clientes/{id} {
+        allow read: if delEquipo();
+        allow create, update: if delEquipo();
+        allow delete: if esDueno();
+      }
+      match /abonos/{id} {
+        allow read: if delEquipo();
+        allow create: if delEquipo() && soyYo();
+        allow update, delete: if esDueno();
+      }
+
+      // --- auditoría: solo el dueño la lee, nadie la modifica ---
+      match /auditoria/{id} {
+        allow read: if esDueno();
+        allow create: if delEquipo() && soyYo();
+        allow update, delete: if false;
+      }
+
+      // --- sinónimos que la app va aprendiendo ---
+      match /sinonimos_pendientes/{id} {
+        allow read: if delEquipo();
+        allow create: if delEquipo() && soyYo();
+        allow update, delete: if esDueno();
+      }
+
+      match /{documento=**} {
+        allow read, write: if false;
+      }
+    }
+  }
+}
