@@ -17,6 +17,7 @@ import { getDoc, setDoc, serverTimestamp } from 'https://www.gstatic.com/firebas
 
 let usuario = null;        // { uid, email, nombre, rol }
 const oyentes = new Set();
+let releerUsuario = null;  // lo arma iniciar(); sirve para refrescar sin recargar
 
 export const PERMISOS = {
   dueno: {
@@ -66,7 +67,17 @@ export async function crearCuenta(nombre, email, clave) {
     activo: false,
     creado: serverTimestamp(),
   });
+  // La sesión se activa en cuanto se crea la cuenta, o sea ANTES de que exista
+  // el documento. Sin este refresco, la pantalla de espera saluda con el
+  // pedazo del correo en vez del nombre que la persona acaba de escribir.
+  await refrescarUsuario();
   return cuenta.user;
+}
+
+/** Vuelve a leer el documento del usuario y avisa a quien esté escuchando.
+ *  Lo usa el registro, y el botón "Ya me habilitaron, revisar". */
+export async function refrescarUsuario() {
+  if (releerUsuario) await releerUsuario();
 }
 
 export function cerrarSesion() {
@@ -77,7 +88,7 @@ export function cerrarSesion() {
 export function iniciar() {
   return new Promise((resolver) => {
     let primera = true;
-    onAuthStateChanged(auth, async (cuenta) => {
+    const armar = async (cuenta) => {
       if (!cuenta) {
         usuario = null;
       } else {
@@ -100,6 +111,11 @@ export function iniciar() {
           sinDocumento: !datos.rol,
         };
       }
+    };
+
+    onAuthStateChanged(auth, async (cuenta) => {
+      releerUsuario = () => armar(auth.currentUser).then(avisar);
+      await armar(cuenta);
       avisar();
       if (primera) { primera = false; resolver(usuario); }
     });

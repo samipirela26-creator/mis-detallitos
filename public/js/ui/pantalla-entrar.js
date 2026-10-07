@@ -4,7 +4,7 @@
 // pero nace APAGADA: no ve nada hasta que el dueño la encienda desde
 // Configuración. Por eso el link se puede mandar por WhatsApp sin miedo.
 
-import { iniciarSesion, crearCuenta } from '../core/sesion.js';
+import { iniciarSesion, crearCuenta, refrescarUsuario } from '../core/sesion.js';
 import { avisarMal } from './avisos.js';
 import { el, $, pegar } from './html.js';
 
@@ -118,7 +118,17 @@ export function montarEnEspera(nodo, usuario, alSalir) {
           style: 'text-align:center;color:var(--texto-suave);font-size:.85rem',
           texto: usuario.email,
         }),
-        el('button.btn.plano.ancho', { style: 'margin-top:1rem', texto: 'Ya me habilitaron, revisar', onclick: () => location.reload() }),
+        el('button.btn.plano.ancho', {
+          style: 'margin-top:1rem', texto: 'Ya me habilitaron, revisar',
+          onclick: async (ev) => {
+            ev.target.textContent = 'Revisando…';
+            await refrescarUsuario();
+            // Si sigue sin acceso, el refresco no cambia de pantalla: avisamos.
+            setTimeout(() => {
+              if (document.querySelector('.login')) ev.target.textContent = 'Todavía no — revisar otra vez';
+            }, 1200);
+          },
+        }),
         el('button.btn.plano.ancho', { style: 'margin-top:.5rem', texto: 'Salir', onclick: alSalir }),
       ]),
     ]),
