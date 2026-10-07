@@ -49,17 +49,26 @@ nada**: nos quedamos en el plan gratuito (Spark).
 
 ## 5. Subir las reglas (desde la terminal, no desde la consola)
 
+La herramienta ya está instalada en el proyecto, así que todo va con `npx`
+(no hace falta instalar nada global).
+
 ```bash
-npm install -g firebase-tools
-firebase login
-firebase use --add        # elegir mis-detallitos
-firebase deploy --only firestore:rules,firestore:indexes
+npx firebase login
+```
+
+```bash
+npx firebase use --add
+```
+(elegir **mis-detallitos** y ponerle el apodo `produccion`)
+
+```bash
+npx firebase deploy --only firestore:rules,firestore:indexes
 ```
 
 ## 6. Hosting
 
 ```bash
-firebase deploy --only hosting
+npx firebase deploy --only hosting
 ```
 Queda publicado en `https://mis-detallitos.web.app`. Desde el teléfono:
 abrir ese link en Chrome → *Agregar a la pantalla de inicio*.
