@@ -1,86 +1,97 @@
 /* 2-layout.css — estructura: cabecera, contenido y navegación flotante. */
 #app { min-height: 100dvh; display: flex; flex-direction: column; }
 
-/* Cabecera: limpia, moderna y alineada */
+/* Cabecera limpia y profesional */
 .barra {
-  display: flex; align-items: center; gap: 1rem;
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem;
   width: 100%; max-width: var(--ancho);
   margin: 0 auto;
-  padding: 1.25rem 1.25rem .75rem;
+  padding: 1.25rem 1.25rem .5rem;
 }
 .barra .crece { flex: 1; }
 .barra .saludo {
   font-family: var(--fuente-titulo);
-  font-size: 1.6rem; font-weight: 700;
+  font-size: 1.5rem; font-weight: 700;
   letter-spacing: -.02em; color: var(--texto);
 }
-.barra .logo-barra {
-  width: 44px; height: 44px; border-radius: 50%;
-  border: 2px solid var(--superficie); box-shadow: var(--sombra);
-  flex: 0 0 auto; transition: transform .2s ease;
+
+/* Widget de Tasas en la cabecera (Bs, COP, USD) */
+.barra .tasas-badge {
+  display: inline-flex; align-items: center; gap: .75rem;
+  padding: .35rem .85rem; border-radius: var(--pildora);
+  background: var(--superficie); border: 1px solid var(--borde);
+  box-shadow: var(--sombra); font-size: .8rem; font-weight: 600;
+  color: var(--texto-suave);
 }
-.barra .logo-barra:hover { transform: scale(1.05); }
+.barra .tasas-badge span { color: var(--texto); font-family: var(--fuente-titulo); }
+
+.barra .logo-barra {
+  width: 40px; height: 40px; border-radius: 50%;
+  border: 2px solid var(--superficie); box-shadow: var(--sombra);
+  flex: 0 0 auto;
+}
 
 #contenido {
   flex: 1;
   width: 100%; max-width: var(--ancho);
   margin: 0 auto;
-  padding: .5rem 1.25rem calc(var(--toque) + 4rem);
+  padding: .75rem 1.25rem calc(var(--toque) + 4rem);
 }
 
-/* Navegación flotante cristalina (glassmorphism), con botón central de venta. */
+/* Navegación flotante minimalista esbelta */
 .nav {
   position: fixed; z-index: 30;
   left: 50%; transform: translateX(-50%);
   bottom: calc(.85rem + env(safe-area-inset-bottom));
-  width: min(94vw, 480px);
+  width: min(94vw, 460px);
   display: flex; align-items: center; justify-content: space-around;
-  padding: .45rem .6rem;
-  background: rgba(255, 255, 255, 0.88);
+  padding: .35rem .5rem;
+  background: rgba(255, 255, 255, 0.92);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.6);
+  border: 1px solid var(--borde);
   border-radius: var(--pildora);
-  box-shadow: 0 10px 30px -5px rgba(15, 23, 42, 0.12), 0 4px 12px -2px rgba(15, 23, 42, 0.04);
+  box-shadow: 0 10px 30px -5px rgba(15, 23, 42, 0.08), 0 4px 10px -2px rgba(15, 23, 42, 0.03);
 }
 .nav button {
-  flex: 1; min-height: 48px;
+  flex: 1; min-height: 44px;
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
   border: 0; background: none; cursor: pointer; border-radius: var(--pildora);
   font-family: var(--fuente-cuerpo);
-  font-size: .72rem; font-weight: 500; color: var(--texto-suave);
+  font-size: .7rem; font-weight: 500; color: var(--texto-suave);
   transition: all .15s ease;
 }
 .nav button svg {
-  display: block; stroke: currentColor; opacity: .7;
+  display: block; stroke: currentColor; opacity: .65;
   transition: transform .15s ease, opacity .15s ease, stroke .15s ease;
 }
-.nav button:hover svg { opacity: 1; transform: translateY(-1px); }
-.nav button[aria-current="page"] { color: var(--marca); font-weight: 600; }
-.nav button[aria-current="page"] svg { opacity: 1; stroke: var(--marca); transform: scale(1.1); }
+.nav button:hover svg { opacity: 1; color: var(--texto); }
+.nav button[aria-current="page"] { color: var(--marca); font-weight: 600; background: var(--marca-suave); }
+.nav button[aria-current="page"] svg { opacity: 1; stroke: var(--marca); }
 
-/* El botón destacado central: Vender */
+/* El botón central: Vender */
 .nav button.destacado {
-  flex: 0 0 auto; width: 56px; height: 56px; min-height: 56px;
-  margin: -16px .35rem 0;
-  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-  color: #ffffff;
+  flex: 0 0 auto; width: 50px; height: 50px; min-height: 50px;
+  margin: 0 .25rem;
+  background: var(--marca); color: #ffffff;
   border-radius: 50%;
-  box-shadow: 0 6px 20px -2px rgba(245, 158, 11, .5), 0 2px 8px rgba(0, 0, 0, .1);
+  box-shadow: 0 4px 14px rgba(0, 144, 179, 0.35);
   font-size: 0;
-  transition: transform .15s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow .15s ease;
+  transition: transform .15s ease, box-shadow .15s ease;
 }
-.nav button.destacado svg { opacity: 1; stroke: #ffffff; width: 24px; height: 24px; }
+.nav button.destacado svg { opacity: 1; stroke: #ffffff; width: 22px; height: 22px; }
 .nav button.destacado:hover {
-  transform: translateY(-2px) scale(1.06);
-  box-shadow: 0 10px 24px -2px rgba(245, 158, 11, .6);
+  transform: scale(1.06);
+  box-shadow: 0 6px 18px rgba(0, 144, 179, 0.45);
 }
-.nav button.destacado:active { transform: translateY(0) scale(.96); }
+.nav button.destacado:active { transform: scale(.96); }
 
 .rejilla { display: grid; gap: 1rem; }
 @media (min-width: 760px) {
   .rejilla.dos { grid-template-columns: 1fr 1fr; }
   .rejilla.tres { grid-template-columns: repeat(3, 1fr); }
   .rejilla.cuatro { grid-template-columns: repeat(4, 1fr); }
+  .rejilla.cinco { grid-template-columns: repeat(5, 1fr); }
 }
+
 

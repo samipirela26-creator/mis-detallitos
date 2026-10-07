@@ -97,12 +97,12 @@ registrar('panel', {
 
     // --- atajos ---
     nodo.appendChild(el('div.seccion', {}, [el('h2', { texto: 'Atajos' })]));
-    nodo.appendChild(el('div.carrusel', {}, [
-      atajo('chart', 'Reportes', 'Ganancia por producto, margen flojo y quién vendió más.', 'reportes'),
-      atajo('handshake', 'Deudas', 'Quién te debe y cuánto.', 'clientes'),
-      atajo('expense', 'Gastos', 'Lo que sale, por categoría.', 'gastos-dueno'),
+    nodo.appendChild(el('div.atajos-grid', {}, [
+      atajo('chart', 'Reportes', 'Ganancia por producto y margen flojo.', 'reportes'),
+      atajo('handshake', 'Deudas', 'Cuentas pendientes por cobrar.', 'clientes'),
+      atajo('expense', 'Gastos', 'Salidas de caja por categoría.', 'gastos-dueno'),
       atajo('cash', 'Caja', 'Abrir turno, reporte X y cierre Z.', 'caja-dueno'),
-      atajo('settings', 'Configuración', 'Tasas, PIN y sinónimos por aprobar.', 'config'),
+      atajo('settings', 'Configuración', 'Tasas del día, PIN y sinónimos.', 'config'),
     ]));
   },
 });
@@ -123,10 +123,10 @@ function tarjetaAccion(clase, titulo, texto, boton, destino) {
 }
 
 function atajo(iconoNombre, titulo, texto, destino) {
-  return el('div.tarjeta', { style: 'cursor:pointer', onclick: () => ir(destino) }, [
-    el('div', { style: 'color:var(--marca);margin-bottom:.3rem', html: icono(iconoNombre) }),
+  return el('div.atajo-card', { onclick: () => ir(destino) }, [
+    el('div.ico-wrap', { html: icono(iconoNombre) }),
     el('h2', { texto: titulo }),
-    el('p', { style: 'font-size:.88rem;color:var(--texto-suave);margin:0', texto }),
+    el('p', { texto }),
   ]);
 }
 
@@ -137,6 +137,12 @@ function pintarCascara() {
   const u = usuarioActual();
   const hora = new Date().getHours();
   const saludo = hora < 12 ? 'Buenos días' : hora < 19 ? 'Buenas tardes' : 'Buenas noches';
+  const tasas = leer('tasas') || {};
+
+  const textoTasas = Object.entries(tasas)
+    .filter(([m]) => m !== 'USD')
+    .map(([m, t]) => `${m}: <span>${t}</span>`)
+    .join('  ·  ');
 
   app.innerHTML = '';
   const nav = el('nav.nav', { id: 'nav' });
@@ -145,11 +151,12 @@ function pintarCascara() {
     el('div.sin-conexion', { texto: 'Sin conexión — puedes seguir trabajando, se sube solo' }),
     el('header.barra', {}, [
       el('div', { class: 'crece' }, [
-        el('div', { style: 'color:var(--texto-suave);font-size:.88rem;font-weight:500', texto: `${saludo},` }),
+        el('div', { style: 'color:var(--texto-suave);font-size:.82rem;font-weight:500', texto: `${saludo},` }),
         el('div.saludo', { html: esc(u.nombre) }),
       ]),
-      el('button.btn.plano', { style: 'min-height:38px;padding:0 .9rem;font-size:.88rem', texto: 'Salir', onclick: () => cerrarSesion() }),
-      el('img.logo-barra', { src: 'icons/logo-256.webp', width: '44', height: '44', alt: 'Mis Detallitos G&M C.A' }),
+      textoTasas ? el('div.tasas-badge', { html: `💱 ${textoTasas}` }) : null,
+      el('button.btn.plano', { style: 'min-height:36px;padding:0 .85rem;font-size:.82rem', texto: 'Salir', onclick: () => cerrarSesion() }),
+      el('img.logo-barra', { src: 'icons/logo-256.webp', width: '40', height: '40', alt: 'Mis Detallitos G&M C.A' }),
     ]),
     nav,
     contenido

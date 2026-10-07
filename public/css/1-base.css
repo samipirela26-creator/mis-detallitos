@@ -8,13 +8,13 @@
   --fuente-titulo: 'Outfit', -apple-system, system-ui, sans-serif;
   --fuente-cuerpo: 'Work Sans', -apple-system, system-ui, sans-serif;
 
-  /* --- Marca (Turquesa refinado con contraste AA 4.5:1 sobre blanco) --- */
-  --marca: #0090b3;          /* Turquesa corporativo pulido */
-  --marca-fuerte: #007a98;
-  --marca-oscuro: #005a70;   /* Botones y texto secundario */
-  --marca-suave: #e6f6f9;
+  /* --- Marca & Acentos (Turquesa elegante + Acento ámbar) --- */
+  --marca: #0090b3;          /* Turquesa sobrio */
+  --marca-fuerte: #007694;
+  --marca-oscuro: #005064;
+  --marca-suave: #edf9fc;
   --marca-tinta: #0f172a;    /* Azul noche profundo */
-  --amarillo: #f59e0b;       /* Amarillo cálido vibrante */
+  --amarillo: #f59e0b;       /* Ámbar vibrante */
   --amarillo-suave: #fffbeb;
 
   /* --- Semánticos --- */
@@ -25,23 +25,24 @@
   --ambar: #d97706;
   --ambar-suave: #fffbeb;
 
-  /* --- Superficies --- */
-  --fondo: #f8fafc;          /* Slate ultra claro, limpio y descansado */
+  /* --- Superficies (Clean & Crisp Palette) --- */
+  --fondo: #f8fafc;          /* Slate ultra-limpio */
   --superficie: #ffffff;
   --superficie-2: #f1f5f9;
-  --borde: #e2e8f0;
+  --borde: #e2e8f0;          /* Borde fino sutil */
   --borde-suave: #f1f5f9;
-  --texto: #0f172a;
-  --texto-suave: #64748b;
+  --texto: #0f172a;          /* Slate 900 */
+  --texto-suave: #64748b;    /* Slate 500 */
 
-  /* --- Forma --- */
-  --r-xl: 24px;
-  --r: 16px;
-  --r-chico: 10px;
+  /* --- Forma & Elevación --- */
+  --r-xl: 20px;
+  --r: 14px;
+  --r-chico: 8px;
   --pildora: 999px;
-  --sombra: 0 1px 3px rgba(15, 23, 42, .04), 0 6px 16px -4px rgba(15, 23, 42, .06);
-  --sombra-alta: 0 12px 32px -4px rgba(15, 23, 42, .14), 0 4px 12px -2px rgba(15, 23, 42, .06);
-  --toque: 48px;             /* alto mínimo de cualquier elemento interactivo */
+  --sombra: 0 1px 2px 0 rgba(15, 23, 42, 0.04), 0 1px 3px 0 rgba(15, 23, 42, 0.02);
+  --sombra-elevada: 0 4px 16px -2px rgba(15, 23, 42, 0.06), 0 2px 6px -1px rgba(15, 23, 42, 0.03);
+  --sombra-alta: 0 16px 36px -4px rgba(15, 23, 42, 0.12), 0 6px 14px -2px rgba(15, 23, 42, 0.04);
+  --toque: 44px;
   --ancho: 1040px;
 }
 
@@ -51,7 +52,7 @@ html { -webkit-text-size-adjust: 100%; }
 
 body {
   font-family: var(--fuente-cuerpo);
-  font-size: 15px;
+  font-size: 14px;
   line-height: 1.5;
   color: var(--texto);
   background: var(--fondo);
@@ -65,13 +66,13 @@ h1, h2, h3 {
   line-height: 1.25;
   letter-spacing: -.02em;
 }
-h1 { font-size: 1.75rem; font-weight: 700; }
-h2 { font-size: 1.2rem; font-weight: 600; }
+h1 { font-size: 1.65rem; font-weight: 700; color: var(--texto); }
+h2 { font-size: 1.15rem; font-weight: 600; color: var(--texto); }
 p { margin: 0 0 .75rem; }
-a { color: var(--marca-oscuro); text-decoration: none; }
+a { color: var(--marca); text-decoration: none; font-weight: 500; }
 a:hover { text-decoration: underline; }
 
-/* Los números de plata siempre tabulares y con fuente Outfit */
+/* Cifras monetarias y números de alta precisión */
 .cifra, td.num, th.num, .valor, input[inputmode="decimal"], input[inputmode="numeric"] {
   font-family: var(--fuente-titulo);
   font-variant-numeric: tabular-nums;

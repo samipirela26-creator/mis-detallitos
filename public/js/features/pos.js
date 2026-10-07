@@ -73,6 +73,12 @@ registrar('vender', {
       <div class="buscador-pos">
         <input id="q" type="search" inputmode="search" autocomplete="off" enterkeyhint="search"
                placeholder="🔎 Busca el producto o pasa el código…">
+        <div class="chips-barra" style="margin-top:.45rem">
+          <button type="button" class="chip" data-q="Fotocopia B/N">⚡ Fotocopia B/N</button>
+          <button type="button" class="chip" data-q="Fotocopia Color">⚡ Fotocopia Color</button>
+          <button type="button" class="chip" data-q="Impresión">⚡ Impresión</button>
+          <button type="button" class="chip" id="chip-suelto">✏️ Producto suelto</button>
+        </div>
       </div>
       <div id="resultados"></div>
       <div id="carrito"></div>`;
@@ -80,6 +86,19 @@ registrar('vender', {
     const q = $('#q', nodo);
     const cajaResultados = $('#resultados', nodo);
     const cajaCarrito = $('#carrito', nodo);
+
+    // Chips de 1-clic
+    nodo.querySelectorAll('.chip[data-q]').forEach((b) => {
+      b.onclick = () => {
+        const query = b.dataset.q;
+        q.value = query;
+        pintarResultados(query);
+        const r = buscar(query, catalogo());
+        if (r.length === 1) elegir(r[0]);
+      };
+    });
+    const bSuelto = $('#chip-suelto', nodo);
+    if (bSuelto) bSuelto.onclick = () => productoSuelto();
 
     // --- buscar mientras escribe ---
     let temporizador;
