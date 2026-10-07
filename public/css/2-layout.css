@@ -1,47 +1,62 @@
-/* 2-layout.css — estructura: barra superior, contenido, navegación inferior. */
+/* 2-layout.css — estructura: cabecera, contenido y navegación flotante. */
 #app { min-height: 100dvh; display: flex; flex-direction: column; }
 
+/* Cabecera: sin barra de color. El saludo es el título de la pantalla. */
 .barra {
-  position: sticky; top: 0; z-index: 20;
   display: flex; align-items: center; gap: .75rem;
-  padding: .6rem 1rem;
-  background: var(--marca);
-  color: #fff;
-  border-bottom: 1px solid rgba(0, 0, 0, .12);
+  width: 100%; max-width: var(--ancho);
+  margin: 0 auto;
+  padding: 1.25rem 1.25rem .5rem;
 }
-.barra strong { font-size: 1.05rem; letter-spacing: .01em; }
-.barra .logo-barra { border-radius: 50%; flex: 0 0 auto; }
-.barra .btn { background: rgba(255, 255, 255, .18); border-color: transparent; color: #fff; }
-.barra h1 { font-size: 1.05rem; margin: 0; }
 .barra .crece { flex: 1; }
+.barra .saludo { font-size: 1.55rem; font-weight: 700; letter-spacing: -.02em; }
+.barra .logo-barra {
+  width: 46px; height: 46px; border-radius: 50%;
+  border: 2px solid var(--superficie); box-shadow: var(--sombra);
+  flex: 0 0 auto;
+}
 
 #contenido {
   flex: 1;
   width: 100%; max-width: var(--ancho);
   margin: 0 auto;
-  padding: 1rem 1rem calc(var(--toque) + 2.5rem);
+  padding: .5rem 1.25rem calc(var(--toque) + 3.5rem);
 }
 
+/* Navegación flotante, con el botón de vender en el centro. */
 .nav {
-  position: fixed; bottom: 0; left: 0; right: 0; z-index: 20;
-  display: flex;
+  position: fixed; z-index: 30;
+  left: 50%; transform: translateX(-50%);
+  bottom: calc(.75rem + env(safe-area-inset-bottom));
+  width: min(94vw, 460px);
+  display: flex; align-items: center; justify-content: space-around;
+  padding: .4rem;
   background: var(--superficie);
-  border-top: 1px solid var(--borde);
-  padding-bottom: env(safe-area-inset-bottom);
+  border-radius: var(--pildora);
+  box-shadow: var(--sombra-alta);
 }
 .nav button {
-  flex: 1; min-height: var(--toque);
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
-  border: 0; background: none; cursor: pointer;
-  font-size: .72rem; color: var(--texto-suave);
+  flex: 1; min-height: 46px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
+  border: 0; background: none; cursor: pointer; border-radius: var(--pildora);
+  font-size: .68rem; color: var(--texto-suave);
 }
-.nav button .ico { font-size: 1.25rem; line-height: 1; }
-.nav button[aria-current="page"] { color: var(--azul); font-weight: 600; }
+.nav button .ico { font-size: 1.2rem; line-height: 1.1; }
+.nav button[aria-current="page"] { color: var(--marca-oscuro); font-weight: 700; }
+.nav button[aria-current="page"] .ico { filter: none; }
+
+/* El botón grande del centro: vender. */
+.nav button.destacado {
+  flex: 0 0 auto; width: 58px; height: 58px; min-height: 58px;
+  margin: -14px .25rem 0;
+  background: var(--amarillo); color: var(--marca-tinta);
+  box-shadow: 0 6px 16px rgba(245, 197, 24, .45);
+  font-size: 0;
+}
+.nav button.destacado .ico { font-size: 1.5rem; }
 
 .rejilla { display: grid; gap: 1rem; }
-@media (min-width: 720px) {
+@media (min-width: 760px) {
   .rejilla.dos { grid-template-columns: 1fr 1fr; }
   .rejilla.tres { grid-template-columns: repeat(3, 1fr); }
-  .nav { position: sticky; top: 0; bottom: auto; border-top: 0; border-bottom: 1px solid var(--borde); }
-  #contenido { padding-bottom: 2rem; }
 }

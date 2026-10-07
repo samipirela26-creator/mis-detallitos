@@ -12,11 +12,17 @@ let actual = null;
  * `montar` puede devolver una función de limpieza.
  */
 export function registrar(id, def) {
-  pantallas.set(id, { id, menu: false, soloDueno: false, ...def });
+  pantallas.set(id, { id, menu: false, soloDueno: false, soloEmpleado: false, orden: 99, ...def });
 }
 
+/** Las pantallas del menú de abajo, ya filtradas por rol y en su orden.
+ *  Se dejan en 5 como máximo: una barra con más botones deja de ser cómoda. */
 export const pantallasDeMenu = () =>
-  [...pantallas.values()].filter((p) => p.menu && (!p.soloDueno || esDueno()));
+  [...pantallas.values()]
+    .filter((p) => p.menu
+      && (!p.soloDueno || esDueno())
+      && (!p.soloEmpleado || !esDueno()))
+    .sort((a, b) => (a.orden ?? 99) - (b.orden ?? 99));
 
 export function ir(id, params = {}) {
   const query = new URLSearchParams(params).toString();

@@ -10,24 +10,43 @@ import { registrarPendientes } from './features/pendientes.js';
 
 // --- pantalla de inicio del dueño (provisional hasta la Fase 5) ---
 registrar('panel', {
-  titulo: 'Panel', icono: '🏠', menu: true, soloDueno: true,
+  titulo: 'Panel', icono: '🏠', menu: true, soloDueno: true, orden: 10,
   montar(nodo) {
-    const u = usuarioActual();
     nodo.innerHTML = `
-      <h1>Hola, ${u?.nombre || ''}</h1>
-      <div class="kpis" style="margin:1rem 0">
+      <div class="kpis">
         <div class="kpi"><div class="rotulo">Vendido hoy</div><div class="valor">—</div></div>
         <div class="kpi bueno"><div class="rotulo">Ganancia hoy</div><div class="valor">—</div></div>
-        <div class="kpi"><div class="rotulo">Por cobrar</div><div class="valor">—</div></div>
+        <div class="kpi acento"><div class="rotulo">Por cobrar</div><div class="valor">—</div></div>
         <div class="kpi"><div class="rotulo">Productos</div><div class="valor">0</div></div>
       </div>
-      <div class="tarjeta">
-        <h2>Lo primero: cargar el inventario</h2>
-        <p>Ese es el cuello de botella del proyecto. El orden es: importar el Excel,
-           y después ponerle las fotos de corrido en el Estudio de Fotos.</p>
+
+      <div class="seccion"><h2>Lo primero</h2></div>
+      <div class="tarjeta marca">
+        <h2>Cargar el inventario</h2>
+        <p>Es el cuello de botella del proyecto. El orden es: importar el Excel
+           como lo tengas, y después ponerle las fotos de corrido.</p>
         <div class="fila">
           <button class="btn principal" data-ir="importar">📥 Importar Excel</button>
-          <button class="btn" data-ir="fotos">📷 Estudio de fotos</button>
+          <button class="btn plano" data-ir="fotos">📷 Estudio de fotos</button>
+        </div>
+      </div>
+
+      <div class="seccion"><h2>Atajos</h2></div>
+      <div class="carrusel">
+        <div class="tarjeta amarilla">
+          <h2>Tasas del día</h2>
+          <p style="font-size:.9rem">Bolívares y pesos, para que los cobros salgan bien.</p>
+          <span class="etiqueta acento">Fase 6</span>
+        </div>
+        <div class="tarjeta">
+          <h2>Margen bajo</h2>
+          <p style="font-size:.9rem">Los productos a los que les estás ganando poco.</p>
+          <span class="etiqueta info">Fase 5</span>
+        </div>
+        <div class="tarjeta">
+          <h2>Quién vendió más</h2>
+          <p style="font-size:.9rem">Ranking entre tú, tu mamá y tu primo.</p>
+          <span class="etiqueta info">Fase 5</span>
         </div>
       </div>`;
     nodo.querySelectorAll('[data-ir]').forEach((b) => (b.onclick = () => ir(b.dataset.ir)));
@@ -40,15 +59,18 @@ const app = document.getElementById('app');
 
 function pintarCascara() {
   const u = usuarioActual();
+  const hora = new Date().getHours();
+  const saludo = hora < 12 ? 'Buenos días' : hora < 19 ? 'Buenas tardes' : 'Buenas noches';
   app.innerHTML = `
     <div class="sin-conexion">Sin conexión — puedes seguir trabajando, se sube solo</div>
     <header class="barra">
-      <img class="logo-barra" src="/icons/logo-256.webp" width="34" height="34"
-           alt="" aria-hidden="true">
-      <strong>Mis Detallitos</strong>
-      <span class="crece"></span>
-      <span class="etiqueta ${esDueno() ? 'info' : 'ok'}">${esDueno() ? 'Dueño' : u.nombre}</span>
-      <button class="btn" id="salir" style="min-height:36px;padding:0 .7rem">Salir</button>
+      <div class="crece">
+        <div style="color:var(--texto-suave);font-size:.9rem">${saludo},</div>
+        <div class="saludo">${u.nombre}</div>
+      </div>
+      <button class="btn plano" id="salir" style="min-height:40px;padding:0 1rem">Salir</button>
+      <img class="logo-barra" src="/icons/logo-256.webp" width="46" height="46"
+           alt="Mis Detallitos G&amp;M C.A">
     </header>
     <nav class="nav" id="nav"></nav>
     <main id="contenido"></main>`;
@@ -57,6 +79,7 @@ function pintarCascara() {
   for (const p of pantallasDeMenu()) {
     const b = document.createElement('button');
     b.dataset.id = p.id;
+    if (p.id === 'vender') b.classList.add('destacado');
     b.innerHTML = `<span class="ico">${p.icono || '•'}</span><span>${p.titulo}</span>`;
     b.onclick = () => ir(p.id);
     nav.appendChild(b);

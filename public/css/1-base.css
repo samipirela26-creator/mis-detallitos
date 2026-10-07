@@ -1,34 +1,44 @@
 /* 1-base.css — variables, reset y tipografía. EL NÚMERO ES LA CASCADA:
-   si cambias el orden de los <link> en index.html, cambias los estilos. */
+   si cambias el orden de los <link> en index.html, cambias los estilos.
+
+   Estilo: tarjetas suaves, esquinas muy redondeadas, botones tipo píldora y
+   números grandes. Los colores salen del logo de Mis Detallitos G&M C.A. */
 :root {
-  /* Paleta de la marca, sacada del logo de Mis Detallitos G&M C.A */
+  /* --- Marca --- */
   --marca: #00a2c8;          /* el turquesa del logo */
-  --marca-oscuro: #006d87;   /* para botones y texto: el turquesa puro no
-                                tiene contraste suficiente sobre blanco */
-  --marca-claro: #e6f7fc;
-  --marca-tinta: #141414;    /* el negro del logo */
-  --marca-amarillo: #f6e27a; /* el amarillo del morral */
+  --marca-fuerte: #0088a8;
+  --marca-oscuro: #00697f;   /* botones y texto: el turquesa puro no da
+                                contraste suficiente sobre blanco */
+  --marca-suave: #e2f5fa;
+  --marca-tinta: #1b1b1b;    /* el negro del logo */
+  --amarillo: #f5c518;       /* el amarillo del morral */
+  --amarillo-suave: #fdf3d4;
 
-  --azul: var(--marca-oscuro);
-  --azul-claro: var(--marca-claro);
-  --verde: #15803d;
-  --verde-claro: #ecfdf3;
-  --rojo: #b42318;
-  --rojo-claro: #fef3f2;
-  --ambar: #b45309;
-  --ambar-claro: #fffaeb;
+  /* --- Semánticos --- */
+  --verde: #2f7d32;
+  --verde-suave: #e8f4e9;
+  --rojo: #c0392b;
+  --rojo-suave: #fbeae8;
+  --ambar: #a9710b;
+  --ambar-suave: #fdf3d4;
 
-  --fondo: #f6f7f9;
+  /* --- Superficies --- */
+  --fondo: #f3f1ee;          /* crema, no blanco: descansa la vista */
   --superficie: #ffffff;
-  --borde: #e3e6ea;
-  --texto: #111827;
-  --texto-suave: #5b6472;
+  --superficie-2: #faf9f7;
+  --borde: #e8e4de;
+  --texto: #1b1b1b;
+  --texto-suave: #6f6a63;
 
-  --r: 12px;
-  --r-chico: 8px;
-  --sombra: 0 1px 2px rgba(16, 24, 40, .06), 0 1px 3px rgba(16, 24, 40, .1);
-  --toque: 48px;          /* alto mínimo de cualquier cosa que se toque */
-  --ancho: 1100px;
+  /* --- Forma --- */
+  --r-xl: 28px;
+  --r: 20px;
+  --r-chico: 14px;
+  --pildora: 999px;
+  --sombra: 0 1px 2px rgba(27, 27, 27, .04), 0 8px 24px rgba(27, 27, 27, .06);
+  --sombra-alta: 0 10px 30px rgba(27, 27, 27, .12);
+  --toque: 52px;             /* alto mínimo de cualquier cosa que se toque */
+  --ancho: 1040px;
 }
 
 * { box-sizing: border-box; }
@@ -36,21 +46,21 @@ html, body { margin: 0; padding: 0; }
 html { -webkit-text-size-adjust: 100%; }
 
 body {
-  font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font: 16px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   color: var(--texto);
   background: var(--fondo);
   -webkit-tap-highlight-color: transparent;
   overscroll-behavior-y: contain;
 }
 
-h1, h2, h3 { margin: 0 0 .5rem; line-height: 1.25; }
-h1 { font-size: 1.5rem; }
-h2 { font-size: 1.2rem; }
+h1, h2, h3 { margin: 0 0 .5rem; line-height: 1.2; letter-spacing: -.02em; }
+h1 { font-size: 1.75rem; font-weight: 700; }
+h2 { font-size: 1.15rem; font-weight: 700; }
 p { margin: 0 0 .75rem; }
-a { color: var(--azul); }
+a { color: var(--marca-oscuro); }
 
 /* Los números de plata siempre tabulares: así las columnas cuadran a la vista. */
-.cifra, td.num, th.num, input[inputmode="decimal"], input[inputmode="numeric"] {
+.cifra, td.num, th.num, .valor, input[inputmode="decimal"], input[inputmode="numeric"] {
   font-variant-numeric: tabular-nums;
 }
 

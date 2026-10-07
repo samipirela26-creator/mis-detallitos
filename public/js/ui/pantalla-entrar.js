@@ -1,29 +1,35 @@
-// Pantalla de entrada. Dos usuarios reales + el dueño: no hay registro público.
+// Pantalla de entrada. Tres usuarios reales: no hay registro público.
 import { iniciarSesion } from '../core/sesion.js';
 import { avisarMal } from './avisos.js';
 
 export function montarEntrar(nodo) {
   nodo.innerHTML = `
     <div class="login">
-      <div class="marca">
-        <img class="logo" src="/icons/logo.webp" width="150" height="150"
+      <div class="panel">
+        <img src="/icons/logo.webp" width="128" height="128"
              alt="Mis Detallitos G&amp;M C.A">
-        <p style="color:var(--texto-suave)">Entra con tu correo y tu clave</p>
+        <h1 style="color:#fff;margin:.75rem 0 0">Mis Detallitos</h1>
+        <p class="lema">Tus ventas, tu inventario y lo que de verdad estás ganando.</p>
       </div>
-      <form class="tarjeta" id="form-entrar">
-        <div class="campo">
-          <label for="email">Correo</label>
-          <input id="email" type="email" autocomplete="username" required>
-        </div>
-        <div class="campo">
-          <label for="clave">Clave</label>
-          <input id="clave" type="password" autocomplete="current-password" required>
-        </div>
-        <button class="btn principal ancho grande" type="submit">Entrar</button>
-      </form>
+      <div class="forma">
+        <form>
+          <h1>Entrar</h1>
+          <div class="campo">
+            <label for="email">Correo</label>
+            <input id="email" name="email" type="email" autocomplete="username"
+                   placeholder="tucorreo@gmail.com" required>
+          </div>
+          <div class="campo">
+            <label for="clave">Clave</label>
+            <input id="clave" name="clave" type="password" autocomplete="current-password"
+                   placeholder="••••••••" required>
+          </div>
+          <button class="btn principal ancho grande" type="submit">Entrar</button>
+        </form>
+      </div>
     </div>`;
 
-  const form = nodo.querySelector('#form-entrar');
+  const form = nodo.querySelector('form');
   form.addEventListener('submit', async (ev) => {
     ev.preventDefault();
     const boton = form.querySelector('button');
