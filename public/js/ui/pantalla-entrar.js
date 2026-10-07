@@ -6,8 +6,8 @@ export function montarEntrar(nodo) {
   nodo.innerHTML = `
     <div class="login">
       <div class="marca">
-        <div class="logo">🖇️</div>
-        <h1>Mis Detallitos</h1>
+        <img class="logo" src="/icons/logo.webp" width="150" height="150"
+             alt="Mis Detallitos G&amp;M C.A">
         <p style="color:var(--texto-suave)">Entra con tu correo y tu clave</p>
       </div>
       <form class="tarjeta" id="form-entrar">

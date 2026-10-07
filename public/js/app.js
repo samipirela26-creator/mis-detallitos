@@ -43,7 +43,9 @@ function pintarCascara() {
   app.innerHTML = `
     <div class="sin-conexion">Sin conexión — puedes seguir trabajando, se sube solo</div>
     <header class="barra">
-      <strong>🖇️ Mis Detallitos</strong>
+      <img class="logo-barra" src="/icons/logo-256.webp" width="34" height="34"
+           alt="" aria-hidden="true">
+      <strong>Mis Detallitos</strong>
       <span class="crece"></span>
       <span class="etiqueta ${esDueno() ? 'info' : 'ok'}">${esDueno() ? 'Dueño' : u.nombre}</span>
       <button class="btn" id="salir" style="min-height:36px;padding:0 .7rem">Salir</button>

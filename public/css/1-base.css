@@ -1,8 +1,16 @@
 /* 1-base.css — variables, reset y tipografía. EL NÚMERO ES LA CASCADA:
    si cambias el orden de los <link> en index.html, cambias los estilos. */
 :root {
-  --azul: #1d4ed8;
-  --azul-claro: #eff4ff;
+  /* Paleta de la marca, sacada del logo de Mis Detallitos G&M C.A */
+  --marca: #00a2c8;          /* el turquesa del logo */
+  --marca-oscuro: #006d87;   /* para botones y texto: el turquesa puro no
+                                tiene contraste suficiente sobre blanco */
+  --marca-claro: #e6f7fc;
+  --marca-tinta: #141414;    /* el negro del logo */
+  --marca-amarillo: #f6e27a; /* el amarillo del morral */
+
+  --azul: var(--marca-oscuro);
+  --azul-claro: var(--marca-claro);
   --verde: #15803d;
   --verde-claro: #ecfdf3;
   --rojo: #b42318;

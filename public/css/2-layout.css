@@ -5,9 +5,13 @@
   position: sticky; top: 0; z-index: 20;
   display: flex; align-items: center; gap: .75rem;
   padding: .6rem 1rem;
-  background: var(--superficie);
-  border-bottom: 1px solid var(--borde);
+  background: var(--marca);
+  color: #fff;
+  border-bottom: 1px solid rgba(0, 0, 0, .12);
 }
+.barra strong { font-size: 1.05rem; letter-spacing: .01em; }
+.barra .logo-barra { border-radius: 50%; flex: 0 0 auto; }
+.barra .btn { background: rgba(255, 255, 255, .18); border-color: transparent; color: #fff; }
 .barra h1 { font-size: 1.05rem; margin: 0; }
 .barra .crece { flex: 1; }
 

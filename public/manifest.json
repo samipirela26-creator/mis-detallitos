@@ -1,16 +1,17 @@
 {
-  "name": "Mis Detallitos",
-  "short_name": "Detallitos",
+  "name": "Mis Detallitos G&M C.A",
+  "short_name": "Mis Detallitos",
   "description": "Ventas, inventario y ganancias de la papelería Mis Detallitos.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#f6f7f9",
-  "theme_color": "#1d4ed8",
+  "theme_color": "#00a2c8",
   "lang": "es-VE",
   "icons": [
-    { "src": "/icons/icono.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
-    { "src": "/icons/icono-maskable.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+    { "src": "/icons/icono-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icono-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icono-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ]
 }
