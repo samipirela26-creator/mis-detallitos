@@ -362,30 +362,68 @@ async function descargarPlantilla() {
   const libro = XLSX.utils.book_new();
 
   const ejemplo = [
-    ['Nombre', 'Otros nombres', 'Categoría', 'Precio de venta', 'Costo', 'Cantidad', 'Stock mínimo', 'Unidad', 'Código de barras'],
-    ['Lápiz Mongol Nº2', 'mongol, lapis', 'Escritura', 0.5, 0.3, 120, 20, 'unidad', ''],
-    ['Borrador Nata', 'goma, gomita', 'Escritura', 0.4, 0.22, 60, 10, 'unidad', ''],
-    ['Resma Carta', 'resma, hojas blancas', 'Papel', 6, 4.5, 15, 3, 'resma', ''],
-    ['Fotocopia B/N', 'copia, xerox', 'Servicios', 0.05, 0.02, 0, 0, 'copia', ''],
+    ['Nombre', 'SKU / Código', 'Otros nombres', 'Categoría', 'Precio de venta', 'Costo', 'Cantidad', 'Stock mínimo', 'Unidad', 'Código de barras'],
+    ['Lápiz Mongol Nº2', 'LAP-001', 'mongol, lapis', 'Escritura', 0.5, 0.3, 120, 20, 'unidad', '750123456789'],
+    ['Borrador Nata', 'BOR-002', 'goma, gomita', 'Escritura', 0.4, 0.22, 60, 10, 'unidad', ''],
+    ['Resma Carta', 'PAP-003', 'resma, hojas blancas', 'Papel', 6, 4.5, 15, 3, 'resma', ''],
+    ['Fotocopia B/N', 'SRV-004', 'copia, xerox', 'Servicios', 0.05, 0.02, 0, 0, 'copia', ''],
   ];
+
   const hoja = XLSX.utils.aoa_to_sheet(ejemplo);
-  hoja['!cols'] = [{ wch: 30 }, { wch: 24 }, { wch: 16 }, { wch: 14 }, { wch: 10 }, { wch: 10 }, { wch: 12 }, { wch: 10 }, { wch: 18 }];
+
+  // Formatear celdas numéricas de los ejemplos
+  for (let r = 1; r < ejemplo.length; r++) {
+    const refPrecio = XLSX.utils.encode_cell({ r, c: 4 });
+    const refCosto = XLSX.utils.encode_cell({ r, c: 5 });
+    const refCantidad = XLSX.utils.encode_cell({ r, c: 6 });
+    const refMinimo = XLSX.utils.encode_cell({ r, c: 7 });
+
+    if (hoja[refPrecio]) hoja[refPrecio].z = '"$"#,##0.00';
+    if (hoja[refCosto]) hoja[refCosto].z = '"$"#,##0.00';
+    if (hoja[refCantidad]) hoja[refCantidad].z = '#,##0';
+    if (hoja[refMinimo]) hoja[refMinimo].z = '#,##0';
+  }
+
+  // Anchos automáticos de columna
+  const numCols = ejemplo[0].length;
+  const colWidths = new Array(numCols).fill(10);
+  ejemplo.forEach((fila) => {
+    fila.forEach((val, c) => {
+      const len = String(val || '').length;
+      if (len > colWidths[c]) colWidths[c] = len;
+    });
+  });
+  hoja['!cols'] = colWidths.map((w) => ({ wch: Math.min(Math.max(w + 3, 10), 50) }));
+
+  // Congelar encabezado y activar autofiltro
+  const colFin = XLSX.utils.encode_col(numCols - 1);
+  hoja['!autofilter'] = { ref: `A1:${colFin}${ejemplo.length}` };
+  hoja['!views'] = [{ state: 'frozen', ySplit: 1, xSplit: 0 }];
+
   XLSX.utils.book_append_sheet(libro, hoja, 'Productos');
 
   const ayuda = XLSX.utils.aoa_to_sheet([
-    ['Cómo llenar esta plantilla'],
+    ['Guía de llenado de la plantilla de productos'],
     [''],
-    ['Nombre', 'Obligatorio. Es lo único que no puede faltar.'],
-    ['Otros nombres', 'Sinónimos separados por coma. ESTO ES LO MÁS ÚTIL: hace que el producto aparezca aunque lo escriban mal o le digan de otra forma.'],
-    ['Precio de venta', 'Lo que PAGA EL CLIENTE. En dólares; puede ir 0,50 o 0.50, da igual.'],
-    ['Costo', 'Lo que TE COSTÓ A TI comprarlo. Sin esto no se puede saber cuánto ganas. El trabajador nunca ve esta columna.'],
-    ['Cantidad', 'Cuántos hay ahora mismo.'],
-    ['Stock mínimo', 'Cuando baje de aquí, la app avisa.'],
+    ['Campo', 'Descripción y Consejos'],
+    ['Nombre', 'OBLIGATORIO. Es el nombre principal con el que buscarás el producto.'],
+    ['SKU / Código', 'OPCIONAL. Código único interno del producto (ej: LAP-001). Si usas el Estudio de Fotos, nombrar la imagen igual que el SKU vinculará la foto automáticamente.'],
+    ['Otros nombres', 'OPCIONAL. Sinónimos o alias separados por coma (ej: "mongol, lapis"). Permite encontrar el producto al venderlo aunque el cliente lo pida con otro nombre.'],
+    ['Categoría', 'OPCIONAL. Grupo o línea del producto (ej: Escritura, Papel, Servicios).'],
+    ['Precio de venta', 'Lo que PAGA EL CLIENTE (en USD). Puedes usar comas o puntos decimales (0,50 o 0.50).'],
+    ['Costo', 'Lo que TE COSTÓ A TI comprarlo (en USD). Permite calcular tus ganancias netas. Solo visible para el dueño.'],
+    ['Cantidad', 'Stock actual disponible en inventario.'],
+    ['Stock mínimo', 'Cantidad de alerta. Cuando la existencia baje de este número, la app te avisará para reponer.'],
+    ['Unidad', 'Presentación del producto (unidad, resma, metro, paquete, etc.).'],
+    ['Código de barras', 'Código EAN/UPC numérico para escaneo rápido con cámara o lector de barras.'],
     [''],
-    ['No hace falta usar esta plantilla: puedes subir tu propio Excel y la app adivina las columnas.'],
-    ['Las fotos NO van en el Excel. Se ponen de corrido en el Estudio de Fotos.'],
+    ['💡 Notas Importantes:'],
+    ['1. No estás obligado a usar esta plantilla: puedes subir tu propio archivo Excel existente y la app adivinará las columnas.'],
+    ['2. Las fotos NO se colocan en el Excel. Se toman o suben rápidamente desde el Estudio de Fotos en la app.'],
   ]);
-  ayuda['!cols'] = [{ wch: 20 }, { wch: 100 }];
+
+  ayuda['!cols'] = [{ wch: 22 }, { wch: 110 }];
+  ayuda['!views'] = [{ state: 'frozen', ySplit: 2, xSplit: 0 }];
   XLSX.utils.book_append_sheet(libro, ayuda, 'Cómo llenarla');
 
   XLSX.writeFile(libro, 'plantilla-mis-detallitos.xlsx');

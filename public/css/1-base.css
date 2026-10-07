@@ -4,40 +4,44 @@
    Estilo: tarjetas suaves, esquinas muy redondeadas, botones tipo píldora y
    números grandes. Los colores salen del logo de Mis Detallitos G&M C.A. */
 :root {
-  /* --- Marca --- */
-  --marca: #00a2c8;          /* el turquesa del logo */
-  --marca-fuerte: #0088a8;
-  --marca-oscuro: #00697f;   /* botones y texto: el turquesa puro no da
-                                contraste suficiente sobre blanco */
-  --marca-suave: #e2f5fa;
-  --marca-tinta: #1b1b1b;    /* el negro del logo */
-  --amarillo: #f5c518;       /* el amarillo del morral */
-  --amarillo-suave: #fdf3d4;
+  /* --- Fuentes --- */
+  --fuente-titulo: 'Outfit', -apple-system, system-ui, sans-serif;
+  --fuente-cuerpo: 'Work Sans', -apple-system, system-ui, sans-serif;
+
+  /* --- Marca (Turquesa refinado con contraste AA 4.5:1 sobre blanco) --- */
+  --marca: #0090b3;          /* Turquesa corporativo pulido */
+  --marca-fuerte: #007a98;
+  --marca-oscuro: #005a70;   /* Botones y texto secundario */
+  --marca-suave: #e6f6f9;
+  --marca-tinta: #0f172a;    /* Azul noche profundo */
+  --amarillo: #f59e0b;       /* Amarillo cálido vibrante */
+  --amarillo-suave: #fffbeb;
 
   /* --- Semánticos --- */
-  --verde: #2f7d32;
-  --verde-suave: #e8f4e9;
-  --rojo: #c0392b;
-  --rojo-suave: #fbeae8;
-  --ambar: #a9710b;
-  --ambar-suave: #fdf3d4;
+  --verde: #10b981;
+  --verde-suave: #ecfdf5;
+  --rojo: #ef4444;
+  --rojo-suave: #fef2f2;
+  --ambar: #d97706;
+  --ambar-suave: #fffbeb;
 
   /* --- Superficies --- */
-  --fondo: #f3f1ee;          /* crema, no blanco: descansa la vista */
+  --fondo: #f8fafc;          /* Slate ultra claro, limpio y descansado */
   --superficie: #ffffff;
-  --superficie-2: #faf9f7;
-  --borde: #e8e4de;
-  --texto: #1b1b1b;
-  --texto-suave: #6f6a63;
+  --superficie-2: #f1f5f9;
+  --borde: #e2e8f0;
+  --borde-suave: #f1f5f9;
+  --texto: #0f172a;
+  --texto-suave: #64748b;
 
   /* --- Forma --- */
-  --r-xl: 28px;
-  --r: 20px;
-  --r-chico: 14px;
+  --r-xl: 24px;
+  --r: 16px;
+  --r-chico: 10px;
   --pildora: 999px;
-  --sombra: 0 1px 2px rgba(27, 27, 27, .04), 0 8px 24px rgba(27, 27, 27, .06);
-  --sombra-alta: 0 10px 30px rgba(27, 27, 27, .12);
-  --toque: 52px;             /* alto mínimo de cualquier cosa que se toque */
+  --sombra: 0 1px 3px rgba(15, 23, 42, .04), 0 6px 16px -4px rgba(15, 23, 42, .06);
+  --sombra-alta: 0 12px 32px -4px rgba(15, 23, 42, .14), 0 4px 12px -2px rgba(15, 23, 42, .06);
+  --toque: 48px;             /* alto mínimo de cualquier elemento interactivo */
   --ancho: 1040px;
 }
 
@@ -46,21 +50,30 @@ html, body { margin: 0; padding: 0; }
 html { -webkit-text-size-adjust: 100%; }
 
 body {
-  font: 16px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-family: var(--fuente-cuerpo);
+  font-size: 15px;
+  line-height: 1.5;
   color: var(--texto);
   background: var(--fondo);
   -webkit-tap-highlight-color: transparent;
   overscroll-behavior-y: contain;
 }
 
-h1, h2, h3 { margin: 0 0 .5rem; line-height: 1.2; letter-spacing: -.02em; }
+h1, h2, h3 {
+  font-family: var(--fuente-titulo);
+  margin: 0 0 .5rem;
+  line-height: 1.25;
+  letter-spacing: -.02em;
+}
 h1 { font-size: 1.75rem; font-weight: 700; }
-h2 { font-size: 1.15rem; font-weight: 700; }
+h2 { font-size: 1.2rem; font-weight: 600; }
 p { margin: 0 0 .75rem; }
-a { color: var(--marca-oscuro); }
+a { color: var(--marca-oscuro); text-decoration: none; }
+a:hover { text-decoration: underline; }
 
-/* Los números de plata siempre tabulares: así las columnas cuadran a la vista. */
+/* Los números de plata siempre tabulares y con fuente Outfit */
 .cifra, td.num, th.num, .valor, input[inputmode="decimal"], input[inputmode="numeric"] {
+  font-family: var(--fuente-titulo);
   font-variant-numeric: tabular-nums;
 }
 

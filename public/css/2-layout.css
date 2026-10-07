@@ -1,62 +1,86 @@
 /* 2-layout.css — estructura: cabecera, contenido y navegación flotante. */
 #app { min-height: 100dvh; display: flex; flex-direction: column; }
 
-/* Cabecera: sin barra de color. El saludo es el título de la pantalla. */
+/* Cabecera: limpia, moderna y alineada */
 .barra {
-  display: flex; align-items: center; gap: .75rem;
+  display: flex; align-items: center; gap: 1rem;
   width: 100%; max-width: var(--ancho);
   margin: 0 auto;
-  padding: 1.25rem 1.25rem .5rem;
+  padding: 1.25rem 1.25rem .75rem;
 }
 .barra .crece { flex: 1; }
-.barra .saludo { font-size: 1.55rem; font-weight: 700; letter-spacing: -.02em; }
-.barra .logo-barra {
-  width: 46px; height: 46px; border-radius: 50%;
-  border: 2px solid var(--superficie); box-shadow: var(--sombra);
-  flex: 0 0 auto;
+.barra .saludo {
+  font-family: var(--fuente-titulo);
+  font-size: 1.6rem; font-weight: 700;
+  letter-spacing: -.02em; color: var(--texto);
 }
+.barra .logo-barra {
+  width: 44px; height: 44px; border-radius: 50%;
+  border: 2px solid var(--superficie); box-shadow: var(--sombra);
+  flex: 0 0 auto; transition: transform .2s ease;
+}
+.barra .logo-barra:hover { transform: scale(1.05); }
 
 #contenido {
   flex: 1;
   width: 100%; max-width: var(--ancho);
   margin: 0 auto;
-  padding: .5rem 1.25rem calc(var(--toque) + 3.5rem);
+  padding: .5rem 1.25rem calc(var(--toque) + 4rem);
 }
 
-/* Navegación flotante, con el botón de vender en el centro. */
+/* Navegación flotante cristalina (glassmorphism), con botón central de venta. */
 .nav {
   position: fixed; z-index: 30;
   left: 50%; transform: translateX(-50%);
-  bottom: calc(.75rem + env(safe-area-inset-bottom));
-  width: min(94vw, 460px);
+  bottom: calc(.85rem + env(safe-area-inset-bottom));
+  width: min(94vw, 480px);
   display: flex; align-items: center; justify-content: space-around;
-  padding: .4rem;
-  background: var(--superficie);
+  padding: .45rem .6rem;
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.6);
   border-radius: var(--pildora);
-  box-shadow: var(--sombra-alta);
+  box-shadow: 0 10px 30px -5px rgba(15, 23, 42, 0.12), 0 4px 12px -2px rgba(15, 23, 42, 0.04);
 }
 .nav button {
-  flex: 1; min-height: 46px;
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
+  flex: 1; min-height: 48px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
   border: 0; background: none; cursor: pointer; border-radius: var(--pildora);
-  font-size: .68rem; color: var(--texto-suave);
+  font-family: var(--fuente-cuerpo);
+  font-size: .72rem; font-weight: 500; color: var(--texto-suave);
+  transition: all .15s ease;
 }
-.nav button .ico { font-size: 1.2rem; line-height: 1.1; }
-.nav button[aria-current="page"] { color: var(--marca-oscuro); font-weight: 700; }
-.nav button[aria-current="page"] .ico { filter: none; }
+.nav button svg {
+  display: block; stroke: currentColor; opacity: .7;
+  transition: transform .15s ease, opacity .15s ease, stroke .15s ease;
+}
+.nav button:hover svg { opacity: 1; transform: translateY(-1px); }
+.nav button[aria-current="page"] { color: var(--marca); font-weight: 600; }
+.nav button[aria-current="page"] svg { opacity: 1; stroke: var(--marca); transform: scale(1.1); }
 
-/* El botón grande del centro: vender. */
+/* El botón destacado central: Vender */
 .nav button.destacado {
-  flex: 0 0 auto; width: 58px; height: 58px; min-height: 58px;
-  margin: -14px .25rem 0;
-  background: var(--amarillo); color: var(--marca-tinta);
-  box-shadow: 0 6px 16px rgba(245, 197, 24, .45);
+  flex: 0 0 auto; width: 56px; height: 56px; min-height: 56px;
+  margin: -16px .35rem 0;
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  color: #ffffff;
+  border-radius: 50%;
+  box-shadow: 0 6px 20px -2px rgba(245, 158, 11, .5), 0 2px 8px rgba(0, 0, 0, .1);
   font-size: 0;
+  transition: transform .15s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow .15s ease;
 }
-.nav button.destacado .ico { font-size: 1.5rem; }
+.nav button.destacado svg { opacity: 1; stroke: #ffffff; width: 24px; height: 24px; }
+.nav button.destacado:hover {
+  transform: translateY(-2px) scale(1.06);
+  box-shadow: 0 10px 24px -2px rgba(245, 158, 11, .6);
+}
+.nav button.destacado:active { transform: translateY(0) scale(.96); }
 
 .rejilla { display: grid; gap: 1rem; }
 @media (min-width: 760px) {
   .rejilla.dos { grid-template-columns: 1fr 1fr; }
   .rejilla.tres { grid-template-columns: repeat(3, 1fr); }
+  .rejilla.cuatro { grid-template-columns: repeat(4, 1fr); }
 }
+

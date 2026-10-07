@@ -25,7 +25,7 @@ import './features/caja.js';
 import './features/gastos.js';
 import './features/clientes.js';
 import './features/config.js';
-import './reports/panel.js';
+import { icono } from './ui/iconos.js';
 
 // --- inicio del dueño --------------------------------------------------------
 registrar('panel', {
@@ -97,11 +97,11 @@ registrar('panel', {
     // --- atajos ---
     nodo.appendChild(el('div.seccion', {}, [el('h2', { texto: 'Atajos' })]));
     nodo.appendChild(el('div.carrusel', {}, [
-      atajo('📊', 'Reportes', 'Ganancia por producto, margen flojo y quién vendió más.', 'reportes'),
-      atajo('🤝', 'Deudas', 'Quién te debe y cuánto.', 'clientes'),
-      atajo('📤', 'Gastos', 'Lo que sale, por categoría.', 'gastos-dueno'),
-      atajo('💵', 'Caja', 'Abrir turno, reporte X y cierre Z.', 'caja-dueno'),
-      atajo('⚙️', 'Configuración', 'Tasas, PIN y sinónimos por aprobar.', 'config'),
+      atajo('chart', 'Reportes', 'Ganancia por producto, margen flojo y quién vendió más.', 'reportes'),
+      atajo('handshake', 'Deudas', 'Quién te debe y cuánto.', 'clientes'),
+      atajo('expense', 'Gastos', 'Lo que sale, por categoría.', 'gastos-dueno'),
+      atajo('cash', 'Caja', 'Abrir turno, reporte X y cierre Z.', 'caja-dueno'),
+      atajo('settings', 'Configuración', 'Tasas, PIN y sinónimos por aprobar.', 'config'),
     ]));
   },
 });
@@ -121,9 +121,9 @@ function tarjetaAccion(clase, titulo, texto, boton, destino) {
   ]);
 }
 
-function atajo(icono, titulo, texto, destino) {
+function atajo(iconoNombre, titulo, texto, destino) {
   return el('div.tarjeta', { style: 'cursor:pointer', onclick: () => ir(destino) }, [
-    el('div', { style: 'font-size:1.6rem', texto: icono }),
+    el('div', { style: 'color:var(--marca);margin-bottom:.3rem', html: icono(iconoNombre) }),
     el('h2', { texto: titulo }),
     el('p', { style: 'font-size:.88rem;color:var(--texto-suave);margin:0', texto }),
   ]);
@@ -144,11 +144,11 @@ function pintarCascara() {
     el('div.sin-conexion', { texto: 'Sin conexión — puedes seguir trabajando, se sube solo' }),
     el('header.barra', {}, [
       el('div', { class: 'crece' }, [
-        el('div', { style: 'color:var(--texto-suave);font-size:.9rem', texto: `${saludo},` }),
+        el('div', { style: 'color:var(--texto-suave);font-size:.88rem;font-weight:500', texto: `${saludo},` }),
         el('div.saludo', { html: esc(u.nombre) }),
       ]),
-      el('button.btn.plano', { style: 'min-height:40px;padding:0 1rem', texto: 'Salir', onclick: () => cerrarSesion() }),
-      el('img.logo-barra', { src: 'icons/logo-256.webp', width: '46', height: '46', alt: 'Mis Detallitos G&M C.A' }),
+      el('button.btn.plano', { style: 'min-height:38px;padding:0 .9rem;font-size:.88rem', texto: 'Salir', onclick: () => cerrarSesion() }),
+      el('img.logo-barra', { src: 'icons/logo-256.webp', width: '44', height: '44', alt: 'Mis Detallitos G&M C.A' }),
     ]),
     nav,
     contenido
@@ -160,7 +160,7 @@ function pintarCascara() {
       class: p.id === 'vender' ? 'destacado' : '',
       onclick: () => ir(p.id),
     }, [
-      el('span.ico', { texto: p.icono || '•' }),
+      el('span.ico', { html: icono(p.icono || p.id) }),
       el('span', { texto: p.titulo }),
     ]);
     nav.appendChild(b);
