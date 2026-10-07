@@ -26,6 +26,7 @@ import {
   precioPorCantidad, totalesVenta, requiereAutorizacion, vueltoEnMonedas,
 } from '../core/dinero.js';
 import { recibo } from '../reports/recibo.js';
+import { sonidoBeep, sonidoCobrar, sonidoAlerta } from '../ui/sonido.js';
 
 // --- carrito (vive en el estado, así sobrevive a cambiar de pantalla) -------
 const carrito = () => leer('carrito') || [];
@@ -58,6 +59,7 @@ function agregar(producto, { cantidad = 1, precioUSD = null } = {}) {
   }
   ponerCarrito(lineas);
   aprenderDe(producto);
+  sonidoBeep();
 }
 
 const quitar = (i) => ponerCarrito(carrito().filter((_, j) => j !== i));
@@ -386,9 +388,11 @@ async function cobrar() {
       const { id, venta } = await registrarVenta({ lineas, pagos, clienteId, fiado });
       d.close();
       vaciar();
+      sonidoCobrar();
       avisarOk('Venta registrada');
       recibo({ id, venta, tasas });
     } catch (e) {
+      sonidoAlerta();
       avisarMal(e.message || 'No se pudo registrar la venta.');
     }
   }

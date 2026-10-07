@@ -47,16 +47,23 @@ export async function abrirTurno(fondo) {
   return documento.id;
 }
 
+import { gastosEntre } from './gastos.js';
+
 /**
  * Lo que DEBERÍA haber en la gaveta: el fondo más lo cobrado en efectivo,
- * moneda por moneda. No se convierte nada: se compara peso con peso.
+ * menos los gastos de caja del turno, moneda por moneda.
  */
 export async function esperadoDelTurno(turno) {
-  const ventas = await ventasEntre(turno.dia, turno.dia);
+  const [ventas, gastos] = await Promise.all([
+    ventasEntre(turno.dia, turno.dia),
+    gastosEntre(turno.dia, turno.dia).catch(() => []),
+  ]);
   const mias = ventas.filter((v) => v.uid === turno.uid);
+  const misGastos = gastos.filter((g) => g.uid === turno.uid);
   const esperado = { ...turno.fondo };
   let totalUSD = 0;
   let gananciaUSD = 0;
+  let gastosUSD = 0;
   for (const v of mias) {
     totalUSD += v.totalUSD;
     gananciaUSD += v.gananciaUSD || 0;
@@ -64,7 +71,13 @@ export async function esperadoDelTurno(turno) {
       esperado[p.moneda] = (esperado[p.moneda] || 0) + p.monto;
     }
   }
-  return { esperado, totalUSD, gananciaUSD, cantidad: mias.length, ventas: mias };
+  for (const g of misGastos) {
+    gastosUSD += g.montoUSD || 0;
+    if (g.moneda) {
+      esperado[g.moneda] = (esperado[g.moneda] || 0) - (g.monto || 0);
+    }
+  }
+  return { esperado, totalUSD, gananciaUSD, gastosUSD, cantidad: mias.length, ventas: mias };
 }
 
 /** Reporte X: no cierra nada, solo muestra cómo va el turno. */

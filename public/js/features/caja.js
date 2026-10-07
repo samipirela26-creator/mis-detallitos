@@ -49,6 +49,7 @@ async function montarCaja(nodo) {
     nodo.appendChild(el('div.kpis', { style: 'margin:1rem 0' }, [
       kpi('Ventas del turno', String(datos.cantidad)),
       kpi('Cobrado', formatear(datos.totalUSD)),
+      ...(datos.gastosUSD ? [kpi('Gastos del turno', formatear(datos.gastosUSD), 'malo')] : []),
       ...(esDueno() ? [kpi('Ganancia', formatear(datos.gananciaUSD), 'bueno')] : []),
     ]));
 
