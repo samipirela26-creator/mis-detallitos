@@ -1,0 +1,17 @@
+{
+  "name": "mis-detallitos",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Ventas, inventario y ganancias de la papelería Mis Detallitos G&M C.A",
+  "type": "module",
+  "scripts": {
+    "test": "node --test test/",
+    "emuladores": "firebase emulators:start --project demo-detallitos --only auth,firestore,hosting",
+    "sembrar": "node scripts/sembrar-emulador.mjs",
+    "reglas": "node --test test/reglas.test.mjs",
+    "publicar": "firebase deploy"
+  },
+  "devDependencies": {
+    "firebase-tools": "^14.0.0"
+  }
+}

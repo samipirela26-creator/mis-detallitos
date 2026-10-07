@@ -1,43 +1,55 @@
 # Mis Detallitos
 
-App web (PWA) de ventas, inventario y **ganancia real** para la papelería
-Mis Detallitos. Contexto y decisiones: [`docs/CONTEXT.md`](docs/CONTEXT.md).
+PWA de ventas, inventario y **ganancia real** para la papelería Mis Detallitos
+G&M C.A. Funciona sin internet, en el teléfono, y es gratis de mantener
+(plan Spark de Firebase).
 
-## Lo que ya funciona (Fase 0)
+Contexto y decisiones: [`docs/CONTEXT.md`](docs/CONTEXT.md) ·
+Qué hacer en Firebase: [`docs/FIREBASE-SETUP.md`](docs/FIREBASE-SETUP.md)
 
-- Cáscara PWA instalable, abre sin internet, con service worker versionado.
-- Entrada con correo y clave, **roles dueño / empleado** y menú distinto para
-  cada uno (el empleado ve 4 botones; no ve costos, ganancias ni configuración).
-- Reglas de seguridad de Firestore completas (`firestore.rules`).
-- `core/dinero.js`: USD / COP / VES en enteros, pagos mixtos, vuelto, escalas de
-  precio por cantidad, margen, autorización por precio bajo. **8 tests pasando.**
-- `core/texto.js`: normalización para el buscador (sin acentos, plurales, "250ml").
+## Qué hace
 
-## Lo que falta
+**Vender** — buscador que aguanta que lo escriban mal, precio fijo o variable,
+escalas por cantidad (200 fotocopias salen más baratas solas), cobro en
+**dólares, pesos y bolívares mezclados** con vuelto en la moneda que convenga,
+fiado, recibo por WhatsApp. **Funciona sin señal**: la venta se registra al
+instante y sube sola cuando vuelve el internet, sin duplicarse.
 
-Fases 1 a 6, en ese orden. La 1 (importar Excel + Estudio de Fotos) es la
-siguiente y la más urgente, porque sin inventario cargado no hay nada que vender.
+**Inventario** — carga inicial desde **tu propio Excel** (la app adivina las
+columnas, muestra vista previa, detecta duplicados y **se puede deshacer
+completa**), y un **Estudio de Fotos** que va producto por producto con la
+cámara abierta: disparas y salta solo al siguiente.
 
-## Cómo trabajar en esto
+**Ganancia** — margen por producto, **a qué le estás ganando poco**, qué
+vendiste por debajo del costo, cuánto se regaló en descuentos y quién los dio,
+ranking de quién vendió más, gráficos y exportación a Excel y PDF.
+
+**Caja** — turnos con fondo, reporte X cuando quieras y cierre Z contando
+billete por billete: el sistema compara, no la persona.
+
+**El empleado no ve costos ni ganancias.** No es que estén escondidos en la
+pantalla: la app del empleado lee otra colección (`productos_venta`) que no
+tiene esos campos, y las reglas de Firestore le niegan la que sí los tiene.
+
+## Cómo correrlo
 
 ```bash
-# 1) Instalar las herramientas (una sola vez)
-npm install -g firebase-tools
-
-# 2) Configurar el proyecto (una sola vez)
-cp public/js/core/firebase-config.example.js public/js/core/firebase-config.js
-# ...y pegar ahí los datos de la consola de Firebase
-
-# 3) Correr todo en local, sin tocar los datos reales
-firebase emulators:start
-# abre http://localhost:5000  (panel de emuladores en http://localhost:4000)
-
-# 4) Tests de dinero
-node --test test/
-
-# 5) Publicar
-firebase deploy
+npm install                 # solo la primera vez
+npm run emuladores          # Firebase local, en http://localhost:5000
+npm run sembrar             # usuarios de prueba (en otra terminal)
 ```
+
+Usuarios de prueba: `dueno@detallitos.test` y `primo@detallitos.test`,
+clave `detallitos123` los dos.
+
+```bash
+npm test                    # 47 pruebas (dinero, buscador, CSV, reportes, reglas)
+npm run reglas              # solo las reglas de seguridad (necesita el emulador)
+npm run publicar            # firebase deploy
+```
+
+Para probar el importador sin inventar datos:
+`node scripts/inventario-de-prueba.mjs > /tmp/prueba.csv`
 
 ## Reglas para quien toque el código
 
@@ -47,7 +59,12 @@ firebase deploy
 - **Las 4 hojas de CSS están numeradas y el número es la cascada.** No reordenes
   los `<link>` de `index.html`.
 - **Nada de dinero en `float`.** Todo pasa por `core/dinero.js`, en enteros.
-- **Nunca mandes `costoUSD` a la app del empleado.** El empleado lee
-  `productos_venta` (espejo sin costos); el dueño lee `productos`. Si cambias el
-  catálogo, escribe los dos documentos en el mismo `writeBatch`.
-- Cualquier escritura de dinero o inventario deja rastro en `auditoria`.
+- **Nunca mandes `costoUSD` a la app del empleado.** Si cambias el catálogo,
+  escribe `productos` y `productos_venta` en el mismo `writeBatch`
+  (`data/productos.js` ya lo hace).
+- **El CSV se lee con `data/csv.js`, no con SheetJS**: SheetJS convierte "1,91"
+  en 191 porque toma la coma como separador de miles.
+- **No uses `.append(algo || null)`**: escribe "null" en la pantalla. Usa
+  `pegar()` de `ui/html.js`.
+- Cualquier cosa delicada (anular, cambiar precio, tocar stock) deja rastro en
+  `auditoria`.

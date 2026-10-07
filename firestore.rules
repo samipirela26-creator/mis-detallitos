@@ -67,6 +67,14 @@ service cloud.firestore {
         allow create, update, delete: if esDueno();
       }
 
+      // --- fotos de productos (van en Firestore porque Storage exige plan
+      //     de pago; ~60 KB cada una, en documentos aparte para no inflar
+      //     el catálogo) ---
+      match /fotos/{productoId} {
+        allow read: if delEquipo();
+        allow write: if esDueno();
+      }
+
       // --- ledger de inventario: append-only, nunca se edita ni se borra ---
       match /movimientos/{id} {
         allow read: if esDueno();

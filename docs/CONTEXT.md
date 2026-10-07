@@ -71,3 +71,40 @@ El plan completo está en `~/.claude/plans/mira-quiero-una-app-sharded-hearth.md
 `firebase deploy` desde la raíz. Hosting + reglas de Firestore. El proyecto
 Firebase es `mis-detallitos` (ver `public/js/core/firebase-config.js`, que **no**
 está en el repo).
+
+## Estado (7 de octubre de 2026)
+
+Las fases 0 a 6 están hechas y probadas contra los emuladores con un catálogo
+real de 1000 productos. Lo único que falta es lo que depende del dueño: crear el
+proyecto en Firebase y pegar el `firebaseConfig`.
+
+Probado de punta a punta:
+
+- importación de 1001 productos desde un CSV desordenado (encabezados raros,
+  precios con coma, duplicados y filas con error): 38 segundos, con vista previa
+  y deshacer;
+- búsqueda con errores de escritura sobre esos 1000 productos: 10 ms por
+  búsqueda ("lapis mongol", "sakapunta", "cuadreno" encuentran lo que deben);
+- venta con pago mixto COP + VES + USD, vuelto correcto y stock descontado
+  exacto;
+- **tres ventas sin internet**: subieron las tres, una sola vez cada una
+  (idempotencia), y el stock cuadró al reconectar;
+- caja: fondo + ventas por moneda, y una diferencia de Bs 500 detectada en el
+  cierre Z;
+- fotos: una imagen de 2000×1500 queda en WebP de pocos KB, se guarda y se lee
+  del caché local;
+- fiado y abonos; gastos en pesos convertidos a USD con la tasa del día;
+- las 12 pruebas de reglas de seguridad, incluida la importante: **el empleado,
+  desde la consola del navegador, recibe `permission-denied` al intentar leer
+  los costos.**
+
+### Deuda técnica conocida
+
+- Mientras se está sin señal, el stock que ve la pantalla no baja hasta
+  reconectar (la venta sí queda registrada y el stock cuadra después).
+- La ayuda de IA en el buscador (Gemini) no está: necesita un proxy del lado
+  servidor para no exponer la clave, y eso exige plan Blaze. El buscador local
+  ya resuelve los casos reales probados; la IA sería para frases tipo "el palito
+  que sirve para pegar anime".
+- Las ventas que registra un empleado guardan costo 0 (no lo puede leer); los
+  reportes lo completan con el costo actual del catálogo y lo avisan en pantalla.
