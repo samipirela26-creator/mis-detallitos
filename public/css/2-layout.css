@@ -4,6 +4,7 @@
 /* Cabecera limpia y profesional */
 .barra {
   display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+  flex-wrap: wrap;
   width: 100%; max-width: var(--ancho);
   margin: 0 auto;
   padding: 1.25rem 1.25rem .5rem;
@@ -24,6 +25,18 @@
   color: var(--texto-suave);
 }
 .barra .tasas-badge span { color: var(--texto); font-family: var(--fuente-titulo); }
+
+/* En teléfono la chapita de tasas mide casi 200px y aprieta el saludo hasta
+   partirlo en dos líneas. Se pasa a su propia fila, debajo, donde además se
+   lee mejor. */
+@media (max-width: 560px) {
+  .barra { gap: .5rem .75rem; }
+  .barra .tasas-badge {
+    order: 10; width: 100%; justify-content: center;
+    margin-top: .25rem;
+  }
+  .barra .saludo { font-size: 1.3rem; }
+}
 
 .barra .logo-barra {
   width: 40px; height: 40px; border-radius: 50%;

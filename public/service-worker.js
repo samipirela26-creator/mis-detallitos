@@ -8,7 +8,7 @@
 //  - El SDK de Firebase (gstatic): stale-while-revalidate, también cacheado.
 //  - Los datos NO pasan por aquí: de eso se encarga el caché propio de Firestore.
 
-const CACHE_NAME = 'detallitos-v6';
+const CACHE_NAME = 'detallitos-v7';
 
 const PRECACHE_URLS = [
   './',
@@ -36,10 +36,12 @@ const PRECACHE_URLS = [
   'js/ui/iconos.js',
   'js/ui/pantalla-entrar.js',
   'js/ui/pin.js',
+  'js/ui/sonido.js',
   'js/ui/teclado.js',
   'js/data/auditoria.js',
   'js/data/busqueda.js',
   'js/data/caja.js',
+  'js/data/csv.js',
   'js/data/catalogo.js',
   'js/data/clientes.js',
   'js/data/fotos.js',
@@ -70,6 +72,11 @@ const PRECACHE_URLS = [
 
 const SDK = 'https://www.gstatic.com/firebasejs/';
 
+// Las tipografías vienen de Google Fonts. Sin cachearlas, estando sin señal la
+// app se ve con otra letra (funciona, pero se nota feo). Se guardan la primera
+// vez que se usan, igual que el SDK.
+const EXTERNOS = ['fonts.googleapis.com', 'fonts.gstatic.com'];
+
 self.addEventListener('install', (ev) => {
   ev.waitUntil(
     caches.open(CACHE_NAME).then(async (c) => {
@@ -96,7 +103,7 @@ self.addEventListener('fetch', (ev) => {
   // Firestore, Auth, Storage: siempre a la red, nunca cacheados por nosotros.
   if (/googleapis\.com|firebaseio\.com|firebasestorage/.test(url.hostname)) return;
 
-  if (req.url.startsWith(SDK)) {
+  if (req.url.startsWith(SDK) || EXTERNOS.includes(url.hostname)) {
     ev.respondWith(staleWhileRevalidate(req));
     return;
   }

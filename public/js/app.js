@@ -12,7 +12,7 @@ import { ventasEntre } from './data/ventas.js';
 import { gastosEntre } from './data/gastos.js';
 import { bajoMinimo } from './data/inventario.js';
 import { resumen } from './reports/analisis.js';
-import { formatear } from './core/dinero.js';
+import { formatear, MONEDAS } from './core/dinero.js';
 import { invalidarIndice } from './data/busqueda.js';
 
 // --- todas las pantallas se registran al importarlas ---
@@ -36,7 +36,7 @@ registrar('panel', {
     const sinFoto = productos.filter((p) => !p.tieneFoto && p.tipo !== 'servicio').length;
     const incompletos = productos.filter((p) => !p.precioUSD || !p.costoUSD).length;
     const bajos = bajoMinimo(productos);
-    const hayTasas = Object.keys(leer('tasas') || {}).length > 0;
+    const hayTasas = () => Object.values(leer('tasas') || {}).some((t) => t > 0);
 
     nodo.innerHTML = '';
     const kpis = el('div.kpis', {}, [
@@ -70,11 +70,13 @@ registrar('panel', {
         'Es lo primero y lo más pesado. Sube tu Excel como lo tengas: la app adivina las columnas, te deja ver una vista previa y se puede deshacer completo.',
         'Importar Excel', 'importar'));
     }
-    if (!hayTasas) {
-      avisos.appendChild(tarjetaAccion('amarilla', '💱 Pon las tasas de hoy',
+    // Las tasas llegan de Firestore unos instantes después de pintar el panel.
+    // Si se decide aquí y ya, el aviso se queda pegado aunque sí estén puestas.
+    const tarjetaTasas = tarjetaAccion('amarilla', '💱 Pon las tasas de hoy',
         'Sin la tasa del bolívar y del peso solo se puede cobrar en dólares.',
-        'Poner tasas', 'config'));
-    }
+        'Poner tasas', 'config');
+    avisos.appendChild(tarjetaTasas);
+
     if (sinFoto) {
       avisos.appendChild(tarjetaAccion('', `📷 ${sinFoto} productos sin foto`,
         'En el Estudio de Fotos se hace de corrido: disparas y salta solo al siguiente.',
@@ -90,10 +92,18 @@ registrar('panel', {
         bajos.slice(0, 4).map((p) => p.nombre).join(', ') + (bajos.length > 4 ? '…' : ''),
         'Ver inventario', 'inventario'));
     }
-    if (avisos.children.length) {
-      nodo.appendChild(el('div.seccion', {}, [el('h2', { texto: 'Pendiente' })]));
-      nodo.appendChild(avisos);
-    }
+    const seccionPendiente = el('div.seccion', {}, [el('h2', { texto: 'Pendiente' })]);
+    nodo.appendChild(seccionPendiente);
+    nodo.appendChild(avisos);
+
+    // La tarjeta de las tasas (y con ella toda la sección) aparece o desaparece
+    // sola cuando llegan las tasas, que cargan después de pintar el panel.
+    const dejarDeMirarTasas = observar('tasas', () => {
+      tarjetaTasas.style.display = hayTasas() ? 'none' : '';
+      const algoQueHacer = [...avisos.children].some((c) => c.style.display !== 'none');
+      seccionPendiente.style.display = algoQueHacer ? '' : 'none';
+      avisos.style.display = algoQueHacer ? '' : 'none';
+    });
 
     // --- atajos ---
     nodo.appendChild(el('div.seccion', {}, [el('h2', { texto: 'Atajos' })]));
@@ -104,6 +114,8 @@ registrar('panel', {
       atajo('cash', 'Caja', 'Abrir turno, reporte X y cierre Z.', 'caja-dueno'),
       atajo('settings', 'Configuración', 'Tasas del día, PIN y sinónimos.', 'config'),
     ]));
+
+    return dejarDeMirarTasas;
   },
 });
 
@@ -132,17 +144,17 @@ function atajo(iconoNombre, titulo, texto, destino) {
 
 // --- cáscara -----------------------------------------------------------------
 const app = document.getElementById('app');
+let dejarDeMirarTasas = null;
 
 function pintarCascara() {
   const u = usuarioActual();
   const hora = new Date().getHours();
   const saludo = hora < 12 ? 'Buenos días' : hora < 19 ? 'Buenas tardes' : 'Buenas noches';
-  const tasas = leer('tasas') || {};
 
-  const textoTasas = Object.entries(tasas)
-    .filter(([m]) => m !== 'USD')
-    .map(([m, t]) => `${m}: <span>${t}</span>`)
-    .join('  ·  ');
+  // La chapita de las tasas se crea vacía y se llena sola cuando lleguen.
+  // Antes se pintaba de una, y como las tasas cargan después del login, no
+  // aparecía nunca.
+  const chapitaTasas = el('div.tasas-badge', { style: 'display:none' });
 
   app.innerHTML = '';
   const nav = el('nav.nav', { id: 'nav' });
@@ -154,13 +166,25 @@ function pintarCascara() {
         el('div', { style: 'color:var(--texto-suave);font-size:.82rem;font-weight:500', texto: `${saludo},` }),
         el('div.saludo', { html: esc(u.nombre) }),
       ]),
-      textoTasas ? el('div.tasas-badge', { html: `💱 ${textoTasas}` }) : null,
+      chapitaTasas,
       el('button.btn.plano', { style: 'min-height:36px;padding:0 .85rem;font-size:.82rem', texto: 'Salir', onclick: () => cerrarSesion() }),
       el('img.logo-barra', { src: 'icons/logo-256.webp', width: '40', height: '40', alt: 'Mis Detallitos G&M C.A' }),
     ]),
     nav,
     contenido
   );
+
+  // Las tasas se guardan en unidades menores (36,50 Bs/$ se guarda como 3650),
+  // así que hay que formatearlas o la chapita diría "VES: 3650".
+  dejarDeMirarTasas?.();
+  dejarDeMirarTasas = observar('tasas', (t) => {
+    const texto = Object.entries(t || {})
+      .filter(([m, valor]) => m !== 'USD' && MONEDAS[m] && valor > 0)
+      .map(([m, valor]) => `${m}: <span>${formatear(valor, m, { simbolo: false })}</span>`)
+      .join('  ·  ');
+    chapitaTasas.innerHTML = texto ? `💱 ${texto}` : '';
+    chapitaTasas.style.display = texto ? '' : 'none';
+  });
 
   for (const p of pantallasDeMenu()) {
     const b = el('button', {

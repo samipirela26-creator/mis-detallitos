@@ -68,3 +68,13 @@ Para probar el importador sin inventar datos:
   `pegar()` de `ui/html.js`.
 - Cualquier cosa delicada (anular, cambiar precio, tocar stock) deja rastro en
   `auditoria`.
+
+## Revisiones de mantenimiento
+
+Antes de subir un cambio, estas dos comprobaciones atrapan los errores que más
+se repiten en este proyecto:
+
+```bash
+npm test          # con los emuladores corriendo incluye las reglas (51 pruebas)
+npm run precache  # avisa si algún archivo nuevo se quedó fuera del service worker
+```

@@ -11,6 +11,7 @@ import {
 import { usuarioActual } from '../core/sesion.js';
 import { MONEDAS, desdeUSD } from '../core/dinero.js';
 import { ventasEntre, hoyISO } from './ventas.js';
+import { gastosEntre } from './gastos.js';
 import { anotar } from './auditoria.js';
 
 /** Billetes y monedas que de verdad circulan, para contar sin pensar. */
@@ -46,8 +47,6 @@ export async function abrirTurno(fondo) {
   anotar('caja-abierta', { cajaId: documento.id, fondo });
   return documento.id;
 }
-
-import { gastosEntre } from './gastos.js';
 
 /**
  * Lo que DEBERÍA haber en la gaveta: el fondo más lo cobrado en efectivo,
