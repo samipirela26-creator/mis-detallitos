@@ -37,7 +37,7 @@ function parsear() {
 
 function inicioSegunRol() {
   const u = usuarioActual();
-  if (!u) return 'catalogo';
+  if (!u) return 'entrar';
   return esDueno() ? 'panel' : 'vender';
 }
 

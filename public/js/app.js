@@ -271,6 +271,10 @@ alCambiarSesion(async (u) => {
     montarEnEspera(app, u, () => cerrarSesion());
     return;
   }
+  if (esRutaPublica()) {
+    pintarCascaraPublica();
+    return;
+  }
   pintarCascara();
   sincronizarCatalogo();
   // Primero lo que haya guardado (es instantáneo) y después, si hoy nadie puso
@@ -279,15 +283,20 @@ alCambiarSesion(async (u) => {
 });
 
 addEventListener('hashchange', () => {
-  if (!usuarioActual()) {
-    if (esRutaPublica()) {
-      if (!document.getElementById('contenido')) {
-        pintarCascaraPublica();
-      }
-    } else if (location.hash !== '#/entrar') {
+  const u = usuarioActual();
+  if (esRutaPublica()) {
+    if (!document.querySelector('button.btn.plano')?.textContent?.includes('Entrar')) {
+      pintarCascaraPublica();
+    }
+  } else if (!u) {
+    if (location.hash !== '#/entrar') {
       pararCatalogo();
       app.innerHTML = '';
       montarEntrar(app);
+    }
+  } else {
+    if (!document.querySelector('.nav')) {
+      pintarCascara();
     }
   }
 });
