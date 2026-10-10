@@ -162,6 +162,77 @@ export function precioPorCantidad(producto, cantidad) {
   return precio;
 }
 
+/**
+ * Devuelve una COPIA de la línea con la cantidad nueva y el precio que le
+ * toca. No muta: el carrito compara objetos para saber si repintar.
+ *
+ * Dos casos en los que la escala NO manda, y son los que cuestan plata si se
+ * equivocan:
+ *  - precioEditado: el cajero acordó un precio con el cliente. Si la escala lo
+ *    pisara al subir la cantidad, el cliente pagaría otra cosa de la hablada.
+ *  - tipoPrecio 'variable': el precio ES el que se tecleó (una impresión a
+ *    medida); no hay precio de lista que escalar.
+ *
+ * El precio base para recalcular es precioOriginalUSD, no precioUSD: si se
+ * usara el actual, bajar la cantidad dejaría clavado el precio del tramo alto.
+ */
+export function conCantidad(linea, cantidad) {
+  const nueva = { ...linea, cantidad };
+  if (linea.precioEditado || linea.tipoPrecio === 'variable') return nueva;
+
+  const base = Number.isFinite(linea.precioOriginalUSD)
+    ? linea.precioOriginalUSD
+    : linea.precioUSD;
+  nueva.precioOriginalUSD = base;
+  nueva.precioUSD = precioPorCantidad({ precioUSD: base, escalas: linea.escalas }, cantidad);
+  return nueva;
+}
+
+// --- Billetes ----------------------------------------------------------------
+
+/** Billetes y monedas que de verdad circulan, de menor a mayor. */
+export const DENOMINACIONES = {
+  USD: [100, 200, 500, 1000, 2000, 5000, 10000],
+  COP: [500, 1000, 2000, 5000, 10000, 20000, 50000, 100000],
+  VES: [500, 1000, 2000, 5000, 10000, 20000],
+};
+
+/**
+ * Con qué se paga normalmente cuando todavía no se debe nada. No es
+ * simplemente "los cuatro más chicos": el billete de 2 dólares existe pero
+ * nadie paga con él, y ofrecerlo gasta un botón de los cuatro que caben.
+ */
+const COMUNES = {
+  USD: [100, 500, 1000, 2000],
+  COP: [1000, 2000, 5000, 10000],
+  VES: [1000, 2000, 5000, 10000],
+};
+
+/**
+ * Los billetes que conviene ofrecer para cubrir lo que falta, de menor a
+ * mayor y como mucho cuatro (son botones en el teléfono, no una lista).
+ *
+ * La idea: el que CUBRE lo que falta de un golpe, un par de los de abajo para
+ * completar con lo que el cliente traiga suelto, y el siguiente hacia arriba
+ * por si paga con uno más grande. Si falta más que el billete mayor, se
+ * ofrece ese mayor: es con lo que se empieza a juntar.
+ */
+export function denominacionesSugeridas(moneda, faltanMenores = 0) {
+  const todas = DENOMINACIONES[moneda];
+  if (!todas) return [];
+
+  const falta = Math.max(0, redondear(faltanMenores || 0));
+  if (falta <= 0) return [...(COMUNES[moneda] || todas.slice(0, 4))];
+
+  const cubre = todas.find((d) => d >= falta) ?? todas[todas.length - 1];
+  const debajo = todas.filter((d) => d < falta).slice(-2);
+  const encima = todas.filter((d) => d > cubre).slice(0, 1);
+
+  return [...new Set([...debajo, cubre, ...encima])]
+    .sort((a, b) => a - b)
+    .slice(0, 4);
+}
+
 /** Totales de una línea del carrito. Cantidad puede ser decimal (metros, kilos). */
 export function totalesLinea({ cantidad, precioUSD, costoUSD = 0 }) {
   const total = redondear(cantidad * precioUSD);

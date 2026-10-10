@@ -130,7 +130,8 @@ async function montarCaja(nodo) {
       conteos[m.codigo] = {};
       const bloque = el('details', { open: m.codigo === 'USD' ? '' : null, style: 'margin-bottom:.5rem' });
       bloque.appendChild(el('summary', { style: 'cursor:pointer;font-weight:700;padding:.4rem 0', texto: m.nombre }));
-      for (const valor of DENOMINACIONES[m.codigo]) {
+      // De mayor a menor: contar un arqueo se hace empezando por los grandes.
+      for (const valor of [...DENOMINACIONES[m.codigo]].reverse()) {
         bloque.appendChild(el('div.fila', { style: 'align-items:center;margin-bottom:.35rem' }, [
           el('span', { style: 'flex:1', texto: formatear(valor, m.codigo) }),
           el('input', {

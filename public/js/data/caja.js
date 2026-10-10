@@ -14,12 +14,9 @@ import { ventasEntre, hoyISO } from './ventas.js';
 import { gastosEntre } from './gastos.js';
 import { anotar } from './auditoria.js';
 
-/** Billetes y monedas que de verdad circulan, para contar sin pensar. */
-export const DENOMINACIONES = {
-  USD: [10000, 5000, 2000, 1000, 500, 200, 100],
-  COP: [100000, 50000, 20000, 10000, 5000, 2000, 1000, 500],
-  VES: [20000, 10000, 5000, 2000, 1000, 500],
-};
+// Los billetes viven en dinero.js, que es donde está todo lo que es plata.
+// Aquí se reexporta para no romper a quien ya los importaba de este módulo.
+export { DENOMINACIONES } from '../core/dinero.js';
 
 export async function turnoAbierto() {
   const u = usuarioActual();

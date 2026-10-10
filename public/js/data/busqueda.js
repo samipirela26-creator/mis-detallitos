@@ -105,3 +105,54 @@ export function buscar(texto, productos = [], { limite = 25 } = {}) {
 
 /** ¿Vale la pena ofrecer la ayuda de la IA? */
 export const sinResultados = (resultados) => !resultados || resultados.length === 0;
+
+// --- Cantidad y código escritos en la misma caja de búsqueda -----------------
+
+/**
+ * Separa una cantidad escrita junto al producto: "3x lapiz" -> 3 y "lapiz".
+ * Acepta la x o el * delante o detrás, y decimales con coma ("2,5 x tela",
+ * para lo que se vende por metro o por kilo).
+ *
+ * EXIGE la x o el *. Un número suelto NO es cantidad, y esta es la regla que
+ * evita el error caro del mostrador: "cuaderno 100 hojas" agregando cien
+ * cuadernos, o "pega 250" vendiendo 250 pegas. Hay demasiados productos que
+ * llevan el número en el nombre.
+ */
+export function partirCantidad(entrada) {
+  const texto = String(entrada ?? '').trim();
+  if (!texto) return { cantidad: null, texto: '' };
+
+  const num = '(\\d+(?:[.,]\\d+)?)';
+  const delante = new RegExp(`^${num}\\s*[x*]\\s*(.+)$`, 'i');
+  const detras = new RegExp(`^(.+?)\\s*[x*]\\s*${num}$`, 'i');
+
+  let cantidad = null;
+  let resto = null;
+
+  const d = texto.match(delante);
+  if (d) {
+    cantidad = Number(d[1].replace(',', '.'));
+    resto = d[2];
+  } else {
+    const t = texto.match(detras);
+    if (t) {
+      cantidad = Number(t[2].replace(',', '.'));
+      resto = t[1];
+    }
+  }
+
+  // "0x lapiz" no es una venta de cero: se busca el texto tal cual.
+  if (!Number.isFinite(cantidad) || cantidad <= 0) return { cantidad: null, texto };
+
+  return { cantidad, texto: resto.trim() };
+}
+
+/**
+ * ¿Esto lo escupió el lector de códigos de barras?
+ * Sólo dígitos y al menos ocho: EAN-8 es el más corto que se usa. Por debajo
+ * de eso es más probable que sea alguien tecleando un número a mano.
+ */
+export function pareceCodigo(entrada) {
+  const s = String(entrada ?? '').trim();
+  return s.length >= 8 && /^\d+$/.test(s);
+}
