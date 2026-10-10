@@ -56,8 +56,11 @@ test('exportarInventario genera la estructura correcta con fórmulas y formatos'
   // Estilos: lo que motivó migrar de SheetJS a ExcelJS
   const enc = hoja.getCell(FILA_ENCAB, 1);
   assert.ok(enc.font.bold, 'Encabezado en negrita');
-  assert.equal(enc.fill.fgColor.argb, 'FF0090B3', 'Encabezado con el color de marca');
-  assert.equal(hoja.getCell(FILA_DATOS + 1, 1).fill.fgColor.argb, 'FFF1F5F9', 'Segunda fila con cebra');
+  // Los dos colores son los de la app (css/1-base.css): el turquesa del logo
+  // --marca #0b6a82 y el hielo --superficie-2. Van fijos a propósito: si
+  // alguien cambia la paleta del Excel sin querer, este test lo caza.
+  assert.equal(enc.fill.fgColor.argb, 'FF0B6A82', 'Encabezado con el color de marca');
+  assert.equal(hoja.getCell(FILA_DATOS + 1, 1).fill.fgColor.argb, 'FFF1F7FA', 'Segunda fila con cebra');
   assert.equal(hoja.conditionalFormattings.length, 2, 'Stock bajo y margen negativo');
   assert.equal(hoja.pageSetup.printTitlesRow, `${FILA_ENCAB}:${FILA_ENCAB}`, 'Encabezado repetido al imprimir');
 });
