@@ -25,6 +25,7 @@ import './features/caja.js';
 import './features/gastos.js';
 import './features/clientes.js';
 import './features/config.js';
+import './features/catalogo-publico.js';
 import './reports/panel.js';
 import { icono } from './ui/iconos.js';
 import { aplicarTema } from './ui/tema.js';

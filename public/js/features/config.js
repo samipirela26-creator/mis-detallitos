@@ -23,6 +23,7 @@ registrar('config', {
       <div class="tarjeta" id="pin" style="margin-top:1rem"></div>
       <div class="tarjeta" id="solicitudes" style="margin-top:1rem"><div class="cargando">Revisando solicitudes…</div></div>
       <div class="tarjeta" id="usuarios" style="margin-top:1rem"><div class="cargando">Cargando usuarios…</div></div>
+      <div class="tarjeta" id="catalogo-config" style="margin-top:1rem"></div>
       <div class="tarjeta" id="tema" style="margin-top:1rem"></div>
       <div class="tarjeta" id="datos" style="margin-top:1rem"></div>`;
 
@@ -31,6 +32,7 @@ registrar('config', {
     pintarPin($('#pin', nodo));
     pintarSolicitudes($('#solicitudes', nodo), () => pintarUsuarios($('#usuarios', nodo)));
     pintarUsuarios($('#usuarios', nodo));
+    pintarCatalogoConfig($('#catalogo-config', nodo));
     pintarTema($('#tema', nodo));
     pintarDatos($('#datos', nodo));
   },
@@ -351,4 +353,64 @@ function pintarTema(caja) {
     fila
   );
   marcar();
+}
+
+// --- catálogo digital y WhatsApp ----------------------------------------------
+function pintarCatalogoConfig(caja) {
+  const actualWa = leer('config_whatsapp') || '';
+  const inputWa = el('input', {
+    placeholder: 'Ej: 584141234567 (código país + número sin +)',
+    value: actualWa,
+  });
+
+  const urlCatalogo = `${location.origin}${location.pathname}#/catalogo`;
+
+  const btnGuardar = el('button.btn.principal', {
+    texto: 'Guardar WhatsApp',
+    onclick: async () => {
+      const val = inputWa.value.replace(/[^\d]/g, '');
+      const { escribir } = await import('../core/estado.js');
+      escribir('config_whatsapp', val);
+      try {
+        await setDoc(ref('config', 'whatsapp'), { numero: val, actualizado: new Date() });
+      } catch (e) { console.warn(e); }
+      avisarOk('Número de WhatsApp guardado');
+    },
+  });
+
+  const btnCompartir = el('button.btn.exito', {
+    texto: 'Copiar Enlace del Catálogo 📲',
+    onclick: () => {
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(urlCatalogo).then(() => {
+          avisarOk('¡Enlace del catálogo copiado!');
+        }).catch(() => {
+          prompt('Copia este enlace para enviarlo por WhatsApp:', urlCatalogo);
+        });
+      } else {
+        prompt('Copia este enlace para enviarlo por WhatsApp:', urlCatalogo);
+      }
+    },
+  });
+
+  caja.innerHTML = '';
+  pegar(caja,
+    el('h2', { texto: 'Catálogo Digital y Pedidos por WhatsApp' }),
+    el('p', {
+      style: 'color:var(--texto-suave);font-size:.9rem',
+      texto: 'Tus clientes pueden ver tu catálogo en su teléfono y enviarte pedidos formateados a tu WhatsApp.',
+    }),
+    el('div.campo', {}, [
+      el('label', { texto: 'Número de WhatsApp de la tienda (con código de país)' }),
+      inputWa,
+    ]),
+    el('div.fila', {}, [
+      btnGuardar,
+      btnCompartir,
+      el('button.btn.plano', {
+        texto: 'Abrir Catálogo',
+        onclick: () => window.open(urlCatalogo, '_blank'),
+      }),
+    ])
+  );
 }
