@@ -64,13 +64,13 @@ registrar('importar', {
   montar(nodo) {
     nodo.innerHTML = `
       <div class="tarjeta">
-        <h1>📥 Importar el inventario</h1>
+        <h1>Importar el inventario</h1>
         <p>Sube tu Excel <strong>como lo tengas</strong>. La app adivina qué columna es
            cuál, te muestra una vista previa y <strong>se puede deshacer completa</strong>
            si algo sale mal.</p>
         <div class="fila">
-          <button class="btn principal" id="elegir">📂 Elegir archivo</button>
-          <button class="btn plano" id="plantilla">⬇️ Descargar plantilla</button>
+          <button class="btn principal" id="elegir">Elegir archivo</button>
+          <button class="btn plano" id="plantilla">Descargar plantilla</button>
         </div>
         <input type="file" id="archivo" accept=".xlsx,.xls,.csv,.ods" hidden>
         <p style="font-size:.85rem;color:var(--texto-suave);margin-top:.75rem">
@@ -322,7 +322,7 @@ function pintarPrevia(caja) {
 function pintarHecho(caja, importId, cuantos, incompletos) {
   caja.innerHTML = '';
   caja.appendChild(el('div.tarjeta.marca', {}, [
-    el('h2', { texto: '✅ Inventario cargado' }),
+    el('h2', { texto: 'Inventario cargado' }),
     el('p', { texto: `Entraron ${cuantos} productos.` }),
     incompletos ? el('p', {
       style: 'color:var(--ambar);font-weight:600',
@@ -330,8 +330,8 @@ function pintarHecho(caja, importId, cuantos, incompletos) {
     }) : null,
     el('p', { texto: 'Lo que sigue es ponerles las fotos, que se hace de corrido.' }),
     el('div.fila', {}, [
-      el('button.btn.principal', { texto: '📷 Ir al Estudio de Fotos', onclick: () => ir('fotos') }),
-      el('button.btn.plano', { texto: '📦 Ver inventario', onclick: () => ir('inventario') }),
+      el('button.btn.principal', { texto: 'Ir al Estudio de Fotos', onclick: () => ir('fotos') }),
+      el('button.btn.plano', { texto: 'Ver inventario', onclick: () => ir('inventario') }),
     ]),
     el('button.btn.plano.ancho', {
       style: 'margin-top:1rem;color:var(--rojo)',

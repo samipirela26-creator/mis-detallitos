@@ -27,9 +27,18 @@ export function montarEntrar(nodo) {
   function pintar() {
     nodo.innerHTML = '';
     const panel = el('div.panel', {}, [
-      el('img', { src: 'icons/logo.webp', width: '128', height: '128', alt: 'Mis Detallitos G&M C.A' }),
-      el('h1', { style: 'color:#fff;margin:.75rem 0 0', texto: 'Mis Detallitos' }),
-      el('p', { class: 'lema', texto: 'Tus ventas, tu inventario y lo que de verdad estás ganando.' }),
+      el('div.marca', {}, [
+        el('div.bienvenida', { texto: 'Bienvenido a' }),
+        el('img', { src: 'icons/logo.webp', width: '128', height: '128', alt: 'Mis Detallitos G&M C.A' }),
+        el('h1', { style: 'margin:.75rem 0 0', texto: 'Mis Detallitos' }),
+        el('p', { class: 'lema', texto: 'Tus ventas, tu inventario y lo que de verdad estás ganando.' }),
+      ]),
+      el('div.pie-marca', {}, [
+        el('span', { texto: 'G&M C.A.' }),
+        el('span', { texto: 'Papelería' }),
+      ]),
+      // El borde ondulado que separa la marca del formulario.
+      el('div.ola', { 'aria-hidden': 'true' }),
     ]);
 
     const form = el('form');
@@ -41,11 +50,13 @@ export function montarEntrar(nodo) {
         el('h1', { texto: 'Entrar' }),
         campo('email', 'Correo', { type: 'email', autocomplete: 'username', placeholder: 'tucorreo@gmail.com' }),
         campo('clave', 'Clave', { type: 'password', autocomplete: 'current-password', placeholder: '••••••••' }),
-        el('button.btn.principal.ancho.grande', { type: 'submit', texto: 'Entrar' }),
-        el('button.btn.plano.ancho', {
-          type: 'button', style: 'margin-top:.75rem', texto: 'No tengo cuenta todavía',
-          onclick: () => { modo = 'registro'; pintar(); },
-        })
+        el('div.acciones', {}, [
+          el('button.btn.principal.grande', { type: 'submit', texto: 'Entrar' }),
+          el('button.btn.plano.grande', {
+            type: 'button', texto: 'Crear cuenta',
+            onclick: () => { modo = 'registro'; pintar(); },
+          }),
+        ])
       );
     } else {
       pegar(form,
@@ -57,11 +68,13 @@ export function montarEntrar(nodo) {
         campo('nombre', '¿Cómo te llamas?', { autocomplete: 'name', placeholder: 'Tu nombre' }),
         campo('email', 'Correo', { type: 'email', autocomplete: 'username', placeholder: 'tucorreo@gmail.com' }),
         campo('clave', 'Clave', { type: 'password', autocomplete: 'new-password', placeholder: 'mínimo 6 caracteres' }),
-        el('button.btn.principal.ancho.grande', { type: 'submit', texto: 'Crear cuenta' }),
-        el('button.btn.plano.ancho', {
-          type: 'button', style: 'margin-top:.75rem', texto: 'Ya tengo cuenta, quiero entrar',
-          onclick: () => { modo = 'entrar'; pintar(); },
-        })
+        el('div.acciones', {}, [
+          el('button.btn.principal.grande', { type: 'submit', texto: 'Crear cuenta' }),
+          el('button.btn.plano.grande', {
+            type: 'button', texto: 'Ya tengo cuenta',
+            onclick: () => { modo = 'entrar'; pintar(); },
+          }),
+        ])
       );
     }
 
@@ -103,12 +116,15 @@ export function montarEnEspera(nodo, usuario, alSalir) {
   nodo.innerHTML = '';
   pegar(nodo, el('div.login', {}, [
     el('div.panel', {}, [
-      el('img', { src: 'icons/logo.webp', width: '110', height: '110', alt: '' }),
-      el('h1', { style: 'color:#fff;margin:.75rem 0 0', texto: 'Mis Detallitos' }),
+      el('div.marca', {}, [
+        el('img', { src: 'icons/logo.webp', width: '110', height: '110', alt: '' }),
+        el('h1', { style: 'margin:.75rem 0 0', texto: 'Mis Detallitos' }),
+      ]),
+      el('div.ola', { 'aria-hidden': 'true' }),
     ]),
     el('div.forma', {}, [
       el('div', { style: 'max-width:380px' }, [
-        el('div', { style: 'font-size:2.5rem;text-align:center', texto: '⏳' }),
+        el('div', { style: 'font-size:2.5rem;text-align:center', texto: '' }),
         el('h1', { style: 'text-align:center', texto: `Hola, ${usuario.nombre}` }),
         el('p', {
           style: 'text-align:center;color:var(--texto-suave)',

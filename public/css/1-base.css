@@ -1,48 +1,65 @@
 /* 1-base.css — variables, reset y tipografía. EL NÚMERO ES LA CASCADA:
    si cambias el orden de los <link> en index.html, cambias los estilos.
 
-   Estilo: tarjetas suaves, esquinas muy redondeadas, botones tipo píldora y
-   números grandes. Los colores salen del logo de Mis Detallitos G&M C.A. */
+   Estilo: los colores salen del logo de Mis Detallitos G&M C.A. El turquesa
+   del círculo manda: el fondo es ese mismo turquesa bajado al mínimo, los
+   bloques son el turquesa pleno, el amarillo del morral marca lo que urge y
+   el negro del rótulo es el texto. Bloques de color llenos, titulares
+   enormes, cero sombras: el color separa las piezas. */
 :root {
   /* --- Fuentes --- */
   --fuente-titulo: 'Outfit', -apple-system, system-ui, sans-serif;
   --fuente-cuerpo: 'Work Sans', -apple-system, system-ui, sans-serif;
 
-  /* --- Marca & Acentos (Turquesa elegante + Acento ámbar) --- */
-  --marca: #0090b3;          /* Turquesa sobrio */
-  --marca-fuerte: #007694;
-  --marca-oscuro: #005064;
-  --marca-suave: #edf9fc;
-  --marca-tinta: #0f172a;    /* Azul noche profundo */
-  --amarillo: #f59e0b;       /* Ámbar vibrante */
-  --amarillo-suave: #fffbeb;
+  /* --- Marca: sacada del logo (paleta "Hielo") --- */
+  /* El turquesa del círculo, bajado hasta que TODO pase contraste encima:
+     blanco 6.2:1, rótulo claro 4.9:1, y como texto sobre el hielo 5.6:1. */
+  --marca: #0b6a82;
+  --marca-fuerte: #085466;   /* Hover y enlaces */
+  --marca-oscuro: #073f4e;
+  --marca-clara: #3f93ab;    /* La capa de atrás de la ola del login */
+  --marca-suave: #d3e9f1;
+  --marca-tinta: #0c1e24;    /* El negro del rótulo, con una gota de turquesa */
+  --tinta: #0c1e24;          /* Fondo de lo que manda: botón principal, aviso */
+  --sobre-tinta: #ffffff;    /* Y su texto. En oscuro los dos se invierten. */
+  --amarillo: #ffc400;       /* Amarillo del morral — lo que urge */
+  --amarillo-suave: #fdf0c4;
+
+  /* Texto ENCIMA de un bloque de color.
+     Sobre el turquesa va blanco; el negro ahí lo apaga y queda en 4.0.
+     Sobre el amarillo SIEMPRE negro: el blanco da 1.7. */
+  --sobre-marca-fuerte: #ffffff;
+  --sobre-marca: #cfeaf2;    /* Rótulos pequeños dentro de un bloque turquesa */
+  --sobre-amarillo: #6a5000;
 
   /* --- Semánticos --- */
-  --verde: #10b981;
-  --verde-suave: #ecfdf5;
-  --rojo: #ef4444;
-  --rojo-suave: #fef2f2;
-  --ambar: #d97706;
-  --ambar-suave: #fffbeb;
+  --verde: #1e6f4e;
+  --verde-suave: #d7ece1;
+  --rojo: #a52a1c;
+  --rojo-suave: #fadfd9;
+  --ambar: #8a5e00;
+  --ambar-suave: #fdf0c4;
 
-  /* --- Superficies (Clean & Crisp Palette) --- */
-  --fondo: #f8fafc;          /* Slate ultra-limpio */
-  --superficie: #ffffff;
-  --superficie-2: #f1f5f9;
-  --borde: #e2e8f0;          /* Borde fino sutil */
-  --borde-suave: #f1f5f9;
-  --texto: #0f172a;          /* Slate 900 */
-  --texto-suave: #64748b;    /* Slate 500 */
+  /* --- Superficies --- */
+  --fondo: #e9f5f9;          /* El turquesa del logo bajado al mínimo */
+  --superficie: #ffffff;     /* Papel */
+  --superficie-2: #dceef4;
+  --borde: #cfe3ea;
+  --borde-suave: #dceef4;
+  --texto: #0c1e24;
+  --texto-suave: #56707a;    /* 5.1:1 sobre el hielo */
 
   /* --- Forma & Elevación --- */
-  --r-xl: 20px;
-  --r: 14px;
-  --r-chico: 8px;
+  --r-bloque: 22px;
+  --r-xl: 22px;
+  --r: 20px;
+  --r-chico: 14px;
   --pildora: 999px;
-  --sombra: 0 1px 2px 0 rgba(15, 23, 42, 0.04), 0 1px 3px 0 rgba(15, 23, 42, 0.02);
-  --sombra-elevada: 0 4px 16px -2px rgba(15, 23, 42, 0.06), 0 2px 6px -1px rgba(15, 23, 42, 0.03);
-  --sombra-alta: 0 16px 36px -4px rgba(15, 23, 42, 0.12), 0 6px 14px -2px rgba(15, 23, 42, 0.04);
-  --toque: 44px;
+  /* Sin sombras en reposo: el color separa. Sólo diálogos y avisos levantan. */
+  --sombra: none;
+  --sombra-elevada: none;
+  --sombra-alta: 0 18px 40px -8px rgba(18, 18, 18, .28);
+  --toque: 46px;
   --ancho: 1040px;
 }
 
@@ -60,16 +77,20 @@ body {
   overscroll-behavior-y: contain;
 }
 
+/* Los titulares cargan la pantalla: grandes, apretados, de dos palabras. */
 h1, h2, h3 {
   font-family: var(--fuente-titulo);
   margin: 0 0 .5rem;
   line-height: 1.25;
   letter-spacing: -.02em;
 }
-h1 { font-size: 1.65rem; font-weight: 700; color: var(--texto); }
+h1 {
+  font-size: 2.75rem; font-weight: 700; color: var(--texto);
+  line-height: .96; letter-spacing: -.045em;
+}
 h2 { font-size: 1.15rem; font-weight: 600; color: var(--texto); }
 p { margin: 0 0 .75rem; }
-a { color: var(--marca); text-decoration: none; font-weight: 500; }
+a { color: var(--marca-fuerte); text-decoration: none; font-weight: 500; }
 a:hover { text-decoration: underline; }
 
 /* Cifras monetarias y números de alta precisión */
@@ -80,3 +101,86 @@ a:hover { text-decoration: underline; }
 
 .oculto { display: none !important; }
 .solo-lectores { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+
+
+/* --- Tema oscuro (paleta "Tinta") ------------------------------------------
+   Se enciende con data-tema="oscuro" en <html>, que pone app.js antes de
+   pintar. Sin atributo manda lo que diga el teléfono.
+
+   Dos cosas se invierten, no se oscurecen:
+   - --tinta pasa a ser clara: un botón negro sobre fondo casi negro no existe.
+   - El turquesa SUBE a #2cc0e2 en vez de bajar. Sobre un fondo oscuro el
+     turquesa apagado se hunde; y encima de él el texto vuelve a ser oscuro. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-tema="claro"]) { color-scheme: dark; }
+  :root:not([data-tema="claro"]) {
+    --marca: #2cc0e2;
+    --marca-fuerte: #5bd2ec;
+    --marca-oscuro: #9ae3f4;
+    --marca-clara: #1a8aa6;
+    --marca-suave: #10323c;
+    --amarillo: #ffc400;
+    --amarillo-suave: #3a2f05;
+
+    --sobre-marca-fuerte: #042630;
+    --sobre-marca: #0a4453;
+    --sobre-amarillo: #4a3a00;
+
+    --verde: #4ade9f;
+    --verde-suave: #10312a;
+    --rojo: #ff8a75;
+    --rojo-suave: #3a1a15;
+    --ambar: #ffc400;
+    --ambar-suave: #3a2f05;
+
+    --fondo: #101719;
+    --superficie: #182226;
+    --superficie-2: #223035;
+    --borde: #2b3a40;
+    --borde-suave: #223035;
+    --texto: #f2f5f4;
+    --texto-suave: #93a6ac;
+
+    --marca-tinta: #182226;
+    --tinta: #f2f5f4;
+    --sobre-tinta: #0c1e24;
+
+    --sombra-alta: 0 18px 40px -8px rgba(0, 0, 0, .6);
+  }
+}
+
+:root[data-tema="oscuro"] { color-scheme: dark; }
+:root[data-tema="oscuro"] {
+  --marca: #2cc0e2;
+  --marca-fuerte: #5bd2ec;
+  --marca-oscuro: #9ae3f4;
+  --marca-clara: #1a8aa6;
+  --marca-suave: #10323c;
+  --amarillo: #ffc400;
+  --amarillo-suave: #3a2f05;
+
+  --sobre-marca-fuerte: #042630;
+  --sobre-marca: #0a4453;
+  --sobre-amarillo: #4a3a00;
+
+  --verde: #4ade9f;
+  --verde-suave: #10312a;
+  --rojo: #ff8a75;
+  --rojo-suave: #3a1a15;
+  --ambar: #ffc400;
+  --ambar-suave: #3a2f05;
+
+  --fondo: #101719;
+  --superficie: #182226;
+  --superficie-2: #223035;
+  --borde: #2b3a40;
+  --borde-suave: #223035;
+  --texto: #f2f5f4;
+  --texto-suave: #93a6ac;
+
+  --marca-tinta: #182226;
+  --tinta: #f2f5f4;
+  --sobre-tinta: #0c1e24;
+
+  --sombra-alta: 0 18px 40px -8px rgba(0, 0, 0, .6);
+}

@@ -72,12 +72,12 @@ registrar('vender', {
     nodo.innerHTML = `
       <div class="buscador-pos">
         <input id="q" type="search" inputmode="search" autocomplete="off" enterkeyhint="search"
-               placeholder="🔎 Busca el producto o pasa el código…">
+               placeholder="Busca el producto o pasa el código…">
         <div class="chips-barra" style="margin-top:.45rem">
-          <button type="button" class="chip" data-q="Fotocopia B/N">⚡ Fotocopia B/N</button>
-          <button type="button" class="chip" data-q="Fotocopia Color">⚡ Fotocopia Color</button>
-          <button type="button" class="chip" data-q="Impresión">⚡ Impresión</button>
-          <button type="button" class="chip" id="chip-suelto">✏️ Producto suelto</button>
+          <button type="button" class="chip" data-q="Fotocopia B/N">Fotocopia B/N</button>
+          <button type="button" class="chip" data-q="Fotocopia Color">Fotocopia Color</button>
+          <button type="button" class="chip" data-q="Impresión">Impresión</button>
+          <button type="button" class="chip" id="chip-suelto">Producto suelto</button>
         </div>
       </div>
       <div id="resultados"></div>
@@ -127,7 +127,7 @@ registrar('vender', {
             style: 'font-size:.9rem;color:var(--texto-suave)',
             texto: 'Prueba con otra palabra, o véndelo como producto suelto.',
           }),
-          el('button.btn.acento', { texto: '✏️ Vender producto suelto', onclick: () => productoSuelto(texto) }),
+          el('button.btn.acento', { texto: 'Vender producto suelto', onclick: () => productoSuelto(texto) }),
         ]));
         return;
       }
@@ -211,7 +211,7 @@ registrar('vender', {
       cajaCarrito.innerHTML = '';
       if (!lineas.length) {
         cajaCarrito.appendChild(el('div.vacio', {}, [
-          el('div', { style: 'font-size:2.5rem', texto: '🧾' }),
+          el('div', { style: 'font-size:2.5rem', texto: '' }),
           el('p', { texto: 'Busca un producto para empezar la venta.' }),
         ]));
         return;
@@ -234,11 +234,11 @@ registrar('vender', {
           ]),
           el('div.cifra', { style: 'font-weight:700', texto: formatear(Math.round(l.cantidad * l.precioUSD)) }),
           el('button.btn.plano', {
-            style: 'min-height:38px;padding:0 .7rem', texto: '✏️',
+            style: 'min-height:38px;padding:0 .7rem', texto: '',
             onclick: () => editarLinea(i),
           }),
           el('button.btn.plano', {
-            style: 'min-height:38px;padding:0 .7rem', texto: '🗑️',
+            style: 'min-height:38px;padding:0 .7rem', texto: '',
             onclick: () => quitar(i),
           }),
         ]));
@@ -274,7 +274,7 @@ registrar('vender', {
       pegar(d, 
         el('h2', { html: esc(l.nombre) }),
         el('div.fila', { style: 'margin:1rem 0' }, [
-          el('button.btn.plano', { texto: '🔢 Cantidad', onclick: async () => {
+          el('button.btn.plano', { texto: 'Cantidad', onclick: async () => {
             d.close();
             const c = await pedirCantidad({ titulo: l.nombre, inicial: l.cantidad, unidad: l.unidad });
             if (c === null || c <= 0) return;
@@ -290,7 +290,7 @@ registrar('vender', {
             lineas[i] = l;
             ponerCarrito(lineas);
           } }),
-          el('button.btn.plano', { texto: '💲 Precio', onclick: async () => {
+          el('button.btn.plano', { texto: 'Precio', onclick: async () => {
             d.close();
             const p = await pedirMonto({ titulo: `Precio de ${l.nombre}`, inicial: l.precioUSD });
             if (p === null) return;
@@ -368,7 +368,7 @@ async function cobrar() {
         el('span', { texto: `${formatear(p.monto, p.moneda)}` }),
         el('span', { style: 'color:var(--texto-suave);font-size:.85rem', texto: `= ${formatear(p.montoUSD)}` }),
         el('button.btn.plano', {
-          style: 'min-height:34px;padding:0 .6rem', texto: '✕',
+          style: 'min-height:34px;padding:0 .6rem', texto: '',
           onclick: () => { pagos = pagos.filter((_, j) => j !== i); pintar(); },
         }),
       ]));
@@ -423,7 +423,7 @@ async function cobrar() {
     botonesMoneda,
     listaPagos,
     el('button.btn.plano.ancho', {
-      style: 'margin-top:.75rem', texto: '🤝 Dejarlo fiado',
+      style: 'margin-top:.75rem', texto: 'Dejarlo fiado',
       onclick: async () => {
         const elegido = await elegirCliente();
         if (!elegido) return;

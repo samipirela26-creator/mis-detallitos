@@ -19,7 +19,7 @@ registrar('buscar', {
   montar(nodo) {
     nodo.innerHTML = `
       <div class="buscador-pos">
-        <input id="q" type="search" autocomplete="off" placeholder="🔎 ¿Qué está buscando el cliente?">
+        <input id="q" type="search" autocomplete="off" placeholder="¿Qué está buscando el cliente?">
       </div>
       <div id="chips" class="fila" style="margin:.75rem 0;gap:.4rem"></div>
       <div id="res"></div>`;
@@ -42,7 +42,7 @@ registrar('buscar', {
       res.innerHTML = '';
       if (!texto) {
         res.appendChild(el('div.vacio', {}, [
-          el('div', { style: 'font-size:2.5rem', texto: '🔎' }),
+          el('div', { style: 'font-size:2.5rem', texto: '' }),
           el('p', { texto: 'Escribe como se te ocurra. Aunque esté mal escrito, aparece.' }),
         ]));
         return;
@@ -84,7 +84,7 @@ registrar('buscar', {
                 }),
           ]),
           el('button.btn.plano', {
-            style: 'min-height:40px;padding:0 .8rem', texto: '➕',
+            style: 'min-height:40px;padding:0 .8rem', texto: '',
             onclick: (ev) => {
               ev.stopPropagation();
               if (p.tipoPrecio === 'variable') return ir('vender');

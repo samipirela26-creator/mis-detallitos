@@ -31,9 +31,9 @@ registrar('inventario', {
         </select>
       </div>
       <div class="fila" style="margin-bottom:1rem">
-        <button class="btn principal" id="nuevo">➕ Producto nuevo</button>
-        <button class="btn plano" id="importar">📥 Importar Excel</button>
-        <button class="btn plano" id="exportar">📤 Exportar</button>
+        <button class="btn principal" id="nuevo">Producto nuevo</button>
+        <button class="btn plano" id="importar">Importar Excel</button>
+        <button class="btn plano" id="exportar">Exportar</button>
       </div>
       <div id="resumen"></div>
       <div id="lista"></div>`;
@@ -74,7 +74,7 @@ registrar('inventario', {
       if (!lista.length) {
         caja.appendChild(el('div.vacio', {}, [
           el('p', { texto: todos.length ? 'Nada con ese filtro.' : 'Todavía no hay productos.' }),
-          todos.length ? null : el('button.btn.principal', { texto: '📥 Importar mi Excel', onclick: () => ir('importar') }),
+          todos.length ? null : el('button.btn.principal', { texto: 'Importar mi Excel', onclick: () => ir('importar') }),
         ]));
         return;
       }
@@ -186,12 +186,12 @@ export function formulario(p = null) {
       <details style="margin-bottom:1rem">
         <summary style="cursor:pointer;font-weight:600;color:var(--texto-suave)">Precios por cantidad (fotocopias, mayor)</summary>
         <div id="escalas" style="margin-top:.6rem"></div>
-        <button type="button" class="btn plano" id="mas-escala">➕ Agregar tramo</button>
+        <button type="button" class="btn plano" id="mas-escala">Agregar tramo</button>
       </details>
 
       <div class="fila">
         <button type="button" class="btn plano" id="cancelar">Cancelar</button>
-        ${esNuevo ? '' : '<button type="button" class="btn plano" id="ajustar">📊 Ajustar stock</button>'}
+        ${esNuevo ? '' : '<button type="button" class="btn plano" id="ajustar">Ajustar stock</button>'}
         <button type="submit" class="btn principal">Guardar</button>
       </div>
       ${esNuevo ? '' : '<button type="button" class="btn plano ancho" id="borrar" style="margin-top:.6rem;color:var(--rojo)">Desactivar producto</button>'}
@@ -204,7 +204,7 @@ export function formulario(p = null) {
     const fila = el('div.fila', { style: 'margin-bottom:.4rem' }, [
       el('input', { type: 'number', min: '1', placeholder: 'Desde cantidad', value: e.desdeCant || '', 'data-k': 'cant' }),
       el('input', { inputmode: 'decimal', placeholder: 'Precio c/u', value: e.precioUSD ? aMayores(e.precioUSD) : '', 'data-k': 'precio' }),
-      el('button.btn.plano', { type: 'button', texto: '✕', style: 'flex:0 0 52px', onclick: () => fila.remove() }),
+      el('button.btn.plano', { type: 'button', texto: '', style: 'flex:0 0 52px', onclick: () => fila.remove() }),
     ]);
     cajaEscalas.appendChild(fila);
   };

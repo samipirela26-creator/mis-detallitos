@@ -83,7 +83,7 @@ async function montarGastos(nodo) {
             g.moneda !== 'USD' ? el('div', { style: 'font-size:.78rem;color:var(--texto-suave)', texto: formatear(g.monto, g.moneda) }) : null,
           ]),
           esDueno() ? el('button.btn.plano', {
-            style: 'min-height:34px;padding:0 .5rem', texto: '🗑️',
+            style: 'min-height:34px;padding:0 .5rem', texto: '',
             onclick: async () => {
               if (!await confirmar('¿Borrar este gasto?', { peligro: true, aceptar: 'Borrar' })) return;
               await borrarGasto(g.id);

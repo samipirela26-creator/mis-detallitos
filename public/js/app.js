@@ -27,6 +27,10 @@ import './features/clientes.js';
 import './features/config.js';
 import './reports/panel.js';
 import { icono } from './ui/iconos.js';
+import { aplicarTema } from './ui/tema.js';
+
+// Antes que nada: si no, se ve un fogonazo claro al abrir en modo oscuro.
+aplicarTema();
 
 // --- inicio del dueño --------------------------------------------------------
 registrar('panel', {
@@ -66,29 +70,29 @@ registrar('panel', {
     // --- avisos que piden acción ---
     const avisos = el('div');
     if (!productos.length) {
-      avisos.appendChild(tarjetaAccion('marca', '📥 Carga tu inventario',
+      avisos.appendChild(tarjetaAccion('marca', 'Carga tu inventario',
         'Es lo primero y lo más pesado. Sube tu Excel como lo tengas: la app adivina las columnas, te deja ver una vista previa y se puede deshacer completo.',
         'Importar Excel', 'importar'));
     }
     // Las tasas llegan de Firestore unos instantes después de pintar el panel.
     // Si se decide aquí y ya, el aviso se queda pegado aunque sí estén puestas.
-    const tarjetaTasas = tarjetaAccion('amarilla', '💱 Pon las tasas de hoy',
+    const tarjetaTasas = tarjetaAccion('amarilla', 'Pon las tasas de hoy',
         'Sin la tasa del bolívar y del peso solo se puede cobrar en dólares.',
         'Poner tasas', 'config');
     avisos.appendChild(tarjetaTasas);
 
     if (sinFoto) {
-      avisos.appendChild(tarjetaAccion('', `📷 ${sinFoto} productos sin foto`,
+      avisos.appendChild(tarjetaAccion('', `${sinFoto} productos sin foto`,
         'En el Estudio de Fotos se hace de corrido: disparas y salta solo al siguiente.',
         'Ir al Estudio', 'fotos'));
     }
     if (incompletos) {
-      avisos.appendChild(tarjetaAccion('', `✏️ ${incompletos} sin precio o sin costo`,
+      avisos.appendChild(tarjetaAccion('', `${incompletos} sin precio o sin costo`,
         'Sin costo no se puede saber cuánto estás ganando con ese producto.',
         'Completarlos', 'inventario'));
     }
     if (bajos.length) {
-      avisos.appendChild(tarjetaAccion('', `📦 ${bajos.length} productos por acabarse`,
+      avisos.appendChild(tarjetaAccion('', `${bajos.length} productos por acabarse`,
         bajos.slice(0, 4).map((p) => p.nombre).join(', ') + (bajos.length > 4 ? '…' : ''),
         'Ver inventario', 'inventario'));
     }

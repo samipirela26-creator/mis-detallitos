@@ -1,6 +1,7 @@
 // config.js — tasas del día, PIN, sinónimos por aprobar y usuarios.
 // Todo esto es del dueño; el empleado ni ve el botón.
 
+import { temaGuardado, guardarTema } from '../ui/tema.js';
 import { registrar } from '../core/router.js';
 import { el, esc, $, fecha, pegar } from '../ui/html.js';
 import { avisar, avisarOk, avisarMal, confirmar } from '../ui/avisos.js';
@@ -22,6 +23,7 @@ registrar('config', {
       <div class="tarjeta" id="pin" style="margin-top:1rem"></div>
       <div class="tarjeta" id="solicitudes" style="margin-top:1rem"><div class="cargando">Revisando solicitudes…</div></div>
       <div class="tarjeta" id="usuarios" style="margin-top:1rem"><div class="cargando">Cargando usuarios…</div></div>
+      <div class="tarjeta" id="tema" style="margin-top:1rem"></div>
       <div class="tarjeta" id="datos" style="margin-top:1rem"></div>`;
 
     pintarTasas($('#tasas', nodo));
@@ -29,6 +31,7 @@ registrar('config', {
     pintarPin($('#pin', nodo));
     pintarSolicitudes($('#solicitudes', nodo), () => pintarUsuarios($('#usuarios', nodo)));
     pintarUsuarios($('#usuarios', nodo));
+    pintarTema($('#tema', nodo));
     pintarDatos($('#datos', nodo));
   },
 });
@@ -39,7 +42,7 @@ async function pintarTasas(caja) {
   const tasas = leer('tasas') || {};
   caja.innerHTML = '';
   pegar(caja, 
-    el('h2', { texto: '💱 Tasas de hoy' }),
+    el('h2', { texto: 'Tasas de hoy' }),
     el('p', {
       style: 'color:var(--texto-suave);font-size:.9rem',
       texto: actual?.deHoy
@@ -65,7 +68,7 @@ async function pintarTasas(caja) {
   }
 
   caja.appendChild(el('div.fila', {}, [
-    el('button.btn.plano', { texto: '🔄 Sugerir', onclick: async () => {
+    el('button.btn.plano', { texto: 'Sugerir', onclick: async () => {
       avisar('Consultando…');
       const s = await sugerirTasas();
       if (!s) return avisarMal('No se pudo consultar. Escríbelas a mano.');
@@ -98,7 +101,7 @@ async function pintarSinonimos(caja) {
   try { lista = await pendientes(); } catch { lista = []; }
   caja.innerHTML = '';
   pegar(caja, 
-    el('h2', { texto: '🧠 Sinónimos por aprobar' }),
+    el('h2', { texto: 'Sinónimos por aprobar' }),
     el('p', {
       style: 'color:var(--texto-suave);font-size:.9rem',
       texto: 'Cuando alguien busca algo con otro nombre y termina vendiendo un producto, la app lo anota aquí. Apruébalo y esa palabra queda para siempre.',
@@ -114,8 +117,8 @@ async function pintarSinonimos(caja) {
         el('div', { html: `¿<strong>"${esc(s.busqueda)}"</strong> es ${esc(s.nombreProducto)}?` }),
         el('div', { style: 'font-size:.78rem;color:var(--texto-suave)', texto: fecha(s.ts) }),
       ]),
-      el('button.btn.plano', { style: 'min-height:38px', texto: '✕', onclick: async () => { await descartar(s.id); fila.remove(); } }),
-      el('button.btn.principal', { style: 'min-height:38px', texto: '✓', onclick: async () => {
+      el('button.btn.plano', { style: 'min-height:38px', texto: '', onclick: async () => { await descartar(s.id); fila.remove(); } }),
+      el('button.btn.principal', { style: 'min-height:38px', texto: '', onclick: async () => {
         const p = catalogo().find((x) => x.id === s.productoId);
         await aprobar(s, p?.alias || []);
         avisarOk(`"${s.busqueda}" ahora encuentra ${s.nombreProducto}`);
@@ -137,7 +140,7 @@ async function pintarPin(caja) {
   caja.innerHTML = '';
   const entrada = el('input', { type: 'password', inputmode: 'numeric', placeholder: tiene ? 'Cambiar PIN' : 'Ej: 1234' });
   pegar(caja, 
-    el('h2', { texto: '🔐 PIN de autorización' }),
+    el('h2', { texto: 'PIN de autorización' }),
     el('p', {
       style: 'color:var(--texto-suave);font-size:.9rem',
       texto: tiene
@@ -171,14 +174,14 @@ async function pintarSolicitudes(caja, alCambiar) {
 
   caja.innerHTML = '';
   pegar(caja,
-    el('h2', { texto: '🔑 Dar acceso' }),
+    el('h2', { texto: 'Dar acceso' }),
     el('p', {
       style: 'color:var(--texto-suave);font-size:.9rem',
       texto: 'Manda este link a tu mamá y a tu trabajador. Ellos crean su cuenta y aparecen aquí; hasta que les des acceso no ven nada.',
     }),
     el('div.fila', { style: 'margin-bottom:1rem' }, [
       el('input', { id: 'link-invitacion', readonly: '', value: linkDeRegistro() }),
-      el('button.btn.principal', { style: 'flex:0 0 auto', texto: '📤 Compartir', onclick: compartirLink }),
+      el('button.btn.principal', { style: 'flex:0 0 auto', texto: 'Compartir', onclick: compartirLink }),
     ])
   );
 
@@ -195,7 +198,7 @@ async function pintarSolicitudes(caja, alCambiar) {
         el('div', { style: 'font-weight:600', html: esc(u.nombre || '(sin nombre)') }),
         el('div', { style: 'font-size:.8rem;color:var(--texto-suave)', html: esc(u.email || u.id) }),
       ]),
-      el('button.btn.plano', { style: 'min-height:38px', texto: '✕', onclick: async () => {
+      el('button.btn.plano', { style: 'min-height:38px', texto: '', onclick: async () => {
         if (!await confirmar(`¿Rechazar a ${u.nombre}?`, {
           detalle: 'Se borra su solicitud. Puede volver a pedir acceso con el link.',
           aceptar: 'Rechazar', peligro: true,
@@ -203,7 +206,7 @@ async function pintarSolicitudes(caja, alCambiar) {
         await deleteDoc(ref('usuarios', u.id));
         fila.remove();
       } }),
-      el('button.btn.principal', { style: 'min-height:38px', texto: '✓ Dar acceso', onclick: async () => {
+      el('button.btn.principal', { style: 'min-height:38px', texto: 'Dar acceso', onclick: async () => {
         await setDoc(ref('usuarios', u.id), { activo: true, rol: 'empleado' }, { merge: true });
         avisarOk(`${u.nombre} ya puede vender`);
         fila.remove();
@@ -241,7 +244,7 @@ async function pintarUsuarios(caja) {
   } catch { /* nada */ }
 
   caja.innerHTML = '';
-  pegar(caja, el('h2', { texto: '👥 Usuarios' }));
+  pegar(caja, el('h2', { texto: 'Usuarios' }));
   for (const u of lista.filter((x) => x.rol === 'dueno' || x.activo === true)) {
     caja.appendChild(el('div', {
       style: 'display:flex;justify-content:space-between;align-items:center;padding:.5rem 0;border-bottom:1px solid var(--borde)',
@@ -263,13 +266,13 @@ async function pintarUsuarios(caja) {
 function pintarDatos(caja) {
   caja.innerHTML = '';
   pegar(caja, 
-    el('h2', { texto: '💾 Datos' }),
+    el('h2', { texto: 'Datos' }),
     el('div.fila', {}, [
-      el('button.btn.plano', { texto: '📤 Exportar inventario', onclick: async () => {
+      el('button.btn.plano', { texto: 'Exportar inventario', onclick: async () => {
         const { exportarInventario } = await import('../reports/export-excel.js');
         exportarInventario(catalogo());
       } }),
-      el('button.btn.plano', { texto: '🧹 Limpiar caché local', onclick: async () => {
+      el('button.btn.plano', { texto: 'Limpiar caché local', onclick: async () => {
         if (!await confirmar('¿Limpiar el caché?', {
           detalle: 'No se borra nada del servidor. La app volverá a descargar el catálogo y las fotos.',
           aceptar: 'Limpiar',
@@ -280,4 +283,40 @@ function pintarDatos(caja) {
       } }),
     ])
   );
+}
+
+
+// --- tema claro / oscuro -----------------------------------------------------
+function pintarTema(caja) {
+  const OPCIONES = [
+    ['auto', 'Como el teléfono'],
+    ['claro', 'Claro'],
+    ['oscuro', 'Oscuro'],
+  ];
+  caja.innerHTML = '';
+  const fila = el('div.chips-barra', { style: 'margin-top:.5rem' });
+
+  const marcar = () => {
+    const actual = temaGuardado();
+    fila.querySelectorAll('.chip').forEach((b) => {
+      b.setAttribute('aria-pressed', String(b.dataset.tema === actual));
+    });
+  };
+
+  for (const [valor, rotulo] of OPCIONES) {
+    fila.appendChild(el('button.chip', {
+      type: 'button', 'data-tema': valor, texto: rotulo,
+      onclick: () => { guardarTema(valor); marcar(); },
+    }));
+  }
+
+  pegar(caja,
+    el('h2', { texto: 'Aspecto' }),
+    el('p', {
+      style: 'color:var(--texto-suave);font-size:.9rem',
+      texto: 'El oscuro cansa menos la vista de noche en el mostrador. De día, bajo el sol, se lee mejor el claro.',
+    }),
+    fila
+  );
+  marcar();
 }

@@ -39,10 +39,10 @@ registrar('fotos', {
       if (!pendientes.length) {
         nodo.innerHTML = '';
         nodo.appendChild(el('div.tarjeta.marca', { style: 'text-align:center' }, [
-          el('div', { style: 'font-size:3rem', texto: '🎉' }),
+          el('div', { style: 'font-size:3rem', texto: '' }),
           el('h1', { texto: 'Todos tienen foto' }),
           el('p', { texto: 'No queda ningún producto sin foto. Eso facilita mucho vender.' }),
-          el('button.btn.principal', { texto: '📦 Ver inventario', onclick: () => ir('inventario') }),
+          el('button.btn.principal', { texto: 'Ver inventario', onclick: () => ir('inventario') }),
         ]));
         nodo.appendChild(zonaLote());
         return;
@@ -61,9 +61,9 @@ registrar('fotos', {
         el('div', { id: 'visor' }),
 
         el('div.fila', { style: 'margin-top:1rem' }, [
-          el('button.btn.plano', { texto: '⬅️', style: 'flex:0 0 70px', disabled: i === 0 ? '' : null, onclick: () => { i--; pintar(); } }),
-          el('button.btn.acento.grande', { style: 'flex:3', texto: '📷 Tomar foto', onclick: () => $('#camara', nodo).click() }),
-          el('button.btn.plano', { texto: '➡️', style: 'flex:0 0 70px', onclick: saltar }),
+          el('button.btn.plano', { texto: '', style: 'flex:0 0 70px', disabled: i === 0 ? '' : null, onclick: () => { i--; pintar(); } }),
+          el('button.btn.acento.grande', { style: 'flex:3', texto: 'Tomar foto', onclick: () => $('#camara', nodo).click() }),
+          el('button.btn.plano', { texto: '', style: 'flex:0 0 70px', onclick: saltar }),
         ]),
         el('p', {
           style: 'color:var(--texto-suave);font-size:.85rem;margin-top:.75rem',
@@ -181,8 +181,8 @@ export async function verFoto(producto) {
     entrada,
     el('div.fila', { style: 'margin-top:1rem' }, [
       el('button.btn.plano', { texto: 'Cerrar', onclick: () => d.close() }),
-      datos ? el('button.btn.plano', { texto: '🗑️ Quitar', onclick: async () => { await borrarFoto(producto.id); d.close(); } }) : null,
-      el('button.btn.principal', { texto: '📷 Nueva foto', onclick: () => entrada.click() }),
+      datos ? el('button.btn.plano', { texto: 'Quitar', onclick: async () => { await borrarFoto(producto.id); d.close(); } }) : null,
+      el('button.btn.principal', { texto: 'Nueva foto', onclick: () => entrada.click() }),
     ])
   );
 }

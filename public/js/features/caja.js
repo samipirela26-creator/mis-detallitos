@@ -71,7 +71,7 @@ async function montarCaja(nodo) {
   }
 
   nodo.appendChild(el('button.btn.principal.grande.ancho', {
-    style: 'margin-top:1rem', texto: '🔒 Cerrar caja (contar)',
+    style: 'margin-top:1rem', texto: 'Cerrar caja (contar)',
     onclick: () => pintarCierre(turno),
   }));
 
@@ -81,7 +81,7 @@ async function montarCaja(nodo) {
   function pintarApertura() {
     nodo.innerHTML = '';
     nodo.appendChild(el('div.tarjeta', {}, [
-      el('h1', { texto: '💵 Abrir la caja' }),
+      el('h1', { texto: 'Abrir la caja' }),
       el('p', { texto: '¿Con cuánto arrancas? Es el fondo para dar vuelto. Si no tienes nada, déjalo en cero.' }),
       ...Object.values(MONEDAS).map((m) =>
         el('div.campo', {}, [

@@ -1,112 +1,177 @@
-/* 4-pantallas.css — lo propio de cada pantalla. */
+/* --- Entrar: panel de marca con borde ondulado + formulario ---
+   El panel lleva el turquesa del logo; la ola de crema lo muerde por abajo
+   (en teléfono) o por un lado (en pantalla ancha). Son dos capas: una
+   turquesa clara detrás, desfasada, y la de crema delante. */
+.login { min-height: 100dvh; display: grid; background: var(--fondo); }
 
-/* --- Entrar: panel de marca + formulario --- */
-.login { min-height: 100dvh; display: grid; }
 .login .panel {
-  background: linear-gradient(145deg, var(--marca) 0%, var(--marca-oscuro) 100%);
-  color: #fff;
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  text-align: center; gap: .75rem;
-  padding: 3rem 1.5rem 4rem;
-  border-radius: 0 0 var(--r-xl) var(--r-xl);
-  box-shadow: 0 10px 30px rgba(0, 144, 179, .15);
+  position: relative;
+  background: var(--marca);
+  color: var(--texto);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  text-align: center;
+  padding: 3rem 1.5rem 3.5rem;
+  overflow: hidden;
+}
+.login .panel .marca { display: flex; flex-direction: column; align-items: center; gap: .5rem; }
+.login .panel .bienvenida {
+  font-size: .95rem; font-weight: 600; color: var(--sobre-marca);
+  letter-spacing: .01em;
 }
 .login .panel img {
-  width: 110px; height: 110px; border-radius: 50%;
-  border: 3px solid rgba(255, 255, 255, .25);
-  box-shadow: var(--sombra-alta);
+  width: 118px; height: 118px; border-radius: 50%;
+  border: 0; background: var(--superficie);
+  padding: 6px;
 }
-.login .panel .lema { opacity: .92; font-size: .95rem; max-width: 32ch; line-height: 1.4; }
-.login .forma { padding: 2rem 1.5rem; display: flex; align-items: center; justify-content: center; }
-.login .forma form { width: 100%; max-width: 380px; }
-.login .forma h1 { margin-bottom: 1.25rem; font-size: 1.75rem; }
-@media (min-width: 860px) {
-  .login { grid-template-columns: 1fr 1fr; align-items: stretch; }
-  .login .panel { border-radius: 0 var(--r-xl) var(--r-xl) 0; }
+.login .panel h1 { color: var(--sobre-marca-fuerte); font-size: 2.4rem; }
+.login .panel .lema {
+  color: var(--sobre-marca); font-weight: 500;
+  font-size: .95rem; max-width: 34ch; line-height: 1.45;
+  margin: .25rem 0 0;
+}
+/* La línea del pie, como en la referencia: dos rótulos separados por una barra. */
+.login .panel .pie-marca {
+  position: absolute; left: 0; right: 0; bottom: 2.6rem;
+  display: flex; align-items: center; justify-content: center; gap: .9rem;
+  font-size: .68rem; font-weight: 700;
+  letter-spacing: .14em; text-transform: uppercase;
+  color: var(--sobre-marca);
+}
+.login .panel .pie-marca span + span { border-left: 1px solid currentColor; padding-left: .9rem; }
+
+/* La ola. En teléfono muerde el borde de abajo. */
+.login .ola {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  height: 38px;
+  background:
+    radial-gradient(circle at 16px 38px, var(--fondo) 17px, transparent 18px) 0 0 / 32px 38px repeat-x,
+    radial-gradient(circle at 16px 34px, var(--marca-clara) 18px, transparent 19px) 16px 0 / 32px 38px repeat-x;
 }
 
-/* --- Panel del dueño (KPIs limpios) --- */
-.kpis { display: grid; grid-template-columns: repeat(2, 1fr); gap: .85rem; }
+.login .forma { padding: 2.5rem 1.5rem 2rem; display: flex; align-items: center; justify-content: center; }
+.login .forma form { width: 100%; max-width: 380px; }
+.login .forma h1 { margin-bottom: 1.5rem; }
+
+/* Campos de línea, como en la referencia: la caja sobra cuando sólo hay tres. */
+.login .forma .campo input {
+  border: 0; border-bottom: 2px solid var(--borde);
+  border-radius: 0; background: transparent;
+  padding-left: 0; padding-right: 0;
+  font-size: 1rem;
+}
+.login .forma .campo input:focus {
+  box-shadow: none; border-bottom-color: var(--marca);
+}
+.login .forma .campo label {
+  font-size: .95rem; font-weight: 600;
+  letter-spacing: 0; text-transform: none; color: var(--texto);
+  margin-bottom: .15rem;
+}
+.login .forma .campo { margin-bottom: 1.4rem; }
+
+/* Los dos botones en fila, el de acción primero. */
+.login .forma .acciones { display: flex; gap: .65rem; margin-top: 1.75rem; }
+.login .forma .acciones .btn { flex: 1; }
+
+@media (min-width: 860px) {
+  .login { grid-template-columns: 1fr 1fr; align-items: stretch; }
+  .login .panel { padding: 3rem 2.5rem 3rem; }
+  /* En ancho la ola pasa al costado derecho. */
+  .login .ola {
+    left: auto; top: 0; right: 0; bottom: 0;
+    width: 38px; height: auto;
+    background:
+      radial-gradient(circle at 38px 16px, var(--fondo) 17px, transparent 18px) 0 0 / 38px 32px repeat-y,
+      radial-gradient(circle at 34px 16px, var(--marca-clara) 18px, transparent 19px) 0 16px / 38px 32px repeat-y;
+  }
+  .login .forma { padding: 3rem 3rem; justify-content: flex-start; }
+}
+
+/* --- Panel del dueño --- */
+/* La primera cifra manda: va en bloque turquesa, a lo ancho. El resto baja. */
+.kpis { display: grid; grid-template-columns: repeat(2, 1fr); gap: .65rem; }
 @media (min-width: 760px) { .kpis { grid-template-columns: repeat(4, 1fr); } }
 .kpi {
   background: var(--superficie); border-radius: var(--r);
-  border: 1px solid var(--borde);
-  box-shadow: var(--sombra); padding: 1rem 1.15rem;
-  transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+  border: 0;
+  padding: 1rem 1.15rem;
 }
-.kpi:hover { border-color: var(--marca); }
 .kpi .rotulo {
-  font-family: var(--fuente-titulo);
-  font-size: .74rem; color: var(--texto-suave);
-  text-transform: uppercase; letter-spacing: .05em; font-weight: 600;
+  font-family: var(--fuente-cuerpo);
+  font-size: .68rem; color: var(--texto-suave);
+  text-transform: uppercase; letter-spacing: .1em; font-weight: 600;
 }
 .kpi .valor {
   font-family: var(--fuente-titulo);
-  font-size: 1.75rem; font-weight: 700;
-  letter-spacing: -.03em; margin-top: .15rem; color: var(--texto);
+  font-size: 1.9rem; font-weight: 700;
+  letter-spacing: -.04em; line-height: 1.05; margin-top: .15rem; color: var(--texto);
+  font-variant-numeric: tabular-nums;
 }
-.kpi .pie { font-size: .8rem; color: var(--texto-suave); }
-.kpi.bueno { background: var(--verde-suave); border-color: rgba(16, 185, 129, .25); }
-.kpi.bueno .valor { color: var(--verde); }
-.kpi.malo { background: var(--rojo-suave); border-color: rgba(239, 68, 68, .25); }
+.kpi .pie { font-size: .78rem; color: var(--texto-suave); }
+/* Lo bueno en turquesa, lo que urge en amarillo, lo malo en papel con cifra roja. */
+.kpi.bueno { background: var(--marca); border-radius: var(--r-bloque); }
+.kpi.bueno .rotulo { color: var(--sobre-marca); }
+.kpi.bueno .valor { color: var(--sobre-marca-fuerte); }
 .kpi.malo .valor { color: var(--rojo); }
-.kpi.acento { background: var(--amarillo-suave); border-color: rgba(245, 158, 11, .25); }
-.kpi.acento .valor { color: var(--ambar); }
+.kpi.acento { background: var(--amarillo); border-radius: var(--r-bloque); }
+.kpi.acento .rotulo { color: var(--sobre-amarillo); }
+.kpi.acento .valor { color: var(--texto); }
 
 /* Cifra enorme para totales */
 .cifra-gigante {
   font-family: var(--fuente-titulo);
-  font-size: 3rem; font-weight: 700;
-  letter-spacing: -.04em; line-height: 1;
+  font-size: 2.9rem; font-weight: 700;
+  letter-spacing: -.045em; line-height: 1;
+  font-variant-numeric: tabular-nums;
 }
 
-/* Grilla de Atajos en 5 columnas (Sin scroll) */
-.atajos-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: .75rem; }
-@media (min-width: 600px) { .atajos-grid { grid-template-columns: repeat(3, 1fr); } }
-@media (min-width: 900px) { .atajos-grid { grid-template-columns: repeat(5, 1fr); } }
+/* Atajos: píldoras de contorno, no tarjetas con párrafo que nadie lee. */
+.atajos-grid { display: flex; flex-wrap: wrap; gap: .45rem; }
 
 .atajo-card {
-  background: var(--superficie); border-radius: var(--r);
-  border: 1px solid var(--borde); box-shadow: var(--sombra);
-  padding: 1rem; cursor: pointer;
-  transition: transform .15s ease, border-color .15s ease, box-shadow .15s ease;
-  display: flex; flex-direction: column; gap: .35rem;
+  display: inline-flex; align-items: center; gap: .5rem;
+  min-height: 44px;
+  padding: 0 1rem;
+  background: transparent; border-radius: var(--pildora);
+  border: 1px solid var(--borde);
+  cursor: pointer;
+  transition: background-color .15s ease, border-color .15s ease;
 }
-.atajo-card:hover {
-  transform: translateY(-2px); border-color: var(--marca);
-  box-shadow: var(--sombra-elevada);
-}
-.atajo-card .ico-wrap { color: var(--marca); }
-.atajo-card h2 { margin: 0; font-size: 1rem; font-weight: 600; }
-.atajo-card p { margin: 0; font-size: .82rem; color: var(--texto-suave); line-height: 1.35; }
+.atajo-card:hover { background: var(--superficie); border-color: var(--marca); }
+.atajo-card .ico-wrap { color: var(--texto); display: flex; }
+.atajo-card .ico-wrap svg { width: 17px; height: 17px; }
+.atajo-card h2 { margin: 0; font-family: var(--fuente-cuerpo); font-size: .82rem; font-weight: 600; }
+/* El párrafo del atajo sobra en una píldora. */
+.atajo-card p { display: none; }
 
-/* Barras simples */
-.barras { display: flex; align-items: flex-end; gap: .65rem; height: 190px; }
+/* Barras: trazo plano, sin riel gris pesado. */
+.barras { display: flex; align-items: flex-end; gap: .35rem; height: 170px; }
 .barras .col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: .4rem; height: 100%; }
-.barras .riel { flex: 1; width: 100%; background: var(--superficie-2); border-radius: var(--pildora); display: flex; align-items: flex-end; overflow: hidden; }
+.barras .riel { flex: 1; width: 100%; background: transparent; border-radius: 4px; display: flex; align-items: flex-end; overflow: hidden; }
 .barras .relleno {
-  width: 100%; border-radius: var(--pildora);
+  width: 100%; border-radius: 4px 4px 0 0;
   display: flex; align-items: flex-end; justify-content: center;
-  color: #fff; font-family: var(--fuente-titulo); font-weight: 700; font-size: .82rem; padding-bottom: .4rem;
+  color: var(--sobre-marca-fuerte); font-family: var(--fuente-titulo); font-weight: 700; font-size: .78rem; padding-bottom: .35rem;
   background: var(--marca); transition: height .3s ease;
 }
-.barras .etiq { font-size: .78rem; color: var(--texto-suave); font-weight: 500; }
+.barras .etiq { font-size: .74rem; color: var(--texto-suave); font-weight: 500; }
 
 /* --- Vender --- */
 .buscador-pos input {
   min-height: 50px; font-size: 1rem;
   border-radius: var(--pildora); padding-left: 1.25rem;
   border: 1px solid var(--borde);
-  box-shadow: var(--sombra);
+  background: var(--superficie);
 }
-.resultados { list-style: none; margin: .65rem 0 0; padding: 0; display: grid; gap: .45rem; }
+.resultados { list-style: none; margin: .65rem 0 0; padding: 0; display: grid; gap: .4rem; }
 .resultados li {
-  display: flex; align-items: center; gap: .75rem; padding: .65rem .85rem;
+  display: flex; align-items: center; gap: .75rem; padding: .7rem .85rem;
   background: var(--superficie); border-radius: var(--r);
-  border: 1px solid var(--borde); box-shadow: var(--sombra);
-  cursor: pointer; transition: transform .1s ease, border-color .15s ease;
+  border: 0;
+  cursor: pointer; transition: background-color .15s ease;
 }
-.resultados li:hover { border-color: var(--marca); }
+.resultados li:hover { background: var(--superficie-2); }
 .resultados .miniatura {
   width: 42px; height: 42px; border-radius: var(--r-chico);
   object-fit: cover; background: var(--superficie-2); flex: 0 0 auto;
@@ -114,12 +179,9 @@
 
 /* --- Estudio de fotos --- */
 .estudio { text-align: center; }
-.estudio .nombre { font-size: 1.5rem; font-weight: 700; margin: .5rem 0; letter-spacing: -.02em; }
+.estudio .nombre { font-size: 1.6rem; font-weight: 700; margin: .5rem 0; letter-spacing: -.03em; }
 .estudio .visor {
   width: 100%; max-height: 50dvh;
-  background: var(--marca-tinta); border-radius: var(--r-xl);
-  box-shadow: var(--sombra-alta);
+  background: #0c1e24; border-radius: var(--r-bloque);
 }
-.estudio .contador { color: var(--texto-suave); font-size: .88rem; font-weight: 500; }
-
-
+.estudio .contador { color: var(--texto-suave); font-size: .86rem; font-weight: 500; }

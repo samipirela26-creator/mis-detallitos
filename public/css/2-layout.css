@@ -1,103 +1,114 @@
 /* 2-layout.css — estructura: cabecera, contenido y navegación flotante. */
 #app { min-height: 100dvh; display: flex; flex-direction: column; }
 
-/* Cabecera limpia y profesional */
+/* Cabecera ligera: el saludo es el titular de la pantalla, no una barra aparte. */
 .barra {
-  display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+  display: flex; align-items: center; gap: .6rem;
   flex-wrap: wrap;
   width: 100%; max-width: var(--ancho);
   margin: 0 auto;
-  padding: 1.25rem 1.25rem .5rem;
+  padding: 1.35rem 1.25rem .35rem;
 }
-.barra .crece { flex: 1; }
+.barra .crece { flex: 1 1 100%; order: 5; }
+.barra .crece > div:first-child { color: var(--texto-suave); }
 .barra .saludo {
   font-family: var(--fuente-titulo);
-  font-size: 1.5rem; font-weight: 700;
-  letter-spacing: -.02em; color: var(--texto);
+  font-size: 2.6rem; font-weight: 700;
+  line-height: .96; letter-spacing: -.045em; color: var(--texto);
 }
 
-/* Widget de Tasas en la cabecera (Bs, COP, USD) */
+/* Las tasas: chapita turquesa pálida, en la primera fila junto al logo. */
 .barra .tasas-badge {
-  display: inline-flex; align-items: center; gap: .75rem;
-  padding: .35rem .85rem; border-radius: var(--pildora);
-  background: var(--superficie); border: 1px solid var(--borde);
-  box-shadow: var(--sombra); font-size: .8rem; font-weight: 600;
-  color: var(--texto-suave);
+  order: 2; flex: 1 1 auto;
+  display: inline-flex; align-items: center; justify-content: center; gap: .6rem;
+  min-height: 34px;
+  padding: .3rem .85rem; border-radius: var(--pildora);
+  background: var(--marca-suave); border: 0;
+  font-size: .78rem; font-weight: 600;
+  color: var(--marca-oscuro);
+  font-variant-numeric: tabular-nums;
 }
-.barra .tasas-badge span { color: var(--texto); font-family: var(--fuente-titulo); }
-
-/* En teléfono la chapita de tasas mide casi 200px y aprieta el saludo hasta
-   partirlo en dos líneas. Se pasa a su propia fila, debajo, donde además se
-   lee mejor. */
-@media (max-width: 560px) {
-  .barra { gap: .5rem .75rem; }
-  .barra .tasas-badge {
-    order: 10; width: 100%; justify-content: center;
-    margin-top: .25rem;
-  }
-  .barra .saludo { font-size: 1.3rem; }
-}
+.barra .tasas-badge span { color: var(--marca-oscuro); font-family: var(--fuente-titulo); }
 
 .barra .logo-barra {
-  width: 40px; height: 40px; border-radius: 50%;
-  border: 2px solid var(--superficie); box-shadow: var(--sombra);
+  order: 1;
+  width: 36px; height: 36px; border-radius: 50%;
+  border: 0;
   flex: 0 0 auto;
+}
+/* El botón de Salir queda al final de la primera fila. */
+.barra > .btn.plano { order: 3; flex: 0 0 auto; }
+
+@media (max-width: 560px) {
+  .barra .saludo { font-size: 2.2rem; }
 }
 
 #contenido {
   flex: 1;
   width: 100%; max-width: var(--ancho);
   margin: 0 auto;
-  padding: .75rem 1.25rem calc(var(--toque) + 4rem);
+  padding: .75rem 1.25rem calc(var(--toque) + 4.5rem);
 }
 
-/* Navegación flotante minimalista esbelta */
+/* Navegación: píldora de papel con los íconos, nada translúcido. */
 .nav {
   position: fixed; z-index: 30;
   left: 50%; transform: translateX(-50%);
   bottom: calc(.85rem + env(safe-area-inset-bottom));
   width: min(94vw, 460px);
-  display: flex; align-items: center; justify-content: space-around;
-  padding: .35rem .5rem;
-  background: rgba(255, 255, 255, 0.92);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  display: flex; align-items: stretch; gap: .2rem;
+  padding: .4rem .45rem;
+  background: var(--superficie);
   border: 1px solid var(--borde);
   border-radius: var(--pildora);
-  box-shadow: 0 10px 30px -5px rgba(15, 23, 42, 0.08), 0 4px 10px -2px rgba(15, 23, 42, 0.03);
+  box-shadow: 0 10px 28px -8px rgba(18, 18, 18, .18);
 }
+/* Cada botón es una columna que se centra dentro de la píldora: el rótulo
+   tiene su propia línea con line-height 1, si no la cola de la "p" de
+   "Reportes" se sale por debajo del borde redondeado. */
 .nav button {
-  flex: 1; min-height: 44px;
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  flex: 1 1 0; min-width: 0;
+  min-height: 48px;
+  padding: .3rem .1rem;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
   border: 0; background: none; cursor: pointer; border-radius: var(--pildora);
   font-family: var(--fuente-cuerpo);
-  font-size: .7rem; font-weight: 500; color: var(--texto-suave);
-  transition: all .15s ease;
+  font-size: .64rem; font-weight: 600; line-height: 1.15; color: var(--texto-suave);
+  overflow: hidden;
+  transition: background-color .15s ease, color .15s ease;
 }
-.nav button svg {
-  display: block; stroke: currentColor; opacity: .65;
-  transition: transform .15s ease, opacity .15s ease, stroke .15s ease;
+.nav button > span:last-child {
+  max-width: 100%;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.nav button:hover svg { opacity: 1; color: var(--texto); }
-.nav button[aria-current="page"] { color: var(--marca); font-weight: 600; background: var(--marca-suave); }
-.nav button[aria-current="page"] svg { opacity: 1; stroke: var(--marca); }
+.nav button svg { width: 19px; height: 19px; }
+.nav button svg { display: block; stroke: currentColor; }
+.nav button:hover { color: var(--texto); }
+/* En teléfono no caben cinco rótulos más la píldora de Vender: se deja el
+   rótulo sólo en la pestaña activa y el resto queda en ícono. */
+@media (max-width: 430px) {
+  .nav button:not([aria-current="page"]):not(.destacado) > span:last-child { display: none; }
+  .nav button:not([aria-current="page"]):not(.destacado) { flex: 0 1 auto; padding: .3rem .55rem; }
+  .nav button[aria-current="page"] { flex: 1 1 auto; padding-inline: .7rem; }
+}
+.nav button[aria-current="page"] { color: var(--sobre-marca-fuerte); background: var(--marca); }
+.nav button[aria-current="page"] svg { stroke: var(--sobre-marca-fuerte); }
 
-/* El botón central: Vender */
+/* El botón central: Vender. Píldora negra con palabra, no un círculo mudo. */
 .nav button.destacado {
-  flex: 0 0 auto; width: 50px; height: 50px; min-height: 50px;
-  margin: 0 .25rem;
-  background: var(--marca); color: #ffffff;
-  border-radius: 50%;
-  box-shadow: 0 4px 14px rgba(0, 144, 179, 0.35);
-  font-size: 0;
-  transition: transform .15s ease, box-shadow .15s ease;
+  flex: 0 0 auto; min-height: 48px;
+  padding: 0 1rem;
+  margin-left: .15rem;
+  background: var(--tinta); color: var(--sobre-tinta);
+  border-radius: var(--pildora);
+  flex-direction: row; gap: .45rem;
+  font-family: var(--fuente-titulo);
+  font-size: .95rem; font-weight: 600;
+  transition: transform .12s ease;
 }
-.nav button.destacado svg { opacity: 1; stroke: #ffffff; width: 22px; height: 22px; }
-.nav button.destacado:hover {
-  transform: scale(1.06);
-  box-shadow: 0 6px 18px rgba(0, 144, 179, 0.45);
-}
-.nav button.destacado:active { transform: scale(.96); }
+.nav button.destacado svg { stroke: var(--sobre-tinta); width: 20px; height: 20px; }
+.nav button.destacado:hover { filter: brightness(1.25); }
+.nav button.destacado:active { transform: scale(.97); }
 
 .rejilla { display: grid; gap: 1rem; }
 @media (min-width: 760px) {
@@ -106,5 +117,3 @@
   .rejilla.cuatro { grid-template-columns: repeat(4, 1fr); }
   .rejilla.cinco { grid-template-columns: repeat(5, 1fr); }
 }
-
-

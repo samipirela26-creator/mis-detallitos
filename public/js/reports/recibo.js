@@ -36,7 +36,7 @@ export function recibo({ id, venta, tasas = {} }) {
   const texto = textoRecibo({ id, venta, tasas });
   const d = abrirDialogo('');
   pegar(d, 
-    el('h2', { texto: '✅ Venta registrada' }),
+    el('h2', { texto: 'Venta registrada' }),
     el('div.cifra-gigante', { style: 'text-align:center;margin:.5rem 0', texto: formatear(venta.totalUSD) }),
     venta.saldoUSD > 0
       ? el('p', { style: 'text-align:center;color:var(--rojo);font-weight:700', texto: `Queda debiendo ${formatear(venta.saldoUSD)}` })
@@ -46,8 +46,8 @@ export function recibo({ id, venta, tasas = {} }) {
       texto: texto.replace(/\*/g, ''),
     }),
     el('div.fila', { style: 'margin-top:1rem' }, [
-      el('button.btn.plano', { texto: '📤 Compartir', onclick: () => compartir(texto) }),
-      el('button.btn.plano', { texto: '🖨️ Imprimir', onclick: () => imprimir(texto) }),
+      el('button.btn.plano', { texto: 'Compartir', onclick: () => compartir(texto) }),
+      el('button.btn.plano', { texto: 'Imprimir', onclick: () => imprimir(texto) }),
       el('button.btn.principal', { texto: 'Listo', onclick: () => d.close() }),
     ])
   );
