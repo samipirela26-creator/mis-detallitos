@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="es-VE">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Catálogo Digital · Mis Detallitos</title>
+  <meta name="description" content="Catálogo digital de productos y pedidos por WhatsApp de Mis Detallitos G&M C.A.">
+  <meta name="theme-color" content="#0b6a82">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icons/icono-192.png" type="image/png">
+  <link rel="apple-touch-icon" href="icons/icono-192.png">
+
+  <!-- Google Fonts: Outfit (titulares/números) + Work Sans (texto) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Work+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <!-- Estilos del sistema -->
+  <link rel="stylesheet" href="css/1-base.css">
+  <link rel="stylesheet" href="css/2-layout.css">
+  <link rel="stylesheet" href="css/3-componentes.css">
+  <link rel="stylesheet" href="css/4-pantallas.css">
+</head>
+<body>
+  <div id="app">
+    <header class="barra">
+      <img class="logo-barra" src="icons/logo.webp" alt="Mis Detallitos">
+      <div class="crece">
+        <div class="saludo">Mis Detallitos</div>
+      </div>
+    </header>
+    <main id="contenido">
+      <div class="cargando">Cargando catálogo digital…</div>
+    </main>
+  </div>
+  <div id="avisos"></div>
+
+  <!-- Script independiente para clientes (sin funciones administrativas ni login) -->
+  <script type="module" src="js/catalogo-standalone.js"></script>
+  <noscript>El catálogo necesita JavaScript para cargar los productos.</noscript>
+</body>
+</html>

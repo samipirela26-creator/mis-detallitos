@@ -363,7 +363,8 @@ function pintarCatalogoConfig(caja) {
     value: actualWa,
   });
 
-  const urlCatalogo = `${location.origin}${location.pathname}#/catalogo`;
+  const base = location.pathname.replace(/\/[^\/]*$/, '/');
+  const urlCatalogo = `${location.origin}${base}catalogo.html`;
 
   const btnGuardar = el('button.btn.principal', {
     texto: 'Guardar WhatsApp',

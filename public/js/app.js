@@ -229,37 +229,12 @@ function esRutaPublica() {
   return hash === 'catalogo';
 }
 
-function pintarCascaraPublica() {
-  app.innerHTML = '';
-  const barra = el('div.barra', {}, [
-    el('img.logo-barra', { src: 'icons/logo.webp', alt: 'Mis Detallitos' }),
-    el('div.crece', {}, [
-      el('div.saludo', { texto: 'Mis Detallitos' }),
-    ]),
-    el('button.btn.plano', {
-      texto: 'Entrar a la tienda',
-      onclick: () => {
-        location.hash = '#/entrar';
-        app.innerHTML = '';
-        montarEntrar(app);
-      },
-    }),
-  ]);
-
-  const contenido = el('main#contenido');
-  pegar(app, barra, contenido);
-
-  sincronizarCatalogo();
-  cargarTasas();
-  iniciarRouter(contenido);
-}
-
 alCambiarSesion(async (u) => {
+  if (esRutaPublica()) {
+    location.href = 'catalogo.html';
+    return;
+  }
   if (!u) {
-    if (esRutaPublica()) {
-      pintarCascaraPublica();
-      return;
-    }
     pararCatalogo();
     app.innerHTML = '';
     montarEntrar(app);
@@ -269,10 +244,6 @@ alCambiarSesion(async (u) => {
   if (enEspera()) {
     pararCatalogo();
     montarEnEspera(app, u, () => cerrarSesion());
-    return;
-  }
-  if (esRutaPublica()) {
-    pintarCascaraPublica();
     return;
   }
   pintarCascara();
@@ -285,9 +256,7 @@ alCambiarSesion(async (u) => {
 addEventListener('hashchange', () => {
   const u = usuarioActual();
   if (esRutaPublica()) {
-    if (!document.querySelector('button.btn.plano')?.textContent?.includes('Entrar')) {
-      pintarCascaraPublica();
-    }
+    location.href = 'catalogo.html';
   } else if (!u) {
     if (location.hash !== '#/entrar') {
       pararCatalogo();
