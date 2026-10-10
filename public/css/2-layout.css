@@ -30,6 +30,19 @@
 }
 .barra .tasas-badge span { color: var(--marca-oscuro); font-family: var(--fuente-titulo); }
 
+.barra .logo-boton {
+  order: 1;
+  flex: 0 0 auto;
+  padding: 0; border: 0; background: none; cursor: pointer;
+  border-radius: 50%; line-height: 0;
+  transition: transform .12s ease, box-shadow .15s ease;
+}
+.barra .logo-boton:hover { transform: scale(1.06); }
+.barra .logo-boton:active { transform: scale(.96); }
+.barra .logo-boton:focus-visible {
+  outline: 0; box-shadow: 0 0 0 3px rgba(11, 106, 130, .45);
+}
+
 .barra .logo-barra {
   order: 1;
   width: 36px; height: 36px; border-radius: 50%;

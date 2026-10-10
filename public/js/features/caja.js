@@ -186,7 +186,7 @@ async function montarCaja(nodo) {
 
     const cuadra = Object.values(r.diferencia).every((x) => x === 0);
     pegar(d, 
-      el('h2', { texto: cuadra ? '✅ Caja cuadrada' : '⚠️ Cierre con diferencia' }),
+      el('h2', { texto: cuadra ? 'Caja cuadrada' : 'Cierre con diferencia' }),
       el('p', { style: 'color:var(--texto-suave)', texto: `${r.cantidad} ventas · ${formatear(r.totalUSD)} cobrado` }),
       el('table', { style: 'margin:.75rem 0' }, [
         el('thead', { html: '<tr><th>Moneda</th><th class="num">Debería</th><th class="num">Contado</th><th class="num">Dif.</th></tr>' }),

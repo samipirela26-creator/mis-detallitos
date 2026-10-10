@@ -48,8 +48,8 @@ async function pintarTasas(caja) {
       texto: actual?.deHoy
         ? `Puestas hoy por ${actual.nombreUsuario || 'ti'}.`
         : actual
-          ? `⚠️ Las últimas son del ${actual.fecha}. Actualízalas para que los cobros salgan bien.`
-          : '⚠️ Todavía no has puesto ninguna tasa. Sin esto solo se puede cobrar en dólares.',
+          ? `Las últimas son del ${actual.fecha}. Actualízalas para que los cobros salgan bien.`
+          : 'Todavía no has puesto ninguna tasa. Sin esto solo se puede cobrar en dólares.',
     })
   );
 

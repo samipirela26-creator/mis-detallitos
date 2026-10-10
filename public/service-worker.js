@@ -8,7 +8,7 @@
 //  - El SDK de Firebase (gstatic): stale-while-revalidate, también cacheado.
 //  - Los datos NO pasan por aquí: de eso se encarga el caché propio de Firestore.
 
-const CACHE_NAME = 'detallitos-v10';
+const CACHE_NAME = 'detallitos-v11';
 
 const PRECACHE_URLS = [
   './',
@@ -83,8 +83,16 @@ const EXTERNOS = ['fonts.googleapis.com', 'fonts.gstatic.com'];
 self.addEventListener('install', (ev) => {
   ev.waitUntil(
     caches.open(CACHE_NAME).then(async (c) => {
+      // `cache: 'reload'` NO es decorativo: sin él, c.add() puede resolverse
+      // contra la caché HTTP del navegador y volver a guardar los MISMOS
+      // archivos viejos. Subir CACHE_NAME no servía de nada: se reconstruía
+      // la caché con el contenido caducado y en el teléfono no se veía ni un
+      // cambio. Con reload, cada archivo del precache se pide a la red.
+      //
       // Uno por uno: si un archivo falla, no se cae toda la instalación.
-      await Promise.all(PRECACHE_URLS.map((u) => c.add(u).catch((e) => console.warn('[sw] no cacheó', u, e))));
+      await Promise.all(PRECACHE_URLS.map(
+        (u) => c.add(new Request(u, { cache: 'reload' })).catch((e) => console.warn('[sw] no cacheó', u, e))
+      ));
       self.skipWaiting();
     })
   );

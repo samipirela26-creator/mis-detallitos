@@ -220,7 +220,7 @@ export function formulario(p = null) {
     const ganancia = precio - costo;
     caja.style.color = m < 0 ? 'var(--rojo)' : m < MARGEN_FLOJO ? 'var(--ambar)' : 'var(--verde)';
     caja.textContent = m < 0
-      ? `⚠️ Estás vendiendo con pérdida: ${formatear(ganancia)} por unidad`
+      ? `Estás vendiendo con pérdida: ${formatear(ganancia)} por unidad`
       : `Ganas ${formatear(ganancia)} por unidad — ${m.toFixed(0)}% de margen`;
   };
   f.precio.addEventListener('input', pintarMargen);

@@ -172,7 +172,18 @@ function pintarCascara() {
       ]),
       chapitaTasas,
       el('button.btn.plano', { style: 'min-height:36px;padding:0 .85rem;font-size:.82rem', texto: 'Salir', onclick: () => cerrarSesion() }),
-      el('img.logo-barra', { src: 'icons/logo-256.webp', width: '40', height: '40', alt: 'Mis Detallitos G&M C.A' }),
+      // El logo entra a Configuración. Va en un <button> de verdad, no un
+      // onclick sobre el <img>: así se llega con el tabulador y el lector de
+      // pantalla lo anuncia. Sólo para el dueño, que es quien tiene esa
+      // pantalla; al empleado le queda el logo como adorno.
+      esDueno()
+        ? el('button.logo-boton', {
+            type: 'button', 'aria-label': 'Ajustes',
+            onclick: () => ir('config'),
+          }, [
+            el('img.logo-barra', { src: 'icons/logo-256.webp', width: '40', height: '40', alt: '' }),
+          ])
+        : el('img.logo-barra', { src: 'icons/logo-256.webp', width: '40', height: '40', alt: 'Mis Detallitos G&M C.A' }),
     ]),
     nav,
     contenido
