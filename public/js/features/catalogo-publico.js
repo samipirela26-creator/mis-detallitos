@@ -10,12 +10,12 @@ import { productos as catalogo, categorias } from '../data/catalogo.js';
 import { pintarFoto } from '../data/fotos.js';
 import { buscar } from '../data/busqueda.js';
 import { MONEDAS, desdeUSD, formatear, aMayores } from '../core/dinero.js';
-import { leer } from '../core/estado.js';
+import { observar } from '../core/estado.js';
 
 let borradorPedido = [];   // [{ productoId, nombre, cantidad, precioUSD, unidad, fotoPendiente, tieneFoto }]
 
 registrar('catalogo', {
-  titulo: 'Catálogo Digital', icono: '🛍️',
+  titulo: 'Catálogo Digital', icono: '🛍️', publico: true,
   montar(nodo) {
     nodo.innerHTML = `
       <div class="tarjeta" style="margin-bottom:1rem;background:var(--marca);color:var(--sobre-marca-fuerte);border-radius:var(--r-bloque)">
@@ -28,7 +28,7 @@ registrar('catalogo', {
       </div>
       <div id="cats-cat" class="chips-barra" style="margin-bottom:1rem"></div>
 
-      <div id="grid-cat"></div>
+      <div id="grid-cat"><div class="tarjeta cargando">Cargando catálogo de productos…</div></div>
       <div id="barra-pedido-flotante"></div>`;
 
     const qInput = $('#q-cat', nodo);
@@ -180,6 +180,12 @@ registrar('catalogo', {
     pintarCategorias();
     pintarProductos();
     pintarBarraFlotante();
+
+    const dejarDeMirar = observar('productos', () => {
+      pintarCategorias();
+      pintarProductos();
+    });
+    return dejarDeMirar;
   },
 });
 
