@@ -424,7 +424,7 @@ async function descargarPlantilla() {
   // 2. Banner de Instrucciones Explicativo (Fila 2)
   hoja.mergeCells(`A2:${colFin}2`);
   const aviso = hoja.getCell('A2');
-  aviso.value = '📌 INSTRUCCIONES: Las filas 6 a 9 son solo EJEMPLOS de demostración. Reemplázalas o bórralas con tus productos reales antes de importar este archivo en la app.';
+  aviso.value = '📌 INSTRUCCIONES: Escribe tus productos a partir de la fila 6. La fila 5 sirve de guía para ver qué formato lleva cada columna.';
   aviso.font = { name: 'Calibri', size: 10, bold: true, color: { argb: AVISO_TEXTO } };
   aviso.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: AVISO_FONDO } };
   aviso.alignment = { vertical: 'middle', horizontal: 'left', indent: 1, wrapText: true };
@@ -459,13 +459,8 @@ async function descargarPlantilla() {
   });
   filaSub.height = 18;
 
-  // 5. Filas de Ejemplo de Demostración
-  const ejemplos = [
-    ['Lápiz Mongol Nº2 (EJEMPLO)', 'LAP-001', 'mongol, lapis', 'Escritura', 0.5, 0.3, 120, 20, 'unidad', '750123456789'],
-    ['Borrador Nata (EJEMPLO)', 'BOR-002', 'goma, gomita', 'Escritura', 0.4, 0.22, 60, 10, 'unidad', ''],
-    ['Resma Carta (EJEMPLO)', 'PAP-003', 'resma, hojas blancas', 'Papel', 6.0, 4.5, 15, 3, 'resma', ''],
-    ['Fotocopia B/N (EJEMPLO)', 'SRV-004', 'copia, xerox', 'Servicios', 0.05, 0.02, 0, 0, 'copia', ''],
-  ];
+  // 5. Celdas preparadas vacías para llenar (sin productos de ejemplo)
+  const ejemplos = Array.from({ length: 15 }, () => ['', '', '', '', '', '', '', '', '', '']);
 
   const FILA_INICIO_DATOS = 6;
   ejemplos.forEach((filaData, idx) => {
