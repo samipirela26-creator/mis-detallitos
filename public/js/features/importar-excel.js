@@ -121,11 +121,50 @@ async function leerArchivo(archivo, caja) {
     }
     if (filas.length < 2) throw new Error('El archivo no tiene filas de datos.');
 
-    const encabezados = filas[0].map((h) => String(h).trim());
+    // Escanear las primeras 10 filas para encontrar la fila real de encabezados
+    let idxEncabezado = 0;
+    let maxCoincidencias = 0;
+
+    const coincidir = (row) => {
+      if (!Array.isArray(row)) return 0;
+      let score = 0;
+      for (const val of row) {
+        const norm = sinAcentos(val);
+        for (const def of Object.values(CAMPOS)) {
+          if (def.pistas.some((pista) => norm === pista || norm.includes(pista))) {
+            score++;
+            break;
+          }
+        }
+      }
+      return score;
+    };
+
+    for (let i = 0; i < Math.min(filas.length, 10); i++) {
+      const score = coincidir(filas[i]);
+      if (score > maxCoincidencias) {
+        maxCoincidencias = score;
+        idxEncabezado = i;
+      }
+    }
+
+    const encabezados = filas[idxEncabezado].map((h) => String(h).trim());
+
+    // Filas de datos tras los encabezados, omitiendo sub-guías o filas explicativas
+    const filasDatos = filas.slice(idxEncabezado + 1).filter((f) => {
+      if (!Array.isArray(f) || !f.some((c) => String(c).trim() !== '')) return false;
+      const primerValor = String(f[0] || '').trim();
+      if (primerValor.startsWith('[') && primerValor.endsWith(']')) return false;
+      if (primerValor.toLowerCase().includes('obligatorio')) return false;
+      return true;
+    });
+
+    if (!filasDatos.length) throw new Error('El archivo no contiene filas de datos válidas.');
+
     estado = {
       archivo: archivo.name,
       encabezados,
-      filas: filas.slice(1).filter((f) => f.some((c) => String(c).trim() !== '')),
+      filas: filasDatos,
       mapeo: adivinarMapeo(encabezados),
       hojas,
     };
