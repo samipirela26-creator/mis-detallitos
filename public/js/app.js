@@ -245,9 +245,44 @@ observar('pendientes', (n) => {
 // --- service worker ---
 const puedeSW = 'serviceWorker' in navigator
   && (location.protocol === 'https:' || location.hostname === 'localhost');
+// Registrarlo no basta: sin esto, en un teléfono con la app instalada los
+// cambios tardaban días en verse. Dos razones, y las dos hay que atacarlas.
+//
+//  1. El navegador sólo busca una versión nueva del service worker cuando
+//     NAVEGAS. Una PWA abierta desde el icono casi nunca navega: se queda
+//     meses con el mismo archivo. Por eso se le pide update() a mano cada vez
+//     que la app vuelve al frente.
+//  2. Aunque el worker nuevo tome el control (hace skipWaiting), la pantalla
+//     que ya está abierta sigue con el HTML, el CSS y el JS viejos en memoria.
+//     Hay que recargar.
+//
+// La recarga se hace cuando la app se va al fondo, NUNCA mientras se mira:
+// esto es una caja registradora y recargar en medio de una venta se lleva el
+// carrito por delante. Al volver, ya está la versión nueva puesta.
 if (puedeSW) {
-  addEventListener('load', () => {
-    navigator.serviceWorker?.register('service-worker.js').catch((e) => console.warn('[sw]', e));
+  let hayVersionNueva = false;
+
+  addEventListener('load', async () => {
+    let registro;
+    try {
+      registro = await navigator.serviceWorker.register('service-worker.js');
+    } catch (e) {
+      return console.warn('[sw]', e);
+    }
+
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      hayVersionNueva = true;
+      console.info('[sw] versión nueva lista; se aplica al volver a abrir');
+    });
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        registro.update().catch(() => {});  // sin red, da igual: se reintenta
+      } else if (hayVersionNueva) {
+        hayVersionNueva = false;
+        location.reload();
+      }
+    });
   });
 }
 
