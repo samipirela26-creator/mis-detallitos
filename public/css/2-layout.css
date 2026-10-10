@@ -60,10 +60,10 @@
   flex: 1;
   width: 100%; max-width: var(--ancho);
   margin: 0 auto;
-  padding: .75rem 1.25rem calc(var(--toque) + 4.5rem);
+  padding: .75rem 1.25rem calc(var(--toque) + 5.5rem + env(safe-area-inset-bottom));
 }
 
-/* Navegación: píldora de papel con los íconos, nada translúcido. */
+/* Navegación: píldora de papel sólida con los íconos, superficie limpia sin difuminado. */
 .nav {
   position: fixed; z-index: 30;
   left: 50%; transform: translateX(-50%);
@@ -76,15 +76,13 @@
   border-radius: var(--pildora);
   box-shadow: 0 10px 28px -8px rgba(18, 18, 18, .18);
 }
-/* Cada botón es una columna que se centra dentro de la píldora: el rótulo
-   tiene su propia línea con line-height 1, si no la cola de la "p" de
-   "Reportes" se sale por debajo del borde redondeado. */
+/* Cada botón se distribuye de manera simétrica dentro de la píldora. */
 .nav button {
   flex: 1 1 0; min-width: 0;
   min-height: 48px;
   padding: .3rem .1rem;
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
-  border: 0; background: none; cursor: pointer; border-radius: var(--pildora);
+  border: 0; background: transparent; cursor: pointer; border-radius: var(--pildora);
   font-family: var(--fuente-cuerpo);
   font-size: .64rem; font-weight: 600; line-height: 1.15; color: var(--texto-suave);
   overflow: hidden;
@@ -94,20 +92,18 @@
   max-width: 100%;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.nav button svg { width: 19px; height: 19px; }
-.nav button svg { display: block; stroke: currentColor; }
+.nav button svg { width: 19px; height: 19px; display: block; stroke: currentColor; }
 .nav button:hover { color: var(--texto); }
-/* En teléfono no caben cinco rótulos más la píldora de Vender: se deja el
-   rótulo sólo en la pestaña activa y el resto queda en ícono. */
-@media (max-width: 430px) {
-  .nav button:not([aria-current="page"]):not(.destacado) > span:last-child { display: none; }
-  .nav button:not([aria-current="page"]):not(.destacado) { flex: 0 1 auto; padding: .3rem .55rem; }
-  .nav button[aria-current="page"] { flex: 1 1 auto; padding-inline: .7rem; }
-}
-.nav button[aria-current="page"] { color: var(--sobre-marca-fuerte); background: var(--marca); }
-.nav button[aria-current="page"] svg { stroke: var(--sobre-marca-fuerte); }
 
-/* El botón central: Vender. Píldora negra con palabra, no un círculo mudo. */
+/* Pestaña activa: destacada en color de marca sin bloques neón agresivos */
+.nav button[aria-current="page"] {
+  color: var(--marca);
+  background: var(--marca-suave);
+  font-weight: 700;
+}
+.nav button[aria-current="page"] svg { stroke: var(--marca); }
+
+/* El botón central: Vender. Píldora principal destacada. */
 .nav button.destacado {
   flex: 0 0 auto; min-height: 48px;
   padding: 0 1rem;
@@ -117,10 +113,10 @@
   flex-direction: row; gap: .45rem;
   font-family: var(--fuente-titulo);
   font-size: .95rem; font-weight: 600;
-  transition: transform .12s ease;
+  transition: transform .12s ease, filter .12s ease;
 }
 .nav button.destacado svg { stroke: var(--sobre-tinta); width: 20px; height: 20px; }
-.nav button.destacado:hover { filter: brightness(1.25); }
+.nav button.destacado:hover { filter: brightness(1.2); }
 .nav button.destacado:active { transform: scale(.97); }
 
 .rejilla { display: grid; gap: 1rem; }

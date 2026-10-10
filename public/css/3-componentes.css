@@ -8,12 +8,15 @@
   transition: transform .15s ease;
 }
 .tarjeta + .tarjeta { margin-top: .75rem; }
-/* Bloques de color llenos: el texto encima SIEMPRE en negro. */
+/* Bloques de color llenos: el texto encima SIEMPRE en negro/oscuro legible. */
 .tarjeta.marca { background: var(--marca); border-radius: var(--r-bloque); color: var(--sobre-marca-fuerte); }
 .tarjeta.marca h2 { color: var(--sobre-marca-fuerte); }
-.tarjeta.marca p, .tarjeta.marca .pie { color: var(--sobre-marca); }
-.tarjeta.amarilla { background: var(--amarillo); border-radius: var(--r-bloque); color: var(--texto); }
-.tarjeta.amarilla p, .tarjeta.amarilla .pie { color: var(--sobre-amarillo); }
+.tarjeta.marca p, .tarjeta.marca .pie { color: var(--sobre-marca-fuerte); opacity: .9; }
+.tarjeta.marca .btn { background: #0c1e24; color: #ffffff; border-color: transparent; }
+.tarjeta.amarilla { background: var(--amarillo); border-radius: var(--r-bloque); color: #0c1e24; }
+.tarjeta.amarilla h2 { color: #0c1e24; }
+.tarjeta.amarilla p, .tarjeta.amarilla .pie { color: #4a3a00; font-weight: 500; }
+.tarjeta.amarilla .btn { background: #0c1e24; color: #ffffff; border-color: transparent; }
 .tarjeta.tinta { background: var(--tinta); border-radius: var(--r-bloque); color: var(--sobre-tinta); }
 .tarjeta.tinta p { color: var(--sobre-tinta); opacity: .72; }
 
