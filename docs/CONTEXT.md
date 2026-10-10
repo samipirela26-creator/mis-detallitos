@@ -98,6 +98,26 @@ Probado de punta a punta:
   desde la consola del navegador, recibe `permission-denied` al intentar leer
   los costos.**
 
+### Atajos del mostrador (octubre 2026)
+
+Se midió el camino de una venta en toques y se atacaron los peores. Lo que hay
+que saber para no deshacerlo sin querer:
+
+- **El código de barras ya se leía** (`data/busqueda.js` lo resuelve de primero,
+  antes que cualquier búsqueda por nombre); lo que faltaba era quién lo dictara.
+  Eso es `features/escaner.js`, con `BarcodeDetector` nativo — no se metió una
+  librería de decodificación para no inflar el precache.
+- **Los chips de la pantalla de vender se aprenden solos** (`data/favoritos.js`):
+  un contador local en IndexedDB que se divide entre dos cada 300 usos, para que
+  lo de la temporada pasada se apague. Antes eran tres nombres escritos en el
+  HTML, que sirven el primer día y después mienten.
+- **Un número suelto NO se interpreta como cantidad.** Hace falta la `x`
+  (`3x lapiz`). Si se aceptara el número solo, pedir un "cuaderno 100 hojas"
+  agregaría cien cuadernos. Está probado en `test/velocidad.test.mjs`.
+- **El índice de Fuse se arma al cargar el catálogo**, no en el primer tecleo:
+  si no, la primera venta del día paga indexar mil productos con el cliente
+  esperando.
+
 ### Deuda técnica conocida
 
 - Mientras se está sin señal, el stock que ve la pantalla no baja hasta

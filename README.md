@@ -15,6 +15,12 @@ escalas por cantidad (200 fotocopias salen más baratas solas), cobro en
 fiado, recibo por WhatsApp. **Funciona sin señal**: la venta se registra al
 instante y sube sola cuando vuelve el internet, sin duplicarse.
 
+Y está hecha para que la cola avance: **código de barras con la cámara**,
+`3x lapiz` agrega tres de un golpe, los chips de arriba son **lo que este
+negocio más vende** (lo aprende solo, no está escrito a mano), `+`/`−` en cada
+línea, ↑ ↓ y Enter sin soltar el teclado, **billetes de un toque** en el
+teclado del monto y un botón **"Justo"** que cobra el total exacto de una.
+
 **Inventario** — carga inicial desde **tu propio Excel** (la app adivina las
 columnas, muestra vista previa, detecta duplicados y **se puede deshacer
 completa**), y un **Estudio de Fotos** que va producto por producto con la
@@ -43,7 +49,7 @@ Usuarios de prueba: `dueno@detallitos.test` y `primo@detallitos.test`,
 clave `detallitos123` los dos.
 
 ```bash
-npm test                    # 47 pruebas (dinero, buscador, CSV, reportes, reglas)
+npm test                    # pruebas de dinero, buscador, atajos, CSV, reportes y reglas
 npm run reglas              # solo las reglas de seguridad (necesita el emulador)
 npm run publicar            # firebase deploy
 ```
@@ -68,6 +74,18 @@ Para probar el importador sin inventar datos:
   `pegar()` de `ui/html.js`.
 - Cualquier cosa delicada (anular, cambiar precio, tocar stock) deja rastro en
   `auditoria`.
+- **Las escalas por cantidad se aplican en `conCantidad()` de `core/dinero.js`,
+  en un solo lugar.** Los botones +/- del carrito y el diálogo de cantidad la
+  comparten. Si se vuelve a escribir la regla en la pantalla, los dos caminos
+  se desincronizan y el cliente paga de más por un lado y de menos por el otro.
+- **Todo diálogo que devuelva una promesa tiene que resolverla también al
+  cerrarse** (`d.addEventListener('close', ...)`). Si no, cerrar con Escape o
+  con el botón atrás del teléfono deja el `await` esperando para siempre: la
+  caja se traba a mitad de una venta, sin error y sin salida. Ya pasaba en
+  `pedirMonto`.
+- **El escáner no asume que haya cámara.** `BarcodeDetector` no existe en iPhone
+  ni en Firefox; `features/escaner.js` cae al teclado solo. Y apaga la cámara
+  siempre al cerrar, o se come la batería del teléfono del mostrador.
 
 ## Revisiones de mantenimiento
 

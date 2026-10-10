@@ -29,7 +29,7 @@ registrar('clientes', {
             el('div.valor', { texto: String(deben.length) }),
           ]),
         ]),
-        el('button.btn.principal.ancho', { style: 'margin-bottom:1rem', texto: '➕ Cliente nuevo', onclick: () => formulario() })
+        el('button.btn.principal.ancho', { style: 'margin-bottom:1rem', texto: 'Cliente nuevo', onclick: () => formulario() })
       );
 
       if (!clientes.length) return nodo.appendChild(el('div.vacio', { texto: 'Todavía no hay clientes.' }));
@@ -88,8 +88,8 @@ registrar('clientes', {
         }),
         el('p', { style: 'text-align:center;color:var(--texto-suave)', texto: (c.saldoUSD || 0) > 0 ? 'debe' : 'está al día' }),
         el('div.fila', { style: 'margin:1rem 0' }, [
-          el('button.btn.plano', { texto: '✏️ Editar', onclick: () => { d.close(); formulario(c); } }),
-          (c.saldoUSD || 0) > 0 ? el('button.btn.principal', { texto: '💵 Abonar', onclick: () => { d.close(); abonar(c); } }) : null,
+          el('button.btn.plano', { texto: 'Editar', onclick: () => { d.close(); formulario(c); } }),
+          (c.saldoUSD || 0) > 0 ? el('button.btn.principal', { texto: 'Abonar', onclick: () => { d.close(); abonar(c); } }) : null,
         ]),
         el('div', { id: 'abonos', class: 'cargando', texto: 'Cargando abonos…' }),
         el('button.btn.plano.ancho', { texto: 'Cerrar', onclick: () => d.close() })

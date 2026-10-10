@@ -8,7 +8,7 @@
 //  - El SDK de Firebase (gstatic): stale-while-revalidate, también cacheado.
 //  - Los datos NO pasan por aquí: de eso se encarga el caché propio de Firestore.
 
-const CACHE_NAME = 'detallitos-v7';
+const CACHE_NAME = 'detallitos-v9';
 
 const PRECACHE_URLS = [
   './',
@@ -38,10 +38,12 @@ const PRECACHE_URLS = [
   'js/ui/pin.js',
   'js/ui/sonido.js',
   'js/ui/teclado.js',
+  'js/ui/tema.js',
   'js/data/auditoria.js',
   'js/data/busqueda.js',
   'js/data/caja.js',
   'js/data/csv.js',
+  'js/data/favoritos.js',
   'js/data/catalogo.js',
   'js/data/clientes.js',
   'js/data/fotos.js',
@@ -63,6 +65,7 @@ const PRECACHE_URLS = [
   'js/features/caja.js',
   'js/features/clientes.js',
   'js/features/config.js',
+  'js/features/escaner.js',
   'js/features/estudio-fotos.js',
   'js/features/gastos.js',
   'js/features/importar-excel.js',
@@ -109,8 +112,9 @@ self.addEventListener('fetch', (ev) => {
   }
 
   if (url.origin === location.origin) {
-    // xlsx, chart y jspdf no van en el precache (pesan); se guardan la primera
-    // vez que se usan y desde ahí funcionan sin internet.
+    // xlsx, exceljs, chart y jspdf no van en el precache (pesan ~900 KB cada
+    // uno); se guardan la primera vez que se usan y desde ahí funcionan sin
+    // internet. exceljs es el que ESCRIBE los Excel; xlsx solo los lee.
     ev.respondWith(cacheFirst(req));
   }
 });

@@ -117,7 +117,7 @@ async function montarReportes(nodo) {
     import('./graficos.js').then((g) => g.barrasProductos(lienzo2, productos)).catch(() => {});
 
     // --- margen flojo: el reporte que pidió el dueño ---
-    caja.appendChild(el('div.seccion', {}, [el('h2', { texto: '⚠️ A esto le estás ganando poco' })]));
+    caja.appendChild(el('div.seccion', {}, [el('h2', { texto: 'A esto le estás ganando poco' })]));
     if (!flojos.length) {
       caja.appendChild(el('div.tarjeta.marca', { texto: 'Nada por debajo del 15% de margen. Bien ahí.' }));
     } else {
@@ -180,7 +180,7 @@ async function montarReportes(nodo) {
     // --- stock ---
     const bajos = bajoMinimo(catalogo());
     if (bajos.length) {
-      caja.appendChild(el('div.seccion', {}, [el('h2', { texto: '📦 Se está acabando' })]));
+      caja.appendChild(el('div.seccion', {}, [el('h2', { texto: 'Se está acabando' })]));
       const tarjeta = el('div.tarjeta', { style: 'padding:.5rem' });
       for (const p of bajos.slice(0, 20)) {
         const dias = proyeccionQuiebre(p, ventas, Math.max(1, diferenciaDias(desde, hasta)));
@@ -200,13 +200,13 @@ async function montarReportes(nodo) {
 
     // --- exportar ---
     caja.appendChild(el('div.fila', { style: 'margin-top:1.5rem' }, [
-      el('button.btn.plano', { texto: '📤 Excel', onclick: async () => {
+      el('button.btn.plano', { texto: 'Excel', onclick: async () => {
         try {
           const { exportarVentas } = await import('./export-excel.js');
           await exportarVentas(ventas, { desde, hasta, porProducto: productos, porVendedor: vendedores });
         } catch (e) { avisarMal('No se pudo exportar: ' + (e.message || e)); }
       } }),
-      el('button.btn.plano', { texto: '🖨️ PDF', onclick: async () => {
+      el('button.btn.plano', { texto: 'PDF', onclick: async () => {
         try {
           const { reportePDF } = await import('./export-pdf.js');
           await reportePDF({ desde, hasta, resumen: r, porProducto: productos, porVendedor: vendedores });

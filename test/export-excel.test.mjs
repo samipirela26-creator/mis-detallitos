@@ -1,66 +1,68 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { createRequire } from 'node:module';
 
-// Mock window.XLSX y window.avisar para Node environment
+// El Excel se escribe con ExcelJS (vendor/exceljs.min.js), que es un bundle
+// UMD para navegador: en Node se carga con require, no con import, y se deja
+// en window porque es de ahí donde lo toma export-excel.js (igual que el test
+// viejo hacía con window.XLSX).
+// El bundle no devuelve nada por `module.exports`: se cuelga de globalThis.
+// Por eso se requiere por el efecto y se recoge de ahí.
+const require = createRequire(import.meta.url);
+require('../public/vendor/exceljs.min.js');
+const ExcelJS = globalThis.ExcelJS;
 global.window = global.window || {};
+global.window.ExcelJS = ExcelJS;
 
-// Cargar vendor/xlsx.js (asigna global.window.XLSX)
-await import('../public/vendor/xlsx.js');
-const XLSX = global.window.XLSX;
-
-// Importar funciones desestructuradas asíncronas
 const { exportarInventario, exportarVentas } = await import('../public/js/reports/export-excel.js');
 
+// La tabla no empieza en la fila 1: hay banda de título (1), subtítulo (2),
+// respiro (3) y encabezados (4). Los datos arrancan en la 5.
+const FILA_ENCAB = 4;
+const FILA_DATOS = 5;
+
+const productos = [
+  { nombre: 'Lápiz Mongol', sku: 'LAP-01', alias: ['mongol'], categoria: 'Escritura', tipo: 'producto', tipoPrecio: 'fijo', precioUSD: 100, costoUSD: 50, stock: 50, stockMinimo: 10, unidad: 'unidad', codigoBarras: '123456', tieneFoto: true },
+  { nombre: 'Resma Hojas', sku: 'PAP-01', alias: ['hojas'], categoria: 'Papel', tipo: 'producto', tipoPrecio: 'fijo', precioUSD: 500, costoUSD: 300, stock: 20, stockMinimo: 5, unidad: 'resma', codigoBarras: '654321', tieneFoto: false },
+];
+
 test('exportarInventario genera la estructura correcta con fórmulas y formatos', async () => {
-  let libroGenerado = null;
-  let nombreArchivo = null;
+  const libro = await exportarInventario(productos);
 
-  // Intercept XLSX.writeFile
-  const origWriteFile = XLSX.writeFile;
-  XLSX.writeFile = (wb, filename) => {
-    libroGenerado = wb;
-    nombreArchivo = filename;
-  };
+  assert.deepEqual(libro.worksheets.map((w) => w.name), ['Inventario']);
+  const hoja = libro.getWorksheet('Inventario');
 
-  const productos = [
-    { nombre: 'Lápiz Mongol', sku: 'LAP-01', alias: ['mongol'], categoria: 'Escritura', tipo: 'producto', tipoPrecio: 'fijo', precioUSD: 100, costoUSD: 50, stock: 50, stockMinimo: 10, unidad: 'unidad', codigoBarras: '123456', tieneFoto: true },
-    { nombre: 'Resma Hojas', sku: 'PAP-01', alias: ['hojas'], categoria: 'Papel', tipo: 'producto', tipoPrecio: 'fijo', precioUSD: 500, costoUSD: 300, stock: 20, stockMinimo: 5, unidad: 'resma', codigoBarras: '654321', tieneFoto: false },
-  ];
+  assert.ok(hoja.autoFilter, 'Debe incluir autofiltro');
+  assert.equal(hoja.views[0].state, 'frozen', 'Debe incluir vista inmovilizada');
+  assert.equal(hoja.views[0].ySplit, FILA_ENCAB, 'Se congela hasta los encabezados');
+  // El autofiltro NO puede abarcar la fila de TOTALES: ordenar la mandaría al medio.
+  assert.equal(hoja.autoFilter, `A${FILA_ENCAB}:O${FILA_DATOS + productos.length - 1}`);
 
-  await exportarInventario(productos);
+  // Fórmulas y formatos en la primera fila de datos
+  const ganancia = hoja.getCell(FILA_DATOS, 9);
+  assert.equal(ganancia.value.formula, `G${FILA_DATOS}-H${FILA_DATOS}`, 'Ganancia = Precio - Costo');
+  assert.equal(ganancia.numFmt, '"$"#,##0.00', 'Formato numérico de moneda');
 
-  XLSX.writeFile = origWriteFile;
+  const margen = hoja.getCell(FILA_DATOS, 10);
+  assert.equal(margen.value.formula, `IF(G${FILA_DATOS}>0,(G${FILA_DATOS}-H${FILA_DATOS})/G${FILA_DATOS},0)`);
+  assert.equal(margen.numFmt, '0.0%', 'Formato numérico porcentual');
 
-  assert.ok(libroGenerado, 'Se debe haber generado el libro');
-  assert.ok(nombreArchivo.startsWith('inventario-'), 'Nombre de archivo debe ser inventario-...');
-  assert.deepEqual(libroGenerado.SheetNames, ['Inventario']);
+  // Fila de totales, justo debajo del último producto
+  const filaTot = FILA_DATOS + productos.length;
+  const totalStock = hoja.getCell(filaTot, 11);
+  assert.equal(totalStock.value.formula, `SUM(K${FILA_DATOS}:K${FILA_DATOS + 1})`, 'Suma de stock');
+  assert.ok(hoja.getCell(filaTot, 1).font.bold, 'La fila de totales va en negrita');
 
-  const hoja = libroGenerado.Sheets['Inventario'];
-  assert.ok(hoja['!autofilter'], 'Debe incluir autofiltro');
-  assert.ok(hoja['!views'], 'Debe incluir vista inmovilizada');
-
-  // Verificar fórmulas y formatos en la fila de datos 1 (Fila Excel 2 -> R=1)
-  const celdaGanancia = hoja[XLSX.utils.encode_cell({ r: 1, c: 8 })];
-  assert.equal(celdaGanancia.f, 'G2-H2', 'Fórmula de ganancia debe restar Precio menos Costo');
-  assert.equal(celdaGanancia.z, '"$"#,##0.00', 'Formato numérico de moneda');
-
-  const celdaMargen = hoja[XLSX.utils.encode_cell({ r: 1, c: 9 })];
-  assert.equal(celdaMargen.f, 'IF(G2>0,(G2-H2)/G2,0)', 'Fórmula de margen porcentual');
-  assert.equal(celdaMargen.z, '0.0%', 'Formato numérico porcentual');
-
-  // Verificar fila de totales (Fila 4 -> R=3)
-  const celdaTotalStock = hoja[XLSX.utils.encode_cell({ r: 3, c: 10 })];
-  assert.equal(celdaTotalStock.f, 'SUM(K2:K3)', 'Fórmula de suma de stock');
+  // Estilos: lo que motivó migrar de SheetJS a ExcelJS
+  const enc = hoja.getCell(FILA_ENCAB, 1);
+  assert.ok(enc.font.bold, 'Encabezado en negrita');
+  assert.equal(enc.fill.fgColor.argb, 'FF0090B3', 'Encabezado con el color de marca');
+  assert.equal(hoja.getCell(FILA_DATOS + 1, 1).fill.fgColor.argb, 'FFF1F5F9', 'Segunda fila con cebra');
+  assert.equal(hoja.conditionalFormattings.length, 2, 'Stock bajo y margen negativo');
+  assert.equal(hoja.pageSetup.printTitlesRow, `${FILA_ENCAB}:${FILA_ENCAB}`, 'Encabezado repetido al imprimir');
 });
 
 test('exportarVentas genera las pestañas de Ventas, Producto y Vendedor con totales', async () => {
-  let libroGenerado = null;
-
-  const origWriteFile = XLSX.writeFile;
-  XLSX.writeFile = (wb) => {
-    libroGenerado = wb;
-  };
-
   const ventas = [
     { dia: '2026-10-01', nombreUsuario: 'Juan', lineas: [{ cantidad: 2, nombre: 'Lápiz' }], totalUSD: 200, costoTotalUSD: 100, gananciaUSD: 100, pagos: [{ moneda: 'USD', monto: 2 }], saldoUSD: 0 },
   ];
@@ -71,19 +73,40 @@ test('exportarVentas genera las pestañas de Ventas, Producto y Vendedor con tot
     { nombre: 'Juan', ventas: 1, vendidoUSD: 200, gananciaUSD: 100, pct: 100, ticketUSD: 200, descuentos: 0 },
   ];
 
-  await exportarVentas(ventas, { desde: '2026-10-01', hasta: '2026-10-07', porProducto, porVendedor });
+  const libro = await exportarVentas(ventas, { desde: '2026-10-01', hasta: '2026-10-07', porProducto, porVendedor });
 
-  XLSX.writeFile = origWriteFile;
+  assert.deepEqual(libro.worksheets.map((w) => w.name), ['Ventas', 'Por producto', 'Por vendedor']);
 
-  assert.ok(libroGenerado);
-  assert.deepEqual(libroGenerado.SheetNames, ['Ventas', 'Por producto', 'Por vendedor']);
+  const hojaVentas = libro.getWorksheet('Ventas');
+  assert.equal(hojaVentas.getCell(FILA_DATOS, 6).value.formula, `D${FILA_DATOS}-E${FILA_DATOS}`);
 
-  const hojaVentas = libroGenerado.Sheets['Ventas'];
-  assert.equal(hojaVentas[XLSX.utils.encode_cell({ r: 1, c: 5 })].f, 'D2-E2');
+  // Totales de "Por producto": una sola fila de datos, así que el rango es de ella a ella.
+  const hojaProd = libro.getWorksheet('Por producto');
+  assert.equal(hojaProd.getCell(FILA_DATOS + 1, 3).value.formula, `SUM(C${FILA_DATOS}:C${FILA_DATOS})`);
 
-  const hojaProd = libroGenerado.Sheets['Por producto'];
-  assert.equal(hojaProd[XLSX.utils.encode_cell({ r: 2, c: 2 })].f, 'SUM(C2:C2)');
+  // El % del total apunta a la celda de totales con fila fija ($).
+  const hojaVend = libro.getWorksheet('Por vendedor');
+  assert.equal(hojaVend.getCell(FILA_DATOS, 5).value.formula, `C${FILA_DATOS}/C$${FILA_DATOS + 1}`);
+});
 
-  const hojaVend = libroGenerado.Sheets['Por vendedor'];
-  assert.equal(hojaVend[XLSX.utils.encode_cell({ r: 1, c: 4 })].f, 'C2/C$3');
+test('con cero productos no revienta ni inventa una fila de totales', async () => {
+  const libro = await exportarInventario([]);
+  const hoja = libro.getWorksheet('Inventario');
+  assert.ok(!hoja.autoFilter, 'Sin datos no hay autofiltro que poner');
+  assert.equal(hoja.getCell(FILA_DATOS, 1).value, null, 'No se escribe ninguna fila');
+  assert.equal(hoja.conditionalFormattings.length, 0, 'Ni reglas de color sobre un rango vacío');
+});
+
+test('el archivo se escribe y se vuelve a leer con los estilos puestos', async () => {
+  const libro = await exportarInventario(productos);
+  const buffer = await libro.xlsx.writeBuffer();
+
+  const releido = new ExcelJS.Workbook();
+  await releido.xlsx.load(buffer);
+  const hoja = releido.getWorksheet('Inventario');
+
+  assert.equal(hoja.getCell(FILA_ENCAB, 1).value, 'Nombre');
+  assert.ok(hoja.getCell(FILA_ENCAB, 1).font.bold, 'La negrita sobrevive al guardar');
+  assert.equal(hoja.getCell(FILA_DATOS, 9).value.formula, `G${FILA_DATOS}-H${FILA_DATOS}`, 'Y la fórmula también');
+  assert.equal(hoja.conditionalFormattings.length, 2);
 });

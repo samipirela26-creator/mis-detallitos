@@ -9,7 +9,7 @@ import { join, relative } from 'node:path';
 const RAIZ = 'public';
 const SW = join(RAIZ, 'service-worker.js');
 // Pesados y de uso puntual: se cachean solos la primera vez que se usan.
-const DIFERIDOS = new Set(['vendor/xlsx.js', 'vendor/jspdf.js', 'vendor/jspdf-autotable.js', 'vendor/chart.js']);
+const DIFERIDOS = new Set(['vendor/xlsx.js', 'vendor/exceljs.min.js', 'vendor/jspdf.js', 'vendor/jspdf-autotable.js', 'vendor/chart.js']);
 const IGNORAR = new Set(['index.html', 'service-worker.js']);
 
 const sw = readFileSync(SW, 'utf8');
