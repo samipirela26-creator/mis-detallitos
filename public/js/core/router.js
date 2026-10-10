@@ -36,6 +36,8 @@ function parsear() {
 }
 
 function inicioSegunRol() {
+  const u = usuarioActual();
+  if (!u) return 'catalogo';
   return esDueno() ? 'panel' : 'vender';
 }
 
@@ -43,7 +45,10 @@ async function pintar() {
   if (!contenedor) return;
   const { id, params } = parsear();
   const p = pantallas.get(id);
+  const u = usuarioActual();
+
   if (!p) return ir(inicioSegunRol());
+  if (!u && !p.publico) return;
   if (p.soloDueno && !esDueno()) return ir(inicioSegunRol());
 
   if (actual?.limpiar) { try { actual.limpiar(); } catch (e) { console.warn(e); } }

@@ -224,8 +224,42 @@ function pintarCascara() {
   iniciarRouter(contenido);
 }
 
+function esRutaPublica() {
+  const hash = location.hash.replace(/^#\/?/, '').split('?')[0];
+  return hash === 'catalogo';
+}
+
+function pintarCascaraPublica() {
+  app.innerHTML = '';
+  const barra = el('div.barra', {}, [
+    el('img.logo-barra', { src: 'icons/logo.webp', alt: 'Mis Detallitos' }),
+    el('div.crece', {}, [
+      el('div.saludo', { texto: 'Mis Detallitos' }),
+    ]),
+    el('button.btn.plano', {
+      texto: 'Entrar a la tienda',
+      onclick: () => {
+        location.hash = '#/entrar';
+        app.innerHTML = '';
+        montarEntrar(app);
+      },
+    }),
+  ]);
+
+  const contenido = el('main#contenido');
+  pegar(app, barra, contenido);
+
+  sincronizarCatalogo();
+  cargarTasas();
+  iniciarRouter(contenido);
+}
+
 alCambiarSesion(async (u) => {
   if (!u) {
+    if (esRutaPublica()) {
+      pintarCascaraPublica();
+      return;
+    }
     pararCatalogo();
     app.innerHTML = '';
     montarEntrar(app);
@@ -242,6 +276,20 @@ alCambiarSesion(async (u) => {
   // Primero lo que haya guardado (es instantáneo) y después, si hoy nadie puso
   // la tasa, se trae sola la del BCV.
   cargarTasas().then(() => actualizarTasasAuto());
+});
+
+addEventListener('hashchange', () => {
+  if (!usuarioActual()) {
+    if (esRutaPublica()) {
+      if (!document.getElementById('contenido')) {
+        pintarCascaraPublica();
+      }
+    } else if (location.hash !== '#/entrar') {
+      pararCatalogo();
+      app.innerHTML = '';
+      montarEntrar(app);
+    }
+  }
 });
 
 // El índice de búsqueda se rearma cuando cambia el catálogo.

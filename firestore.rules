@@ -61,13 +61,13 @@ service cloud.firestore {
         allow delete: if esDueno();
       }
 
-      // --- configuración y tasas ---
+      // --- configuración y tasas (lectura pública para catálogo de clientes) ---
       match /config/{doc} {
-        allow read: if delEquipo();
+        allow read: if true;
         allow write: if esDueno();
       }
       match /tasas/{fecha} {
-        allow read: if delEquipo();
+        allow read: if true;
         allow create, update: if esDueno();   // la tasa la fija el dueño
         allow delete: if false;
       }
@@ -77,21 +77,15 @@ service cloud.firestore {
         allow read, write: if esDueno();
       }
 
-      // --- espejo sin costos: lo que ve el empleado ---
-      // Lo escribe el DUEÑO desde su propia app (data/productos.js escribe
-      // siempre los dos documentos en el mismo writeBatch). Así no hace falta
-      // Cloud Functions y el proyecto se queda en el plan gratuito.
-      // El empleado nunca escribe aquí; el stock lo ajusta el ledger.
+      // --- espejo sin costos: lo ve el empleado y los clientes en el catálogo público ---
       match /productos_venta/{id} {
-        allow read: if delEquipo();
+        allow read: if true;
         allow create, update, delete: if esDueno();
       }
 
-      // --- fotos de productos (van en Firestore porque Storage exige plan
-      //     de pago; ~60 KB cada una, en documentos aparte para no inflar
-      //     el catálogo) ---
+      // --- fotos de productos ---
       match /fotos/{productoId} {
-        allow read: if delEquipo();
+        allow read: if true;
         allow write: if esDueno();
       }
 
