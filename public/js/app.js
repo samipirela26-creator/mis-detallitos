@@ -7,7 +7,7 @@ import { observar, leer } from './core/estado.js';
 import { montarEntrar, montarEnEspera } from './ui/pantalla-entrar.js';
 import { el, esc, diaISO, pegar } from './ui/html.js';
 import { sincronizarCatalogo, parar as pararCatalogo, productos as catalogo } from './data/catalogo.js';
-import { cargarTasas } from './data/tasas.js';
+import { cargarTasas, actualizarTasasAuto } from './data/tasas.js';
 import { ventasEntre } from './data/ventas.js';
 import { gastosEntre } from './data/gastos.js';
 import { bajoMinimo } from './data/inventario.js';
@@ -238,7 +238,9 @@ alCambiarSesion(async (u) => {
   }
   pintarCascara();
   sincronizarCatalogo();
-  cargarTasas();
+  // Primero lo que haya guardado (es instantáneo) y después, si hoy nadie puso
+  // la tasa, se trae sola la del BCV.
+  cargarTasas().then(() => actualizarTasasAuto());
 });
 
 // El índice de búsqueda se rearma cuando cambia el catálogo.

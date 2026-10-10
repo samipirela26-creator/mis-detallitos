@@ -357,75 +357,253 @@ function kpi(rotulo, valor, clase = '') {
   ]);
 }
 
-async function descargarPlantilla() {
-  const XLSX = await cargarXLSX();
-  const libro = XLSX.utils.book_new();
+async function cargarExcelJS() {
+  if (typeof window !== 'undefined' && window.ExcelJS) return window.ExcelJS;
+  await import('../../vendor/exceljs.min.js');
+  return (typeof window !== 'undefined' && window.ExcelJS) || globalThis.ExcelJS;
+}
 
-  const ejemplo = [
-    ['Nombre', 'SKU / Código', 'Otros nombres', 'Categoría', 'Precio de venta', 'Costo', 'Cantidad', 'Stock mínimo', 'Unidad', 'Código de barras'],
-    ['Lápiz Mongol Nº2', 'LAP-001', 'mongol, lapis', 'Escritura', 0.5, 0.3, 120, 20, 'unidad', '750123456789'],
-    ['Borrador Nata', 'BOR-002', 'goma, gomita', 'Escritura', 0.4, 0.22, 60, 10, 'unidad', ''],
-    ['Resma Carta', 'PAP-003', 'resma, hojas blancas', 'Papel', 6, 4.5, 15, 3, 'resma', ''],
-    ['Fotocopia B/N', 'SRV-004', 'copia, xerox', 'Servicios', 0.05, 0.02, 0, 0, 'copia', ''],
+async function descargarPlantilla() {
+  const ExcelJS = await cargarExcelJS();
+  const libro = new ExcelJS.Workbook();
+  libro.creator = 'Mis Detallitos';
+  libro.created = new Date();
+
+  const MARCA = 'FF0B6A82';
+  const MARCA_TEXTO = 'FFFFFFFF';
+  const CEBRA = 'FFF1F7FA';
+  const GUIA_FONDO = 'FFEAEFF2';
+  const AVISO_FONDO = 'FFFDF0C4';
+  const AVISO_TEXTO = 'FF6A5000';
+  const BORDE_GRIS = 'FFE0E0E0';
+
+  const MONEDA = '"$"#,##0.00';
+  const ENTERO = '#,##0';
+
+  // --- HOJA 1: PRODUCTOS ---
+  const hoja = libro.addWorksheet('Productos');
+  const titulos = ['Nombre', 'SKU / Código', 'Otros nombres', 'Categoría', 'Precio de venta', 'Costo', 'Cantidad', 'Stock mínimo', 'Unidad', 'Código de barras'];
+
+  const subGuias = [
+    '[Obligatorio]',
+    '[Ej: LAP-001]',
+    '[Separados por coma]',
+    '[Ej: Escritura]',
+    '[USD - Cliente]',
+    '[USD - Tu costo]',
+    '[Stock actual]',
+    '[Alerta de reposición]',
+    '[Ej: unidad]',
+    '[EAN / UPC]',
   ];
 
-  const hoja = XLSX.utils.aoa_to_sheet(ejemplo);
+  const comentarios = {
+    1: 'OBLIGATORIO: El nombre principal con el que venderás y buscarás el producto en la app.',
+    2: 'OPCIONAL: Código interno del producto (ej: LAP-001). Sirve para enlazar fotos automáticamente.',
+    3: 'OPCIONAL: Sinónimos o apodos separados por coma (ej: "mongol, lapis") para encontrarlo al vender en caja.',
+    4: 'OPCIONAL: Grupo o línea de producto (ej: Escritura, Papel, Servicios, Bebidas).',
+    5: 'OBLIGATORIO: Lo que paga el cliente final en dólares USD (ej: 0.50 o 12.00).',
+    6: 'OBLIGATORIO: Lo que te cuesta a ti comprar el producto en USD (para calcular tu ganancia neta).',
+    7: 'OPCIONAL: Cantidad o existencia inicial disponible en tu inventario.',
+    8: 'OPCIONAL: Cantidad límite para recibir alertas automáticas cuando queden pocas unidades.',
+    9: 'OPCIONAL: Presentación o unidad de medida (unidad, resma, caja, metro, etc.).',
+    10: 'OPCIONAL: Código de barras numérico (EAN/UPC) para escaneo rápido con lectora o cámara.',
+  };
 
-  // Formatear celdas numéricas de los ejemplos
-  for (let r = 1; r < ejemplo.length; r++) {
-    const refPrecio = XLSX.utils.encode_cell({ r, c: 4 });
-    const refCosto = XLSX.utils.encode_cell({ r, c: 5 });
-    const refCantidad = XLSX.utils.encode_cell({ r, c: 6 });
-    const refMinimo = XLSX.utils.encode_cell({ r, c: 7 });
+  const colFin = hoja.getColumn(titulos.length).letter;
 
-    if (hoja[refPrecio]) hoja[refPrecio].z = '"$"#,##0.00';
-    if (hoja[refCosto]) hoja[refCosto].z = '"$"#,##0.00';
-    if (hoja[refCantidad]) hoja[refCantidad].z = '#,##0';
-    if (hoja[refMinimo]) hoja[refMinimo].z = '#,##0';
-  }
+  // 1. Banda de Marca (Fila 1)
+  hoja.mergeCells(`A1:${colFin}1`);
+  const banda = hoja.getCell('A1');
+  banda.value = 'MIS DETALLITOS G&M C.A. · Plantilla de Importación de Inventario';
+  banda.font = { name: 'Calibri', size: 13, bold: true, color: { argb: MARCA_TEXTO } };
+  banda.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: MARCA } };
+  banda.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+  hoja.getRow(1).height = 28;
 
-  // Anchos automáticos de columna
-  const numCols = ejemplo[0].length;
-  const colWidths = new Array(numCols).fill(10);
-  ejemplo.forEach((fila) => {
-    fila.forEach((val, c) => {
-      const len = String(val || '').length;
-      if (len > colWidths[c]) colWidths[c] = len;
-    });
+  // 2. Banner de Instrucciones Explicativo (Fila 2)
+  hoja.mergeCells(`A2:${colFin}2`);
+  const aviso = hoja.getCell('A2');
+  aviso.value = '📌 INSTRUCCIONES: Las filas 6 a 9 son solo EJEMPLOS de demostración. Reemplázalas o bórralas con tus productos reales antes de importar este archivo en la app.';
+  aviso.font = { name: 'Calibri', size: 10, bold: true, color: { argb: AVISO_TEXTO } };
+  aviso.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: AVISO_FONDO } };
+  aviso.alignment = { vertical: 'middle', horizontal: 'left', indent: 1, wrapText: true };
+  hoja.getRow(2).height = 24;
+
+  hoja.getRow(3).height = 6; // Espaciador
+
+  // 3. Encabezados de Tabla (Fila 4)
+  const FILA_ENCAB = 4;
+  const filaEnc = hoja.getRow(FILA_ENCAB);
+  titulos.forEach((t, i) => {
+    const colIdx = i + 1;
+    const c = filaEnc.getCell(colIdx);
+    c.value = t;
+    c.font = { name: 'Calibri', size: 11, bold: true, color: { argb: MARCA_TEXTO } };
+    c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: MARCA } };
+    c.alignment = { vertical: 'middle', horizontal: i === 4 || i === 5 || i === 6 || i === 7 ? 'right' : 'left' };
+    c.note = comentarios[colIdx];
   });
-  hoja['!cols'] = colWidths.map((w) => ({ wch: Math.min(Math.max(w + 3, 10), 50) }));
+  filaEnc.height = 24;
 
-  // Congelar encabezado y activar autofiltro
-  const colFin = XLSX.utils.encode_col(numCols - 1);
-  hoja['!autofilter'] = { ref: `A1:${colFin}${ejemplo.length}` };
-  hoja['!views'] = [{ state: 'frozen', ySplit: 1, xSplit: 0 }];
+  // 4. Sub-guía Corta en Celda (Fila 5)
+  const FILA_SUBGUIA = 5;
+  const filaSub = hoja.getRow(FILA_SUBGUIA);
+  subGuias.forEach((g, i) => {
+    const c = filaSub.getCell(i + 1);
+    c.value = g;
+    c.font = { name: 'Calibri', size: 9, italic: true, color: { argb: 'FF56707A' } };
+    c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: GUIA_FONDO } };
+    c.alignment = { vertical: 'middle', horizontal: i === 4 || i === 5 || i === 6 || i === 7 ? 'right' : 'left' };
+    c.border = { bottom: { style: 'thin', color: { argb: MARCA } } };
+  });
+  filaSub.height = 18;
 
-  XLSX.utils.book_append_sheet(libro, hoja, 'Productos');
+  // 5. Filas de Ejemplo de Demostración
+  const ejemplos = [
+    ['Lápiz Mongol Nº2 (EJEMPLO)', 'LAP-001', 'mongol, lapis', 'Escritura', 0.5, 0.3, 120, 20, 'unidad', '750123456789'],
+    ['Borrador Nata (EJEMPLO)', 'BOR-002', 'goma, gomita', 'Escritura', 0.4, 0.22, 60, 10, 'unidad', ''],
+    ['Resma Carta (EJEMPLO)', 'PAP-003', 'resma, hojas blancas', 'Papel', 6.0, 4.5, 15, 3, 'resma', ''],
+    ['Fotocopia B/N (EJEMPLO)', 'SRV-004', 'copia, xerox', 'Servicios', 0.05, 0.02, 0, 0, 'copia', ''],
+  ];
 
-  const ayuda = XLSX.utils.aoa_to_sheet([
-    ['Guía de llenado de la plantilla de productos'],
-    [''],
-    ['Campo', 'Descripción y Consejos'],
-    ['Nombre', 'OBLIGATORIO. Es el nombre principal con el que buscarás el producto.'],
-    ['SKU / Código', 'OPCIONAL. Código único interno del producto (ej: LAP-001). Si usas el Estudio de Fotos, nombrar la imagen igual que el SKU vinculará la foto automáticamente.'],
-    ['Otros nombres', 'OPCIONAL. Sinónimos o alias separados por coma (ej: "mongol, lapis"). Permite encontrar el producto al venderlo aunque el cliente lo pida con otro nombre.'],
-    ['Categoría', 'OPCIONAL. Grupo o línea del producto (ej: Escritura, Papel, Servicios).'],
-    ['Precio de venta', 'Lo que PAGA EL CLIENTE (en USD). Puedes usar comas o puntos decimales (0,50 o 0.50).'],
-    ['Costo', 'Lo que TE COSTÓ A TI comprarlo (en USD). Permite calcular tus ganancias netas. Solo visible para el dueño.'],
-    ['Cantidad', 'Stock actual disponible en inventario.'],
-    ['Stock mínimo', 'Cantidad de alerta. Cuando la existencia baje de este número, la app te avisará para reponer.'],
-    ['Unidad', 'Presentación del producto (unidad, resma, metro, paquete, etc.).'],
-    ['Código de barras', 'Código EAN/UPC numérico para escaneo rápido con cámara o lector de barras.'],
-    [''],
-    ['💡 Notas Importantes:'],
-    ['1. No estás obligado a usar esta plantilla: puedes subir tu propio archivo Excel existente y la app adivinará las columnas.'],
-    ['2. Las fotos NO se colocan en el Excel. Se toman o suben rápidamente desde el Estudio de Fotos en la app.'],
-  ]);
+  const FILA_INICIO_DATOS = 6;
+  ejemplos.forEach((filaData, idx) => {
+    const numFila = FILA_INICIO_DATOS + idx;
+    const row = hoja.getRow(numFila);
+    filaData.forEach((val, cIdx) => {
+      const celda = row.getCell(cIdx + 1);
+      celda.value = val;
+      celda.font = { name: 'Calibri', size: 10.5 };
 
-  ayuda['!cols'] = [{ wch: 22 }, { wch: 110 }];
-  ayuda['!views'] = [{ state: 'frozen', ySplit: 2, xSplit: 0 }];
-  XLSX.utils.book_append_sheet(libro, ayuda, 'Cómo llenarla');
+      // Alineaciones
+      if (cIdx === 4 || cIdx === 5 || cIdx === 6 || cIdx === 7) {
+        celda.alignment = { horizontal: 'right' };
+      } else if (cIdx === 8 || cIdx === 9) {
+        celda.alignment = { horizontal: 'center' };
+      }
 
-  XLSX.writeFile(libro, 'plantilla-mis-detallitos.xlsx');
-  avisar('Plantilla descargada');
+      // Formatos numéricos
+      if (cIdx === 4 || cIdx === 5) {
+        celda.numFmt = MONEDA;
+      } else if (cIdx === 6 || cIdx === 7) {
+        celda.numFmt = ENTERO;
+      }
+
+      // Bordes limpios de celda
+      celda.border = {
+        top: { style: 'thin', color: { argb: BORDE_GRIS } },
+        bottom: { style: 'thin', color: { argb: BORDE_GRIS } },
+        left: { style: 'thin', color: { argb: BORDE_GRIS } },
+        right: { style: 'thin', color: { argb: BORDE_GRIS } },
+      };
+    });
+
+    // Cebra alternada
+    if (idx % 2 === 1) {
+      for (let c = 1; c <= titulos.length; c++) {
+        row.getCell(c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: CEBRA } };
+      }
+    }
+  });
+
+  // Autofiltro y vista congelada
+  hoja.autoFilter = `A${FILA_ENCAB}:${colFin}${FILA_INICIO_DATOS + ejemplos.length - 1}`;
+  hoja.views = [{ state: 'frozen', xSplit: 0, ySplit: FILA_SUBGUIA }];
+
+  // Autoajuste de anchos de columna
+  titulos.forEach((t, i) => {
+    let max = Math.max(String(t).length, String(subGuias[i]).length);
+    ejemplos.forEach((f) => {
+      const v = String(f[i] || '');
+      if (v.length > max) max = v.length;
+    });
+    hoja.getColumn(i + 1).width = Math.min(Math.max(max + 4, 14), 48);
+  });
+
+  // --- HOJA 2: CÓMO LLENARLA (GUÍA DE USO ENRIQUECIDA) ---
+  const hojaAyuda = libro.addWorksheet('Cómo llenarla');
+  hojaAyuda.mergeCells('A1:B1');
+  const bandaAyuda = hojaAyuda.getCell('A1');
+  bandaAyuda.value = 'Guía de llenado de la plantilla de productos';
+  bandaAyuda.font = { name: 'Calibri', size: 13, bold: true, color: { argb: MARCA_TEXTO } };
+  bandaAyuda.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: MARCA } };
+  bandaAyuda.alignment = { vertical: 'middle', indent: 1 };
+  hojaAyuda.getRow(1).height = 26;
+
+  const encAyuda = hojaAyuda.getRow(3);
+  ['Campo / Columna', 'Descripción detallada y Consejos de Uso'].forEach((t, i) => {
+    const c = encAyuda.getCell(i + 1);
+    c.value = t;
+    c.font = { name: 'Calibri', size: 11, bold: true, color: { argb: MARCA_TEXTO } };
+    c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: MARCA } };
+    c.alignment = { vertical: 'middle', indent: 1 };
+  });
+  encAyuda.height = 22;
+
+  const guiaCampos = [
+    ['Nombre', 'OBLIGATORIO. Es el nombre principal del producto (ej: "Resma Carta"). Se usa para la búsqueda y ventas.'],
+    ['SKU / Código', 'OPCIONAL. Código interno único (ej: LAP-001). Si nombras las fotos igual que el SKU, el Estudio de Fotos las vincula automáticamente.'],
+    ['Otros nombres', 'OPCIONAL. Sinónimos o alias separados por comas (ej: "mongol, lapis, creyón") para encontrarlo aunque el cliente lo pida con otro nombre.'],
+    ['Categoría', 'OPCIONAL. Clasificación o línea del producto (ej: Escritura, Papel, Servicios, Bebidas).'],
+    ['Precio de venta', 'Lo que PAGA EL CLIENTE en USD (ej: 0.50 o 12.00). Puedes usar comas o puntos decimales.'],
+    ['Costo', 'Lo que TE COSTÓ A TI comprar el producto en USD. Permite a la app calcular tus ganancias netas reales (solo visible para el dueño).'],
+    ['Cantidad', 'Existencia o stock inicial en tu inventario.'],
+    ['Stock mínimo', 'Cantidad de alerta. Cuando la existencia baje de este valor, la app te notificará para reponer.'],
+    ['Unidad', 'Presentación del producto (unidad, resma, metro, paquete, caja, etc.).'],
+    ['Código de barras', 'Código EAN/UPC numérico para escaneo súper rápido con lector de barras o cámara.'],
+  ];
+
+  guiaCampos.forEach(([campo, desc], idx) => {
+    const row = hojaAyuda.getRow(4 + idx);
+    const c1 = row.getCell(1);
+    const c2 = row.getCell(2);
+    c1.value = campo;
+    c1.font = { name: 'Calibri', size: 10.5, bold: true };
+    c2.value = desc;
+    c2.font = { name: 'Calibri', size: 10.5 };
+    c1.border = { top: { style: 'thin', color: { argb: BORDE_GRIS } }, bottom: { style: 'thin', color: { argb: BORDE_GRIS } } };
+    c2.border = { top: { style: 'thin', color: { argb: BORDE_GRIS } }, bottom: { style: 'thin', color: { argb: BORDE_GRIS } } };
+    if (idx % 2 === 1) {
+      c1.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: CEBRA } };
+      c2.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: CEBRA } };
+    }
+  });
+
+  // Sección de Notas de Negocio en la guía
+  const filaInicioNotas = 4 + guiaCampos.length + 2;
+  hojaAyuda.mergeCells(`A${filaInicioNotas}:B${filaInicioNotas}`);
+  const titNotas = hojaAyuda.getCell(`A${filaInicioNotas}`);
+  titNotas.value = '💡 CONSEJOS IMPORTANTES DE IMPORTACIÓN:';
+  titNotas.font = { name: 'Calibri', size: 11, bold: true, color: { argb: MARCA } };
+
+  const notas = [
+    '1. No estás obligado a usar esta plantilla exacta: puedes subir cualquier archivo Excel existente y la app adivinará qué columna es cuál.',
+    '2. Las fotos NO se colocan en el Excel. Se toman o vinculan fácilmente desde el Estudio de Fotos en la aplicación.',
+    '3. Si algo sale mal durante la importación, NO TE PREOCUPES: la app incluye un botón de "Deshacer importación completa".',
+  ];
+
+  notas.forEach((n, idx) => {
+    const rIdx = filaInicioNotas + 1 + idx;
+    hojaAyuda.mergeCells(`A${rIdx}:B${rIdx}`);
+    const cell = hojaAyuda.getCell(`A${rIdx}`);
+    cell.value = n;
+    cell.font = { name: 'Calibri', size: 10, italic: true, color: { argb: 'FF40505A' } };
+  });
+
+  hojaAyuda.getColumn(1).width = 22;
+  hojaAyuda.getColumn(2).width = 100;
+
+  // Descargar archivo
+  const buffer = await libro.xlsx.writeBuffer();
+  const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'plantilla-mis-detallitos.xlsx';
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+  avisar('Plantilla descargada con diseño actualizado');
 }
+
+

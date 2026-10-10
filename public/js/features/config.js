@@ -7,7 +7,7 @@ import { el, esc, $, fecha, pegar } from '../ui/html.js';
 import { avisar, avisarOk, avisarMal, confirmar } from '../ui/avisos.js';
 import { ref, col } from '../core/firebase.js';
 import { setDoc, getDoc, getDocs, deleteDoc } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js';
-import { cargarTasas, guardarTasas, sugerirTasas, hoyISO } from '../data/tasas.js';
+import { cargarTasas, guardarTasas, sugerirTasas, hoyISO, baseBs, guardarBaseBs, BASES_BS } from '../data/tasas.js';
 import { pendientes, aprobar, descartar } from '../data/sinonimos.js';
 import { productos as catalogo } from '../data/catalogo.js';
 import { hashPin, olvidarHash } from '../ui/pin.js';
@@ -37,21 +37,41 @@ registrar('config', {
 });
 
 // --- tasas del día -----------------------------------------------------------
+// La del bolívar se actualiza sola con el BCV al abrir la app; aquí se puede
+// corregir a mano y elegir cuál de las dos tasas del BCV usa el negocio.
 async function pintarTasas(caja) {
   const actual = await cargarTasas();
+  const base = await baseBs();
   const tasas = leer('tasas') || {};
+  const auto = actual && actual.fuente && actual.fuente.startsWith('bcv-');
   caja.innerHTML = '';
   pegar(caja, 
     el('h2', { texto: 'Tasas de hoy' }),
     el('p', {
       style: 'color:var(--texto-suave);font-size:.9rem',
       texto: actual?.deHoy
-        ? `Puestas hoy por ${actual.nombreUsuario || 'ti'}.`
+        ? (auto
+            ? `Puestas hoy solas con la tasa del ${actual.fuente === 'bcv-eur' ? 'euro' : 'dólar'} del BCV.`
+            : `Puestas hoy por ${actual.nombreUsuario || 'ti'}.`)
         : actual
           ? `Las últimas son del ${actual.fecha}. Actualízalas para que los cobros salgan bien.`
           : 'Todavía no has puesto ninguna tasa. Sin esto solo se puede cobrar en dólares.',
     })
   );
+
+  // Cuál de las dos tasas del BCV se usa para el bolívar.
+  const selector = el('select', {}, Object.values(BASES_BS).map((b) =>
+    el('option', { value: b.base, texto: b.nombre, ...(b.base === base.base ? { selected: '' } : {}) })));
+  selector.onchange = async () => {
+    try {
+      await guardarBaseBs(selector.value);
+      avisarOk('Listo. Mañana la tasa se actualiza sola con esa.');
+    } catch (e) { avisarMal('No se pudo guardar: ' + (e.message || e)); }
+  };
+  caja.appendChild(el('div.campo', {}, [
+    el('label', { texto: 'Tasa del BCV que usas para cobrar en bolívares' }),
+    selector,
+  ]));
 
   const entradas = {};
   for (const m of Object.values(MONEDAS)) {
@@ -59,7 +79,7 @@ async function pintarTasas(caja) {
     entradas[m.codigo] = el('input', {
       inputmode: 'decimal',
       value: tasas[m.codigo] ? String(aMayores(tasas[m.codigo], m.codigo)).replace('.', ',') : '',
-      placeholder: m.codigo === 'VES' ? '36,50' : '4100',
+      placeholder: m.codigo === 'VES' ? '980,61' : '3240',
     });
     caja.appendChild(el('div.campo', {}, [
       el('label', { texto: `${m.nombre} por 1 dólar` }),
@@ -67,15 +87,26 @@ async function pintarTasas(caja) {
     ]));
   }
 
+  // Lo que dice el BCV ahora mismo, para comparar antes de guardar.
+  const comparacion = el('p', { style: 'color:var(--texto-suave);font-size:.82rem' });
+
   caja.appendChild(el('div.fila', {}, [
-    el('button.btn.plano', { texto: 'Sugerir', onclick: async () => {
+    el('button.btn.plano', { texto: 'Consultar BCV', onclick: async () => {
       avisar('Consultando…');
       const s = await sugerirTasas();
       if (!s) return avisarMal('No se pudo consultar. Escríbelas a mano.');
-      for (const [codigo, valor] of Object.entries(s)) {
-        if (entradas[codigo]) entradas[codigo].value = String(aMayores(valor, codigo)).replace('.', ',');
+      for (const codigo of ['VES', 'COP']) {
+        if (s[codigo] && entradas[codigo]) {
+          entradas[codigo].value = String(aMayores(s[codigo], codigo)).replace('.', ',');
+        }
       }
-      avisarOk('Sugerencia puesta. Revísala y guarda.');
+      const partes = [];
+      if (s.bcv?.EUR) partes.push(`euro ${formatear(s.bcv.EUR, 'VES')}`);
+      if (s.bcv?.USD) partes.push(`dólar ${formatear(s.bcv.USD, 'VES')}`);
+      comparacion.textContent = partes.length ? `BCV: ${partes.join(' · ')}` : '';
+      avisarOk(s.base === base.base
+        ? 'Tasa del BCV puesta. Revísala y guarda.'
+        : `La del ${base.nombre.toLowerCase()} no respondió; se puso la otra. Revísala.`);
     } }),
     el('button.btn.principal', { texto: 'Guardar tasas', onclick: async () => {
       const datos = { fuente: 'manual' };
@@ -89,6 +120,7 @@ async function pintarTasas(caja) {
       } catch (e) { avisarMal('No se pudo guardar: ' + (e.message || e)); }
     } }),
   ]));
+  caja.appendChild(comparacion);
   caja.appendChild(el('p', {
     style: 'color:var(--texto-suave);font-size:.82rem;margin-top:.6rem',
     texto: 'Cada venta guarda la tasa que se usó en ese momento. Cambiar la tasa de hoy no altera las ventas de ayer.',

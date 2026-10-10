@@ -1,14 +1,42 @@
-// tasas.js — las tasas del día. Manda el dueño; la API solo sugiere.
+// tasas.js — las tasas del día. Manda el dueño; la API solo ayuda.
 //
 // Se guarda una tasa por día (negocios/.../tasas/2026-10-07) y cada pago se
 // lleva su tasa congelada. Jamás se recalcula el pasado.
+//
+// El bolívar sale del BCV. El BCV publica dos tasas y aquí se elige cuál usar:
+//   - euro  (por defecto): es la que usa este negocio para cobrar en Bs.
+//   - dólar: la oficial del dólar, para quien prefiera esa.
+// La elección se guarda en config/general.baseBs y vale para todos los equipos.
 
 import { ref, col } from '../core/firebase.js';
 import { getDoc, setDoc, getDocs, query, orderBy, limit, serverTimestamp } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js';
-import { usuarioActual } from '../core/sesion.js';
+import { usuarioActual, esDueno } from '../core/sesion.js';
 import { escribir } from '../core/estado.js';
 
 export const hoyISO = () => new Date().toISOString().slice(0, 10);
+
+/** Las dos tasas del BCV, con nombre y fuente para mostrarlas tal cual. */
+export const BASES_BS = {
+  EUR: { base: 'EUR', nombre: 'Euro del BCV',  fuente: 'bcv-eur', url: 'https://ve.dolarapi.com/v1/euros/oficial' },
+  USD: { base: 'USD', nombre: 'Dólar del BCV', fuente: 'bcv-usd', url: 'https://ve.dolarapi.com/v1/dolares/oficial' },
+};
+const BASE_POR_DEFECTO = 'EUR';
+
+/** Cuál de las dos tasas del BCV usa el negocio para el bolívar. */
+export async function baseBs() {
+  try {
+    const snap = await getDoc(ref('config', 'general'));
+    const b = snap.data()?.baseBs;
+    if (BASES_BS[b]) return BASES_BS[b];
+  } catch { /* sin permiso o sin internet: se usa la de siempre */ }
+  return BASES_BS[BASE_POR_DEFECTO];
+}
+
+export async function guardarBaseBs(base) {
+  if (!BASES_BS[base]) throw new Error(`Base desconocida: ${base}`);
+  await setDoc(ref('config', 'general'), { baseBs: base }, { merge: true });
+  return BASES_BS[base];
+}
 
 /** Las tasas del día; si hoy no se han puesto, trae las últimas que haya. */
 export async function cargarTasas() {
@@ -46,30 +74,75 @@ export async function guardarTasas({ VES, COP, fuente = 'manual' }) {
   return datos;
 }
 
+const numero = async (url, saca) => {
+  try {
+    const r = await fetch(url, { cache: 'no-store' });
+    if (!r.ok) return null;
+    const n = saca(await r.json());
+    return n > 0 ? n : null;
+  } catch { return null; }   // sin internet o API caída: se escribe a mano
+};
+
 /**
- * Sugerencia automática. Son APIs públicas y gratuitas; si fallan, no pasa
+ * Consulta las tasas de hoy. Son APIs públicas y gratuitas; si fallan, no pasa
  * nada: el dueño escribe la tasa a mano, que es lo que manda igual.
- * Devuelve { VES, COP } en unidades menores por USD, o null.
+ *
+ * Devuelve { VES, COP, bcv: { EUR, USD }, base, fuente, fechaBCV } con los
+ * montos en unidades menores por USD, o null si no se consiguió ninguna.
  */
 export async function sugerirTasas() {
-  const salida = {};
-  // Bolívar: tasa oficial del BCV.
-  try {
-    const r = await fetch('https://ve.dolarapi.com/v1/dolares/oficial', { cache: 'no-store' });
-    if (r.ok) {
-      const j = await r.json();
-      if (j?.promedio > 0) salida.VES = Math.round(j.promedio * 100);   // Bs -> céntimos
-    }
-  } catch (e) { /* sin internet o API caída: se escribe a mano */ }
+  const elegida = await baseBs();
+  const [eur, usd, cop] = await Promise.all([
+    // El BCV publica las dos; se traen juntas para poder mostrarlas y comparar.
+    numero(BASES_BS.EUR.url, (j) => j?.promedio),
+    numero(BASES_BS.USD.url, (j) => j?.promedio),
+    // El peso no lo publica el BCV; sale de un cambio internacional.
+    numero('https://open.er-api.com/v6/latest/USD', (j) => j?.rates?.COP),
+  ]);
 
-  // Peso colombiano.
-  try {
-    const r = await fetch('https://api.frankfurter.app/latest?from=USD&to=COP', { cache: 'no-store' });
-    if (r.ok) {
-      const j = await r.json();
-      if (j?.rates?.COP > 0) salida.COP = Math.round(j.rates.COP);      // COP no tiene decimales
-    }
-  } catch (e) { /* idem */ }
+  const bcv = {};
+  if (eur) bcv.EUR = Math.round(eur * 100);   // Bs -> céntimos
+  if (usd) bcv.USD = Math.round(usd * 100);
 
-  return Object.keys(salida).length ? salida : null;
+  const salida = { bcv, base: elegida.base, fuente: elegida.fuente };
+  if (bcv[elegida.base]) salida.VES = bcv[elegida.base];
+  else if (bcv.EUR || bcv.USD) {
+    // Si justo falló la que usa el negocio, se ofrece la otra, pero diciéndolo.
+    const otra = bcv.EUR ? 'EUR' : 'USD';
+    salida.VES = bcv[otra];
+    salida.base = otra;
+    salida.fuente = BASES_BS[otra].fuente;
+  }
+  if (cop) salida.COP = Math.round(cop);      // el peso no tiene decimales
+
+  return (salida.VES || salida.COP) ? salida : null;
+}
+
+/**
+ * Actualización diaria automática: al abrir la app, si hoy nadie puso la tasa,
+ * se trae la del BCV y se guarda sola. Si el dueño ya la puso a mano hoy, no se
+ * toca nada — lo que escribe el dueño siempre gana.
+ *
+ * Solo corre para el dueño: es el único que puede escribir en `tasas`.
+ */
+export async function actualizarTasasAuto() {
+  if (!esDueno()) return null;
+  try {
+    const hoy = await getDoc(ref('tasas', hoyISO()));
+    if (hoy.exists()) return null;
+
+    const s = await sugerirTasas();
+    if (!s?.VES) return null;
+
+    // El peso se arrastra de la última tasa si hoy el cambio no respondió.
+    let COP = s.COP;
+    if (!COP) {
+      const ultimas = await getDocs(query(col('tasas'), orderBy('ts', 'desc'), limit(1)));
+      COP = ultimas.empty ? 0 : (ultimas.docs[0].data().COP || 0);
+    }
+    return await guardarTasas({ VES: s.VES, COP, fuente: s.fuente });
+  } catch (e) {
+    console.warn('[tasas] auto', e?.code || e);
+    return null;
+  }
 }
