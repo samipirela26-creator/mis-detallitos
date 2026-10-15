@@ -18,6 +18,17 @@ export const MONEDAS = {
 
 export const MONEDA_BASE = 'USD';
 
+// --- Dónde está la plata ------------------------------------------------------
+// El dinero del negocio no está todo en la gaveta: una parte se guarda aparte.
+// Cada entrada y cada salida dice de qué sitio sale o a qué sitio entra, y por
+// eso la caja del turno NO tiene que coincidir con el total del negocio.
+//
+// `Caja` es la gaveta del día: ahí caen las ventas en efectivo y de ahí salen
+// los gastos. `Caja fuerte` es lo guardado.
+export const LUGARES = ['Caja', 'Caja fuerte'];
+export const LUGAR_VENTAS = 'Caja';
+
+
 function cfg(moneda) {
   const c = MONEDAS[moneda];
   if (!c) throw new Error(`Moneda desconocida: ${moneda}`);

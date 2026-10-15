@@ -29,6 +29,15 @@ Photoroom o remove.bg, cada foto sale **recortada sobre fondo blanco, centrada
 y con sombra**, como foto de catálogo; se configura en Configuración y si falla
 o no hay internet la foto se guarda con su fondo original.
 
+**Mi dinero** — cuánta plata hay de verdad y dónde está: la **Caja** del día y
+la **caja fuerte** se cuentan por separado, porque no tienen por qué coincidir.
+Se mete dinero que no viene de ninguna venta (el **dinero inicial** del
+negocio, aportes, préstamos), se saca con categorías fijas (**pago de
+trabajador, compra de insumos, diezmo**) escribiendo por qué y para qué, y se
+mueve de un sitio al otro sin que el total cambie. Aparte, cuánto se ganó en el
+período y cuánto queda de esa ganancia. Lo fiado no cuenta como plata en mano
+hasta que se cobre.
+
 **Ganancia** — margen por producto, **a qué le estás ganando poco**, qué
 vendiste por debajo del costo, cuánto se regaló en descuentos y quién los dio,
 ranking de quién vendió más, gráficos y exportación a Excel y PDF.

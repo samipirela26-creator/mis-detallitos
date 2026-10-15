@@ -115,3 +115,58 @@ test('el costo guardado en la venta manda sobre el del catálogo', () => {
   const r = a.resumen(VENTAS, [], { p1: 999, p2: 999 });
   assert.equal(r.costoUSD, 950, 'usa los costos que quedaron escritos en las líneas');
 });
+
+const RETIROS = [
+  { dia: '2026-10-02', categoria: 'Pago de trabajador', montoUSD: 100, porque: 'Quincena' },
+  { dia: '2026-10-03', categoria: 'Diezmo', montoUSD: 45, porque: 'Diezmo del mes' },
+  { dia: '2026-10-04', categoria: 'Pago de trabajador', montoUSD: 50, porque: 'Día extra' },
+];
+
+test('resumen de retiros: total y desglose por categoría de mayor a menor', () => {
+  const rr = a.resumenRetiros(RETIROS);
+  assert.equal(rr.totalUSD, 195);
+  assert.equal(rr.cantidad, 3);
+  assert.equal(rr.porCategoria.length, 2);
+  assert.deepEqual(rr.porCategoria[0], { categoria: 'Pago de trabajador', totalUSD: 150, cantidad: 2 });
+  assert.deepEqual(rr.porCategoria[1], { categoria: 'Diezmo', totalUSD: 45, cantidad: 1 });
+});
+
+test('disponible: ganancia neta menos lo retirado, y avisa en negativo', () => {
+  const r = a.resumen(VENTAS, GASTOS);
+  assert.equal(r.gananciaNetaUSD, 250);
+  assert.equal(a.disponible(r, RETIROS), 55);
+  assert.equal(a.disponible(r, []), 250);
+  assert.equal(a.disponible(r, [{ categoria: 'Diezmo', montoUSD: 400 }]), -150);
+});
+
+test('dinero por lugar: la caja y lo guardado se cuentan aparte', () => {
+  const d = a.dineroPorLugar({
+    ingresos: [{ lugar: 'Caja', montoUSD: 50000 }],                    // el dinero inicial
+    traslados: [{ desde: 'Caja', hacia: 'Caja fuerte', montoUSD: 30000 }],
+    ventas: VENTAS,                                                     // 1400, con 200 fiados
+    gastos: GASTOS,                                                     // 200
+    retiros: [{ lugar: 'Caja fuerte', categoria: 'Diezmo', montoUSD: 100 }],
+  });
+  assert.equal(d.saldos['Caja'], 50000 - 30000 + 1200 - 200);
+  assert.equal(d.saldos['Caja fuerte'], 30000 - 100);
+  assert.equal(d.totalUSD, 50000 + 1200 - 200 - 100);
+});
+
+test('dinero por lugar: un traslado no cambia el total', () => {
+  const base = { ingresos: [{ lugar: 'Caja', montoUSD: 1000 }] };
+  const sin = a.dineroPorLugar(base);
+  const con = a.dineroPorLugar({ ...base, traslados: [{ desde: 'Caja', hacia: 'Caja fuerte', montoUSD: 400 }] });
+  assert.equal(sin.totalUSD, con.totalUSD);
+  assert.equal(con.saldos['Caja'], 600);
+});
+
+test('cobrado de ventas: lo fiado no entra en la caja', () => {
+  assert.equal(a.cobradoDeVentas(VENTAS), 1200);
+  assert.equal(a.cobradoDeVentas([]), 0);
+});
+
+test('sin movimientos no hay plata, pero los sitios existen', () => {
+  const d = a.dineroPorLugar();
+  assert.equal(d.totalUSD, 0);
+  assert.deepEqual(d.porLugar.map((l) => l.lugar), ['Caja', 'Caja fuerte']);
+});

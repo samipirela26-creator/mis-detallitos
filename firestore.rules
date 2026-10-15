@@ -72,6 +72,15 @@ service cloud.firestore {
         allow delete: if false;
       }
 
+      // --- secretos (llaves de servicios): SOLO el dueño ---
+      //
+      // Va aparte de `config/` a propósito: ese es de lectura pública porque lo
+      // necesita el catálogo de clientes, y una llave de API ahí la podría leer
+      // cualquiera. Aquí ni el empleado entra.
+      match /secretos/{doc} {
+        allow read, write: if esDueno();
+      }
+
       // --- catálogo con costos: SOLO el dueño ---
       match /productos/{id} {
         allow read, write: if esDueno();
@@ -116,6 +125,20 @@ service cloud.firestore {
         allow read: if esDueno() || (esEmpleado() && resource.data.uid == request.auth.uid);
         allow create: if delEquipo() && soyYo();
         allow update, delete: if esDueno();
+      }
+
+      // --- la plata del dueño: entradas, salidas y traslados ---
+      //
+      // Aquí está cuánto dinero hay, dónde está guardado y en qué se va. Al
+      // empleado no le incumbe y, sobre todo, de aquí se deduce la ganancia.
+      match /ingresos/{id} {
+        allow read, create, update, delete: if esDueno();
+      }
+      match /retiros/{id} {
+        allow read, create, update, delete: if esDueno();
+      }
+      match /traslados/{id} {
+        allow read, create, update, delete: if esDueno();
       }
 
       // --- caja / turnos: una vez cerrada, intocable ---

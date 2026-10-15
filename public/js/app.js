@@ -23,6 +23,7 @@ import './features/importar-excel.js';
 import './features/estudio-fotos.js';
 import './features/caja.js';
 import './features/gastos.js';
+import './features/mi-dinero.js';
 import './features/clientes.js';
 import './features/config.js';
 import './features/catalogo-publico.js';
@@ -115,6 +116,7 @@ registrar('panel', {
     nodo.appendChild(el('div.atajos-grid', {}, [
       atajo('chart', 'Reportes', 'Ganancia por producto y margen flojo.', 'reportes'),
       atajo('handshake', 'Deudas', 'Cuentas pendientes por cobrar.', 'clientes'),
+      atajo('wallet', 'Mi dinero', 'Cuánto gané y cuánto puedo sacar.', 'mi-dinero'),
       atajo('expense', 'Gastos', 'Salidas de caja por categoría.', 'gastos-dueno'),
       atajo('cash', 'Caja', 'Abrir turno, reporte X y cierre Z.', 'caja-dueno'),
       atajo('settings', 'Configuración', 'Tasas del día, PIN y sinónimos.', 'config'),

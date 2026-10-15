@@ -8,7 +8,7 @@
 // venía sin costo. La línea manda si lo trae: así una venta vieja conserva el
 // costo que tenía ese día aunque el proveedor haya subido el precio después.
 
-import { margenPct } from '../core/dinero.js';
+import { margenPct, LUGARES, LUGAR_VENTAS } from '../core/dinero.js';
 
 /** Costo de una línea: el que guardó la venta, o el del catálogo si faltaba. */
 export function costoLinea(l, costos = {}) {
@@ -138,4 +138,80 @@ export function proyeccionQuiebre(producto, ventas, dias = 30) {
   const porDia = unidades / dias;
   if (porDia <= 0) return null;
   return Math.floor((producto.stock || 0) / porDia);
+}
+
+// --- Retiros ------------------------------------------------------------------
+// Lo que el dueño saca de la caja. No es un gasto del negocio: la ganancia ya
+// está hecha, esto es a dónde se fue. Por eso se resta aparte y no toca el
+// margen ni la ganancia neta.
+
+/** Total y desglose por categoría, de mayor a menor. */
+export function resumenRetiros(retiros = []) {
+  const mapa = new Map();
+  let totalUSD = 0;
+  for (const r of retiros) {
+    const monto = r.montoUSD || 0;
+    totalUSD += monto;
+    const a = mapa.get(r.categoria) || { categoria: r.categoria || '—', totalUSD: 0, cantidad: 0 };
+    a.totalUSD += monto;
+    a.cantidad += 1;
+    mapa.set(r.categoria, a);
+  }
+  return {
+    totalUSD,
+    cantidad: retiros.length,
+    porCategoria: [...mapa.values()].sort((a, b) => b.totalUSD - a.totalUSD),
+  };
+}
+
+/**
+ * Lo que queda por sacar: la ganancia neta del período menos lo ya retirado.
+ * Puede salir negativo, y entonces hay que verlo: se sacó más de lo que entró.
+ */
+export function disponible(resumenPeriodo, retiros = []) {
+  return (resumenPeriodo?.gananciaNetaUSD || 0) - resumenRetiros(retiros).totalUSD;
+}
+
+// --- Dinero de verdad ---------------------------------------------------------
+// La ganancia y el dinero en mano no son lo mismo, y confundirlos es lo que
+// hace que "gané 300" y la gaveta tenga 80. Aquí se cuenta PLATA:
+//
+//   entra:  los ingresos (el dinero inicial, aportes, préstamos)
+//         + lo COBRADO de las ventas (lo fiado no está en la caja)
+//   sale:   los gastos del negocio + los retiros
+//   y los traslados no cambian el total: mueven de un sitio al otro.
+//
+// Los gastos y lo cobrado en ventas se le cargan a `Caja`: ahí caen las ventas
+// y de ahí sale lo del día. Lo guardado aparte solo se mueve a mano.
+
+/** Lo que de verdad entró por ventas: el total menos lo que quedó fiado. */
+export const cobradoDeVentas = (ventas = []) =>
+  ventas.reduce((t, v) => t + ((v.totalUSD || 0) - Math.max(0, v.saldoUSD || 0)), 0);
+
+/**
+ * Cuánta plata hay y en qué sitio. Son totales HISTÓRICOS: una caja no se
+ * reinicia cada mes.
+ */
+export function dineroPorLugar({ ingresos = [], retiros = [], traslados = [], ventas = [], gastos = [] } = {}) {
+  const saldos = Object.fromEntries(LUGARES.map((l) => [l, 0]));
+  const sumar = (lugar, monto) => {
+    if (saldos[lugar] === undefined) saldos[lugar] = 0;
+    saldos[lugar] += monto;
+  };
+
+  for (const i of ingresos) sumar(i.lugar || LUGAR_VENTAS, i.montoUSD || 0);
+  for (const r of retiros) sumar(r.lugar || LUGAR_VENTAS, -(r.montoUSD || 0));
+  for (const t of traslados) {
+    sumar(t.desde, -(t.montoUSD || 0));
+    sumar(t.hacia, t.montoUSD || 0);
+  }
+  sumar(LUGAR_VENTAS, cobradoDeVentas(ventas));
+  for (const g of gastos) sumar(LUGAR_VENTAS, -(g.montoUSD || 0));
+
+  const totalUSD = Object.values(saldos).reduce((t, x) => t + x, 0);
+  return {
+    totalUSD,
+    porLugar: Object.entries(saldos).map(([lugar, montoUSD]) => ({ lugar, montoUSD })),
+    saldos,
+  };
 }
