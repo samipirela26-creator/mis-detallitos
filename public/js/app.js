@@ -279,9 +279,9 @@ observar('conexion', (hay) => {
   document.body.classList.toggle('offline', !hay);
 });
 
-// Ventas que quedaron por subir: aviso discreto, nada de alarmas.
+// Lo que quedó por subir: aviso discreto, nada de alarmas.
 observar('pendientes', (n) => {
-  if (n > 0) console.info(`[app] ${n} venta(s) esperando señal para subir`);
+  if (n > 0) console.info(`[app] ${n} escritura(s) esperando señal para subir`);
 }, { inmediato: false });
 
 // --- service worker ---

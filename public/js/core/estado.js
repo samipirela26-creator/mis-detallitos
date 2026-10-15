@@ -7,7 +7,7 @@ const datos = {
   tasaFecha: null,
   caja: null,           // turno abierto
   conexion: navigator.onLine,
-  pendientes: 0,        // ventas en cola por subir
+  pendientes: 0,        // escrituras en cola por subir (ventas, importaciones)
 };
 
 const oyentes = new Map();  // clave -> Set(fn)

@@ -196,10 +196,13 @@ export async function guardarEnLote(lista, importId, alAvanzar = () => {}) {
       }
     }
     // No se espera: si no hay señal, Firestore lo encola y lo sube después.
-    escribir('pendientes', (leer('pendientes') || 0) + 1);
+    // Se cuentan PRODUCTOS, no lotes: "faltan 7 por subir" con lotes de 150
+    // no le dice nada a nadie.
+    const cuantos = trozo.length;
+    escribir('pendientes', (leer('pendientes') || 0) + cuantos);
     subidas.push(
       lote.commit()
-        .then(() => escribir('pendientes', Math.max(0, (leer('pendientes') || 1) - 1)))
+        .then(() => escribir('pendientes', Math.max(0, (leer('pendientes') || cuantos) - cuantos)))
         .catch((e) => { console.warn('[productos] lote en cola:', e?.code || e); })
     );
 

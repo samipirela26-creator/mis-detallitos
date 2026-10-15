@@ -20,6 +20,7 @@ import { guardarEnLote, deshacerImportacion, clavesExistentes } from '../data/pr
 import { claveProducto } from '../core/texto.js';
 import { aMenores, formatear } from '../core/dinero.js';
 import { leerCSV } from '../data/csv.js';
+import { observar, leer } from '../core/estado.js';
 
 // Cómo se suele llamar cada columna en la vida real.
 const CAMPOS = {
@@ -343,6 +344,7 @@ function pintarPrevia(caja) {
       el('div', { id: 'relleno', style: 'height:100%;width:0;background:var(--marca);transition:width .2s' }),
     ]),
     el('p', { id: 'texto-barra', style: 'text-align:center;color:var(--texto-suave);font-size:.9rem;margin-top:.4rem' }),
+    el('div', { style: 'text-align:center;font-size:.9rem' }, [contadorPendientes()]),
   ]);
 
   const boton = el('button.btn.principal.grande.ancho', {
@@ -376,6 +378,35 @@ function pintarPrevia(caja) {
   caja.appendChild(tarjeta);
 }
 
+/**
+ * Contador vivo de lo que falta por subir.
+ *
+ * El número sale de `pendientes` en el estado, que es el mismo que usan las
+ * ventas: así una importación offline y una venta offline se cuentan juntas,
+ * que es lo que importa saber ("¿puedo confiar en lo que ve el empleado?").
+ *
+ * Se desuscribe solo cuando el nodo sale de la pantalla: el router reemplaza
+ * el contenido sin avisarle a nadie, y un oyente huérfano por cada visita a
+ * esta pantalla se va acumulando.
+ */
+function contadorPendientes() {
+  const nodo = el('p', { style: 'font-weight:600;margin-top:.5rem' });
+  const pintar = (n) => {
+    nodo.style.color = n > 0 ? 'var(--ambar)' : 'var(--verde)';
+    nodo.textContent = n > 0
+      ? `Faltan ${n} por subir — se suben solos cuando haya señal.`
+      : 'Todo subido ✓';
+  };
+  pintar(leer('pendientes') || 0);
+  const parar = observar('pendientes', (n) => {
+    // El router reemplaza el contenido sin avisarle a nadie: sin esto queda un
+    // oyente huérfano por cada visita a esta pantalla.
+    if (!nodo.isConnected) { parar(); return; }
+    pintar(n || 0);
+  }, { inmediato: false });
+  return nodo;
+}
+
 function pintarHecho(caja, importId, cuantos, incompletos, enCola = false) {
   caja.innerHTML = '';
   caja.appendChild(el('div.tarjeta.marca', {}, [
@@ -385,6 +416,7 @@ function pintarHecho(caja, importId, cuantos, incompletos, enCola = false) {
       style: 'color:var(--ambar);font-weight:600',
       texto: 'Sin conexión: ya están guardados en este dispositivo y puedes seguir trabajando. Se suben solos en cuanto haya señal, aunque cierres la app.',
     }) : null,
+    contadorPendientes(),
     incompletos ? el('p', {
       style: 'color:var(--ambar);font-weight:600',
       texto: `${incompletos} quedaron sin precio o sin costo. Los ves en Inventario con el filtro "Sin precio o sin costo".`,
