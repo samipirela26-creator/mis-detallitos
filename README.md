@@ -24,7 +24,10 @@ teclado del monto y un botón **"Justo"** que cobra el total exacto de una.
 **Inventario** — carga inicial desde **tu propio Excel** (la app adivina las
 columnas, muestra vista previa, detecta duplicados y **se puede deshacer
 completa**), y un **Estudio de Fotos** que va producto por producto con la
-cámara abierta: disparas y salta solo al siguiente.
+cámara abierta: disparas y salta solo al siguiente. Con una llave de API de
+Photoroom o remove.bg, cada foto sale **recortada sobre fondo blanco, centrada
+y con sombra**, como foto de catálogo; se configura en Configuración y si falla
+o no hay internet la foto se guarda con su fondo original.
 
 **Ganancia** — margen por producto, **a qué le estás ganando poco**, qué
 vendiste por debajo del costo, cuánto se regaló en descuentos y quién los dio,

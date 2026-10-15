@@ -8,8 +8,8 @@
 // Además se guarda copia en IndexedDB: una foto ya vista no se vuelve a leer
 // de Firestore nunca más (y las lecturas son lo que se cobra).
 
-import { ref } from '../core/firebase.js';
-import { getDoc, setDoc, deleteDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js';
+import { db, ref } from '../core/firebase.js';
+import { getDoc, writeBatch, deleteDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js';
 import { guardar, leer as leerIdb, borrar as borrarIdb, ALMACENES } from './idb.js';
 import { marcarFoto } from './productos.js';
 
@@ -40,13 +40,23 @@ export function comprimir(archivo, { lado = LADO_MAX, calidad = CALIDAD } = {}) 
   });
 }
 
-/** Guarda la foto y marca el producto como "ya tiene foto". */
+/**
+ * Guarda la foto y marca el producto como "ya tiene foto".
+ *
+ * Las tres escrituras van en UN lote: si fueran sueltas y fallara la segunda,
+ * la foto quedaría guardada con el producto marcado "sin foto", y el Estudio
+ * de Fotos te lo volvería a pedir para siempre.
+ */
 export async function guardarFoto(productoId, dataUrl) {
   const bytes = Math.round((dataUrl.length * 3) / 4);
   if (bytes > 900 * 1024) throw new Error('La foto quedó muy pesada. Repítela.');
-  await setDoc(ref('fotos', productoId), { datos: dataUrl, bytes, ts: serverTimestamp() });
+  const campos = { tieneFoto: true, fotoPendiente: false };
+  const lote = writeBatch(db);
+  lote.set(ref('fotos', productoId), { datos: dataUrl, bytes, ts: serverTimestamp() });
+  lote.set(ref('productos', productoId), campos, { merge: true });
+  lote.set(ref('productos_venta', productoId), campos, { merge: true });
+  await lote.commit();
   await guardar(ALMACENES.FOTOS, productoId, dataUrl);
-  await marcarFoto(productoId, true);
 }
 
 /** Trae la foto: primero del disco, y solo si no está, de Firestore. */

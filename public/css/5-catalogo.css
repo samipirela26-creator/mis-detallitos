@@ -1,0 +1,312 @@
+/* 5-catalogo.css — Catálogo digital público (clientes).
+   Solo se carga en catalogo.html; no toca ninguna pantalla interna. */
+
+body.cat-publico { background: var(--fondo); }
+body.cat-publico #app { padding-bottom: 7rem; }
+
+/* ---- Cabecera de marca ------------------------------------------------- */
+
+.cat-cabecera {
+  background: var(--marca);
+  color: var(--sobre-marca-fuerte);
+  padding: 1.1rem 1.25rem 1.25rem;
+  padding-top: calc(1.1rem + env(safe-area-inset-top));
+  display: flex;
+  flex-direction: column;
+  gap: .9rem;
+}
+
+.cat-cabecera .marca-fila { display: flex; align-items: center; gap: .75rem; }
+.cat-cabecera .logo { width: 44px; height: 44px; border-radius: 13px; background: #fff; object-fit: contain; flex: 0 0 auto; }
+.cat-cabecera .nombre { font-family: var(--fuente-titulo); font-weight: 700; font-size: 1.2rem; line-height: 1.15; }
+.cat-cabecera .lema { font-size: .8rem; color: var(--sobre-marca); }
+.cat-cabecera h1 {
+  margin: 0;
+  font-family: var(--fuente-titulo);
+  font-weight: 700;
+  font-size: 1.55rem;
+  line-height: 1.2;
+  letter-spacing: -.01em;
+  color: var(--sobre-marca-fuerte);
+  text-wrap: pretty;
+}
+.cat-cabecera .intro { margin: 0; font-size: .9rem; color: var(--sobre-marca); line-height: 1.45; }
+
+/* Botón del pedido en la cabecera */
+.cat-pedido-btn[hidden] { display: none; }
+.cat-pedido-btn {
+  position: relative;
+  width: var(--toque); height: var(--toque);
+  border: 0; border-radius: 14px;
+  background: rgba(255, 255, 255, .16);
+  color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  flex: 0 0 auto; cursor: pointer;
+}
+.cat-pedido-btn:hover { background: rgba(255, 255, 255, .26); }
+.cat-pedido-btn:focus-visible { outline: 0; box-shadow: 0 0 0 3px rgba(255, 255, 255, .6); }
+.cat-pedido-btn .contador {
+  position: absolute; top: 3px; right: 3px;
+  min-width: 19px; height: 19px; padding: 0 4px;
+  box-sizing: border-box;
+  border-radius: var(--pildora);
+  background: var(--amarillo); color: var(--sobre-amarillo);
+  font-family: var(--fuente-titulo); font-weight: 700;
+  font-size: .68rem; line-height: 19px; text-align: center;
+}
+
+/* Buscador */
+.cat-buscador {
+  display: flex; align-items: center; gap: .6rem;
+  background: var(--superficie);
+  border-radius: var(--r-chico);
+  padding: 0 .85rem;
+  height: 48px;
+}
+.cat-buscador input {
+  flex: 1; min-width: 0;
+  border: 0; background: transparent;
+  height: 48px; padding: 0;
+  font-size: .95rem; color: var(--texto);
+}
+.cat-buscador input:focus { box-shadow: none; }
+
+/* ---- Cuerpo ------------------------------------------------------------ */
+
+.cat-cuerpo { max-width: var(--ancho); margin: 0 auto; padding: 0 1rem; }
+
+.cat-encabezado-lista {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: .75rem; margin: .9rem 0 .7rem;
+}
+.cat-encabezado-lista h2 { margin: 0; font-family: var(--fuente-titulo); font-size: 1rem; font-weight: 600; }
+.cat-encabezado-lista .conteo { font-size: .8rem; color: var(--texto-suave); }
+
+/* Rejilla de productos */
+.cat-rejilla {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(150px, 100%), 1fr));
+  gap: .75rem;
+}
+
+.cat-producto {
+  background: var(--superficie);
+  border: 1px solid var(--borde-suave);
+  border-radius: var(--r);
+  overflow: hidden;
+  display: flex; flex-direction: column;
+}
+
+.cat-producto .foto-boton {
+  display: block; width: 100%; padding: 0; border: 0;
+  background: var(--marca-suave);
+  cursor: pointer;
+}
+.cat-producto .foto {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  background: var(--marca-suave);
+  display: flex; align-items: center; justify-content: center;
+}
+/* Los tintes rotan para que la rejilla no sea un bloque azul plano. Son los
+   suaves de la paleta, no colores nuevos. */
+.cat-producto:nth-child(4n+2) .foto,
+.cat-producto:nth-child(4n+2) .foto-boton { background: var(--verde-suave); }
+.cat-producto:nth-child(4n+3) .foto,
+.cat-producto:nth-child(4n+3) .foto-boton { background: var(--amarillo-suave); }
+.cat-producto:nth-child(4n+4) .foto,
+.cat-producto:nth-child(4n+4) .foto-boton { background: var(--borde-suave); }
+
+.cat-producto .foto img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.cat-producto .foto .sin-foto { color: var(--marca); display: flex; }
+.cat-producto .datos { padding: .65rem .7rem .7rem; display: flex; flex-direction: column; gap: .45rem; flex: 1; }
+.cat-producto h3 { margin: 0; font-size: .87rem; font-weight: 600; line-height: 1.3; }
+.cat-producto .unidad { margin: .15rem 0 0; font-size: .74rem; color: var(--texto-suave); }
+.cat-producto .precio { font-family: var(--fuente-titulo); font-weight: 700; font-size: 1.2rem; line-height: 1; }
+.cat-producto .equivalente { font-size: .7rem; color: var(--texto-suave); margin-top: .15rem; }
+.cat-producto .acciones { margin-top: auto; }
+.cat-producto .btn { min-height: 44px; font-family: var(--fuente-titulo); font-weight: 600; font-size: .85rem; }
+
+/* Contador de cantidad dentro de la tarjeta */
+.cat-cantidad {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: .3rem;
+  border: 1px solid var(--marca);
+  border-radius: var(--r-chico);
+  background: var(--marca-suave);
+  padding: 2px;
+}
+.cat-cantidad button {
+  width: 40px; height: 40px;
+  border: 0; border-radius: 11px;
+  background: var(--superficie); color: var(--texto);
+  font-size: 1.1rem; line-height: 1; cursor: pointer;
+}
+.cat-cantidad button:hover { background: var(--fondo); }
+.cat-cantidad button:focus-visible { outline: 0; box-shadow: 0 0 0 3px rgba(11, 106, 130, .45); }
+.cat-cantidad .valor { font-family: var(--fuente-titulo); font-weight: 700; font-size: 1rem; min-width: 1.5rem; text-align: center; }
+
+/* Categorías: chips en móvil, columna en escritorio */
+.cat-categorias { margin-bottom: .25rem; }
+.cat-lateral { display: none; }
+
+/* ---- Barra de pedido fija --------------------------------------------- */
+
+.cat-barra-pedido {
+  position: fixed; z-index: 25;
+  left: 50%; transform: translateX(-50%);
+  bottom: calc(.85rem + env(safe-area-inset-bottom));
+  width: min(94vw, 560px);
+  display: flex; align-items: center; gap: .75rem;
+  padding: .55rem .55rem .55rem 1.1rem;
+  border: 0; border-radius: var(--r);
+  background: var(--marca-tinta); color: #ffffff;
+  box-shadow: var(--sombra-alta);
+  cursor: pointer;
+  text-align: left;
+  font-family: var(--fuente-cuerpo);
+}
+.cat-barra-pedido:focus-visible { outline: 0; box-shadow: 0 0 0 3px rgba(11, 106, 130, .6), var(--sombra-alta); }
+.cat-barra-pedido .resumen { flex: 1; min-width: 0; }
+.cat-barra-pedido .resumen .cuantos { font-size: .76rem; color: #b9d2da; }
+.cat-barra-pedido .resumen .total { font-family: var(--fuente-titulo); font-weight: 700; font-size: 1.05rem; }
+.cat-barra-pedido .llamada {
+  display: flex; align-items: center; gap: .4rem;
+  height: 44px; padding: 0 1rem;
+  border-radius: var(--r-chico);
+  background: var(--amarillo); color: var(--sobre-amarillo);
+  font-family: var(--fuente-titulo); font-weight: 700; font-size: .88rem;
+  flex: 0 0 auto;
+}
+
+/* ---- Hojas (detalle y pedido) ---------------------------------------- */
+
+dialog.cat-hoja { max-width: 520px; }
+dialog.cat-hoja h2 { font-family: var(--fuente-titulo); margin: 0 0 .15rem; font-size: 1.3rem; }
+
+.cat-hoja .foto-grande {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  border-radius: var(--r-chico);
+  background: var(--marca-suave);
+  overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: .9rem;
+}
+.cat-hoja .foto-grande img { width: 100%; height: 100%; object-fit: cover; }
+.cat-hoja .foto-grande .sin-foto { color: var(--marca); }
+
+.cat-hoja .bloque-precio {
+  border: 1px solid var(--borde-suave);
+  border-radius: var(--r-chico);
+  padding: .8rem .9rem;
+  display: flex; flex-direction: column; gap: .45rem;
+  margin: .9rem 0;
+}
+.cat-hoja .bloque-precio .grande { font-family: var(--fuente-titulo); font-weight: 700; font-size: 1.9rem; line-height: 1; }
+.cat-hoja .bloque-precio .renglon { display: flex; justify-content: space-between; font-size: .85rem; }
+.cat-hoja .bloque-precio .renglon span:first-child { color: var(--texto-suave); }
+.cat-hoja .bloque-precio .renglon span:last-child { font-family: var(--fuente-titulo); font-weight: 600; }
+.cat-hoja .nota-tasa { margin: 0; font-size: .74rem; color: var(--texto-suave); }
+
+.cat-renglon {
+  display: flex; align-items: center; gap: .7rem;
+  padding: .7rem 0;
+  border-bottom: 1px solid var(--borde-suave);
+}
+.cat-renglon .mini {
+  width: 48px; height: 48px; flex: 0 0 auto;
+  border-radius: 12px; background: var(--marca-suave);
+  overflow: hidden; display: flex; align-items: center; justify-content: center;
+  color: var(--marca);
+}
+.cat-renglon .mini img { width: 100%; height: 100%; object-fit: cover; }
+.cat-renglon .texto { flex: 1; min-width: 0; }
+.cat-renglon .texto .nom { font-size: .88rem; font-weight: 600; line-height: 1.3; }
+.cat-renglon .texto .det { font-size: .74rem; color: var(--texto-suave); margin-top: .1rem; }
+.cat-renglon .monto { font-family: var(--fuente-titulo); font-weight: 700; font-size: .95rem; }
+.cat-renglon .quitar {
+  width: 44px; height: 44px; flex: 0 0 auto;
+  border: 0; border-radius: 12px;
+  background: transparent; color: var(--rojo);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+}
+.cat-renglon .quitar:hover { background: var(--rojo-suave); }
+
+.cat-total {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  padding: .9rem 0 .2rem;
+}
+.cat-total .rotulo { font-family: var(--fuente-titulo); font-weight: 600; font-size: 1rem; }
+.cat-total .cifras { text-align: right; }
+.cat-total .cifras .usd { font-family: var(--fuente-titulo); font-weight: 700; font-size: 1.25rem; }
+.cat-total .cifras .otras { font-size: .76rem; color: var(--texto-suave); }
+
+/* ---- Escritorio ------------------------------------------------------- */
+
+@media (min-width: 900px) {
+  .cat-cabecera { padding: 1.25rem 2rem; }
+  .cat-cabecera .fila-superior { max-width: var(--ancho); margin: 0 auto; width: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; }
+  .cat-cabecera .marca-fila { flex: 0 0 auto; }
+  .cat-cabecera .cat-buscador { flex: 1 1 260px; }
+  .cat-cabecera .titular { max-width: var(--ancho); margin: .9rem auto 0; width: 100%; max-inline-size: 48ch; }
+
+  .cat-cuerpo { padding: 0 2rem; display: flex; align-items: flex-start; gap: 1.75rem; }
+  .cat-columna { flex: 999 1 620px; min-width: 0; }
+
+  .cat-categorias { display: none; }
+  .cat-lateral {
+    display: block;
+    flex: 1 1 220px; min-width: 200px;
+    position: sticky; top: 1rem;
+    background: var(--superficie);
+    border: 1px solid var(--borde-suave);
+    border-radius: var(--r);
+    padding: .9rem;
+  }
+  .cat-lateral h2 {
+    margin: 0 0 .6rem;
+    font-family: var(--fuente-titulo); font-size: .78rem; font-weight: 600;
+    letter-spacing: .04em; text-transform: uppercase; color: var(--texto-suave);
+  }
+  .cat-lateral ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: .2rem; }
+  .cat-lateral button {
+    width: 100%;
+    display: flex; align-items: center; justify-content: space-between; gap: .6rem;
+    min-height: 44px; padding: 0 .75rem;
+    border: 0; border-radius: var(--r-chico);
+    background: var(--fondo); color: var(--texto);
+    font-size: .9rem; text-align: left; cursor: pointer;
+  }
+  .cat-lateral button:hover { background: var(--marca-suave); }
+  .cat-lateral button:focus-visible { outline: 0; box-shadow: 0 0 0 3px rgba(11, 106, 130, .45); }
+  .cat-lateral button[aria-pressed="true"] {
+    background: var(--marca); color: var(--sobre-marca-fuerte);
+    font-family: var(--fuente-titulo); font-weight: 600;
+  }
+  .cat-lateral button[aria-pressed="true"] .cuantos { color: var(--sobre-marca); }
+  .cat-lateral .cuantos { font-size: .8rem; color: var(--texto-suave); }
+
+  .cat-rejilla { grid-template-columns: repeat(auto-fill, minmax(min(210px, 100%), 1fr)); gap: 1.1rem; }
+  .cat-producto .foto { aspect-ratio: 4 / 3; }
+  .cat-producto h3 { font-size: .95rem; }
+  .cat-producto .precio { font-size: 1.35rem; }
+}
+
+/* ---- Pie -------------------------------------------------------------- */
+
+.cat-pie {
+  margin-top: 2.5rem;
+  /* --marca-tinta es oscuro en los dos temas; --tinta se invierte y aquí
+     dejaría texto claro sobre fondo claro. */
+  background: var(--marca-tinta); color: #b9d2da;
+}
+.cat-pie .dentro {
+  max-width: var(--ancho); margin: 0 auto;
+  padding: 1.25rem 1rem;
+  display: flex; flex-wrap: wrap; gap: .6rem 1.25rem;
+  justify-content: space-between;
+  font-size: .82rem;
+}
+.cat-pie a { color: #fff; font-weight: 600; }

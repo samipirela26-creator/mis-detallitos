@@ -6,6 +6,12 @@
       "runtimeExecutable": "python3",
       "runtimeArgs": ["-m", "http.server", "5050", "--directory", "public"],
       "port": 5050
+    },
+    {
+      "name": "detallitos-catalogo",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "5070", "--directory", "public"],
+      "port": 5070
     }
   ]
 }

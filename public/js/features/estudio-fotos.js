@@ -16,7 +16,8 @@ import { registrar, ir } from '../core/router.js';
 import { el, esc, $, pegar } from '../ui/html.js';
 import { avisar, avisarOk, avisarMal } from '../ui/avisos.js';
 import { productos as catalogo } from '../data/catalogo.js';
-import { comprimir, guardarFoto, obtenerFoto, borrarFoto } from '../data/fotos.js';
+import { guardarFoto, obtenerFoto, borrarFoto } from '../data/fotos.js';
+import { procesar, cargarAjustes, lista as iaLista } from '../data/estudio-ia.js';
 import { normalizar } from '../core/texto.js';
 
 registrar('fotos', {
@@ -24,6 +25,10 @@ registrar('fotos', {
   montar(nodo) {
     let pendientes = [];
     let i = 0;
+    // Los ajustes del fondo blanco se leen una vez al entrar. Si cambian en
+    // Configuración, se vuelve a entrar a esta pantalla y ya.
+    let ajustes = null;
+    cargarAjustes().then((a) => { ajustes = a; pintar(); });
 
     const recargar = () => {
       pendientes = catalogo()
@@ -58,6 +63,8 @@ registrar('fotos', {
         el('div.nombre', { html: esc(p.nombre) }),
         el('div', { style: 'color:var(--texto-suave);margin-bottom:1rem', html: esc(p.categoria || 'Sin categoría') }),
 
+        tiraIA(),
+
         el('div', { id: 'visor' }),
 
         el('div.fila', { style: 'margin-top:1rem' }, [
@@ -84,12 +91,34 @@ registrar('fotos', {
       pintar();
     }
 
+    /** Dice si el fondo blanco está activo, sin obligar a ir a buscarlo. */
+    function tiraIA() {
+      if (!ajustes) return null;
+      const activa = iaLista(ajustes);
+      return el('div', {
+        style: 'display:flex;gap:.5rem;align-items:center;justify-content:center;'
+             + 'font-size:.82rem;margin-bottom:.75rem;color:var(--texto-suave)',
+      }, [
+        el('span', {
+          class: `etiqueta ${activa ? 'ok' : 'info'}`,
+          texto: activa ? 'Fondo blanco con IA activado' : 'Fondo blanco con IA apagado',
+        }),
+        el('button.btn.plano', {
+          style: 'min-height:32px;padding:.2rem .6rem;font-size:.8rem',
+          texto: activa ? 'Ajustar' : 'Activar',
+          onclick: () => ir('config'),
+        }),
+      ]);
+    }
+
     async function tomar(archivo) {
       const p = pendientes[i];
       const visor = $('#visor', nodo);
-      visor.innerHTML = '<div class="cargando">Guardando la foto…</div>';
+      const conIA = iaLista(ajustes);
+      visor.innerHTML = `<div class="cargando">${conIA ? 'Quitando el fondo con IA…' : 'Guardando la foto…'}</div>`;
       try {
-        const datos = await comprimir(archivo);
+        const { datos, aviso } = await procesar(archivo, { ajustes });
+        if (aviso) avisar(`${aviso} La foto se guardó con su fondo original.`);
         visor.innerHTML = '';
         visor.appendChild(el('img', { src: datos, style: 'width:100%;max-height:40dvh;object-fit:contain;border-radius:var(--r)' }));
         await guardarFoto(p.id, datos);
@@ -111,7 +140,7 @@ registrar('fotos', {
         el('h2', { texto: 'O de un solo golpe' }),
         el('p', {
           style: 'color:var(--texto-suave);font-size:.9rem',
-          texto: 'Si ya tienes las fotos en la computadora, suéltalas aquí. Se emparejan por el nombre del archivo: debe ser el código de barras, el SKU o el nombre del producto (por ejemplo "lapiz-mongol.jpg").',
+          texto: 'Si ya tienes las fotos en la computadora, suéltalas aquí. Se emparejan por el nombre del archivo: debe ser el código de barras, el SKU o el nombre del producto (por ejemplo "lapiz-mongol.jpg"). Si el fondo blanco con IA está activado, se le aplica a cada una.',
         }),
         el('input', {
           type: 'file', accept: 'image/*', multiple: '',
@@ -128,8 +157,13 @@ registrar('fotos', {
       const todos = catalogo();
       let hechas = 0, fallidas = [];
 
+      const conIA = iaLista(ajustes);
+      let fallosIA = 0;
+
       for (const [n, archivo] of archivos.entries()) {
-        caja.textContent = `Procesando ${n + 1} de ${archivos.length}…`;
+        caja.textContent = conIA
+          ? `Quitando el fondo ${n + 1} de ${archivos.length}…`
+          : `Procesando ${n + 1} de ${archivos.length}…`;
         const base = archivo.name.replace(/\.[^.]+$/, '');
         const clave = normalizar(base);
         const p = todos.find((x) =>
@@ -138,13 +172,21 @@ registrar('fotos', {
           x.nombreNorm === clave);
         if (!p) { fallidas.push(archivo.name); continue; }
         try {
-          await guardarFoto(p.id, await comprimir(archivo));
+          const { datos, aviso } = await procesar(archivo, { ajustes });
+          if (aviso) fallosIA++;
+          await guardarFoto(p.id, datos);
           hechas++;
         } catch { fallidas.push(archivo.name); }
       }
 
       caja.innerHTML = '';
       caja.appendChild(el('p', { style: 'font-weight:600', texto: `${hechas} fotos emparejadas.` }));
+      if (fallosIA) {
+        caja.appendChild(el('p', {
+          style: 'color:var(--ambar);font-size:.85rem',
+          texto: `${fallosIA} se guardaron con su fondo original porque la IA no respondió.`,
+        }));
+      }
       if (fallidas.length) {
         caja.appendChild(el('details', {}, [
           el('summary', { style: 'cursor:pointer;color:var(--ambar)', texto: `${fallidas.length} no se pudieron emparejar` }),
@@ -168,9 +210,13 @@ export async function verFoto(producto) {
     type: 'file', accept: 'image/*', capture: 'environment', hidden: '',
     onchange: async (ev) => {
       if (!ev.target.files[0]) return;
-      await guardarFoto(producto.id, await comprimir(ev.target.files[0]));
+      const ajustes = await cargarAjustes();
+      if (iaLista(ajustes)) avisar('Quitando el fondo con IA…');
+      const { datos, aviso } = await procesar(ev.target.files[0], { ajustes });
+      await guardarFoto(producto.id, datos);
       d.close();
-      avisarOk('Foto actualizada');
+      if (aviso) avisar(`${aviso} Se guardó con su fondo original.`);
+      else avisarOk('Foto actualizada');
     },
   });
   pegar(d, 

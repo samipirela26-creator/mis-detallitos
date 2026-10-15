@@ -13,6 +13,10 @@ import { productos as catalogo } from '../data/catalogo.js';
 import { hashPin, olvidarHash } from '../ui/pin.js';
 import { MONEDAS, aMenores, formatear, aMayores } from '../core/dinero.js';
 import { leer } from '../core/estado.js';
+import {
+  cargarAjustes, guardarAjustes, probar, lista as iaLista,
+  PROVEEDORES, FONDOS, AJUSTES_DEF,
+} from '../data/estudio-ia.js';
 
 registrar('config', {
   titulo: 'Configuración', icono: '⚙️', soloDueno: true,
@@ -24,6 +28,7 @@ registrar('config', {
       <div class="tarjeta" id="solicitudes" style="margin-top:1rem"><div class="cargando">Revisando solicitudes…</div></div>
       <div class="tarjeta" id="usuarios" style="margin-top:1rem"><div class="cargando">Cargando usuarios…</div></div>
       <div class="tarjeta" id="catalogo-config" style="margin-top:1rem"></div>
+      <div class="tarjeta" id="estudio-ia" style="margin-top:1rem"></div>
       <div class="tarjeta" id="tema" style="margin-top:1rem"></div>
       <div class="tarjeta" id="datos" style="margin-top:1rem"></div>`;
 
@@ -33,6 +38,7 @@ registrar('config', {
     pintarSolicitudes($('#solicitudes', nodo), () => pintarUsuarios($('#usuarios', nodo)));
     pintarUsuarios($('#usuarios', nodo));
     pintarCatalogoConfig($('#catalogo-config', nodo));
+    pintarEstudioIA($('#estudio-ia', nodo));
     pintarTema($('#tema', nodo));
     pintarDatos($('#datos', nodo));
   },
@@ -414,4 +420,158 @@ function pintarCatalogoConfig(caja) {
       }),
     ])
   );
+}
+
+
+// --- fondo blanco tipo estudio, con IA ---------------------------------------
+//
+// La llave de API se guarda en `secretos/ia` (solo el dueño la lee). La vista
+// previa recorta UNA vez y recompone en el navegador cada vez que se mueve un
+// deslizador: así se puede afinar el encuadre sin gastar fotos del plan.
+async function pintarEstudioIA(caja) {
+  const ajustes = { ...AJUSTES_DEF, ...(await cargarAjustes({ recargar: true })) };
+  let prueba = null;   // { rehacer } de la última foto de prueba
+
+  const prov = el('select', {}, Object.entries(PROVEEDORES).map(([id, p]) =>
+    el('option', { value: id, texto: `${p.nombre} — ${p.costo}`, ...(id === ajustes.proveedor ? { selected: '' } : {}) })));
+
+  const llave = el('input', {
+    type: 'password', placeholder: ajustes.apiKey ? '•••••••• (ya guardada)' : 'Pega aquí la llave de API',
+    autocomplete: 'off', spellcheck: 'false',
+  });
+
+  const encendido = el('input', { type: 'checkbox', ...(ajustes.activo ? { checked: '' } : {}) });
+
+  const margen = el('input', { type: 'range', min: '0', max: '25', step: '1', value: String(ajustes.margen) });
+  const sombra = el('input', { type: 'range', min: '0', max: '100', step: '5', value: String(ajustes.sombra) });
+  const rotuloMargen = el('label', {});
+  const rotuloSombra = el('label', {});
+
+  const fondos = el('div.chips-barra', { style: 'margin:.25rem 0 .75rem' });
+  for (const [id, f] of Object.entries(FONDOS)) {
+    fondos.appendChild(el('button.chip', {
+      type: 'button', 'data-fondo': id, texto: f.nombre,
+      onclick: () => { ajustes.fondo = id; marcarFondos(); repintarPrueba(); },
+    }));
+  }
+  const marcarFondos = () => fondos.querySelectorAll('.chip').forEach((b) =>
+    b.setAttribute('aria-pressed', String(b.dataset.fondo === ajustes.fondo)));
+
+  const CAJA = 'aspect-ratio:1;display:grid;place-items:center;overflow:hidden;padding:0;font-size:.8rem';
+  const antes = el('div.vacio', { style: CAJA, texto: 'Sin probar' });
+  const despues = el('div.vacio', { style: CAJA, texto: 'Sin probar' });
+  const columna = (rotulo, cuerpo) => el('div', {}, [
+    el('div', { style: 'font-size:.72rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--texto-suave);margin-bottom:.3rem', texto: rotulo }),
+    cuerpo,
+  ]);
+  const visor = el('div', { style: 'display:grid;grid-template-columns:1fr 1fr;gap:.6rem;margin:.75rem 0' }, [
+    columna('Antes', antes),
+    columna('Así se guarda', despues),
+  ]);
+
+  const rotulos = () => {
+    rotuloMargen.textContent = `Aire alrededor del producto: ${ajustes.margen}%`;
+    rotuloSombra.textContent = ajustes.sombra ? `Sombra: ${ajustes.sombra}%` : 'Sin sombra';
+  };
+  rotulos();
+
+  // Recomponer es local e instantáneo: no vuelve a llamar a la IA.
+  async function repintarPrueba() {
+    rotulos();
+    if (!prueba) return;
+    const datos = await prueba.rehacer(ajustes);
+    despues.innerHTML = '';
+    despues.appendChild(el('img', { src: datos, style: 'width:100%;height:100%;object-fit:contain' }));
+  }
+
+  margen.oninput = () => { ajustes.margen = Number(margen.value); repintarPrueba(); };
+  sombra.oninput = () => { ajustes.sombra = Number(sombra.value); repintarPrueba(); };
+  prov.onchange = () => { ajustes.proveedor = prov.value; };
+
+  const entradaPrueba = el('input', {
+    type: 'file', accept: 'image/*', hidden: '',
+    onchange: async (ev) => {
+      const archivo = ev.target.files[0];
+      if (!archivo) return;
+      const clave = llave.value.trim() || ajustes.apiKey;
+      if (!clave) return avisarMal('Primero pega la llave de API.');
+
+      antes.innerHTML = '';
+      antes.appendChild(el('img', { src: URL.createObjectURL(archivo), style: 'width:100%;height:100%;object-fit:cover' }));
+      despues.innerHTML = '<div class="cargando">Recortando…</div>';
+      try {
+        prueba = await probar(archivo, { ...ajustes, apiKey: clave });
+        await repintarPrueba();
+        avisarOk('Así quedarán todas tus fotos.');
+      } catch (e) {
+        prueba = null;
+        despues.innerHTML = '';
+        despues.appendChild(el('div', { style: 'color:var(--rojo);font-size:.8rem;padding:.5rem', texto: e.message || 'Falló' }));
+        avisarMal(e.message || 'No se pudo probar');
+      }
+      ev.target.value = '';
+    },
+  });
+
+  caja.innerHTML = '';
+  pegar(caja,
+    el('h2', { texto: 'Fotos con fondo blanco (IA)' }),
+    el('p', {
+      style: 'color:var(--texto-suave);font-size:.9rem',
+      texto: 'Recorta el producto y lo pone sobre fondo blanco, centrado y con sombra, como foto de catálogo. '
+           + 'Se aplica solo al tomar la foto en el Estudio de Fotos. Si la IA falla o no hay internet, '
+           + 'la foto se guarda con su fondo original: nunca se pierde el disparo.',
+    }),
+
+    el('label.interruptor', {}, [
+      encendido,
+      el('span', { texto: 'Usar IA al tomar fotos' }),
+    ]),
+
+    el('div.campo', {}, [el('label', { texto: 'Servicio' }), prov]),
+    el('div.campo', {}, [
+      el('label', { texto: 'Llave de API' }),
+      llave,
+      el('small', {
+        style: 'color:var(--texto-suave)',
+        texto: `Se saca en ${(PROVEEDORES[ajustes.proveedor] || PROVEEDORES.photoroom).donde}. `
+             + 'Ponle un límite de gasto: la llave viaja al navegador del dueño.',
+      }),
+    ]),
+
+    el('h3', { style: 'margin-top:1rem', texto: 'Cómo se ve el estudio' }),
+    el('div.campo', {}, [rotuloMargen, margen]),
+    el('div.campo', {}, [rotuloSombra, sombra]),
+    el('label', { texto: 'Color del fondo' }),
+    fondos,
+    visor,
+    entradaPrueba,
+
+    el('div.fila', {}, [
+      el('button.btn.plano', { texto: 'Probar con una foto', onclick: () => entradaPrueba.click() }),
+      el('button.btn.principal', { texto: 'Guardar ajustes', onclick: async () => {
+        const nuevos = {
+          activo: encendido.checked,
+          proveedor: prov.value,
+          margen: Number(margen.value),
+          sombra: Number(sombra.value),
+          fondo: ajustes.fondo,
+        };
+        const escrita = llave.value.trim();
+        if (escrita) nuevos.apiKey = escrita;
+        if (nuevos.activo && !escrita && !ajustes.apiKey) {
+          return avisarMal('Sin llave de API la IA no puede trabajar.');
+        }
+        try {
+          await guardarAjustes(nuevos);
+          llave.value = '';
+          avisarOk(iaLista({ ...ajustes, ...nuevos, apiKey: nuevos.apiKey || ajustes.apiKey })
+            ? 'Listo. Las próximas fotos saldrán con fondo blanco.'
+            : 'Ajustes guardados. La IA está apagada.');
+          pintarEstudioIA(caja);
+        } catch (e) { avisarMal('No se pudo guardar: ' + (e.message || e)); }
+      } }),
+    ])
+  );
+  marcarFondos();
 }

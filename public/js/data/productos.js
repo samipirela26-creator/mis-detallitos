@@ -7,9 +7,11 @@
 
 import { db, col, ref, refNuevo } from '../core/firebase.js';
 import {
-  writeBatch, doc, getDocs, query, where, serverTimestamp, increment,
+  writeBatch, doc, getDocs, getDocsFromCache, query, where, serverTimestamp, increment,
 } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js';
 import { normalizar, claveProducto } from '../core/texto.js';
+import { usuarioActual } from '../core/sesion.js';
+import { escribir, leer } from '../core/estado.js';
 import { anotar } from './auditoria.js';
 
 /** Campos que NUNCA pueden llegar a la app del empleado. */
@@ -56,6 +58,39 @@ export function versionVenta(p) {
   delete copia.precioMinimoUSD;
   delete copia.incompleto;
   return copia;
+}
+
+/**
+ * Lee del servidor TODAS las claves del catálogo, incluidos los desactivados,
+ * para que el importador detecte duplicados de verdad.
+ *
+ * Por qué no se usa la caché en memoria: esa lista solo trae `activo == true`
+ * (ver data/catalogo.js) y encima está vacía hasta que entra el primer
+ * snapshot. Importar en ese hueco mete el inventario duplicado sin avisar.
+ * Son N lecturas una sola vez por importación: baratísimo contra el destrozo.
+ */
+export async function clavesExistentes() {
+  // Sin señal se usa la última copia sincronizada: no es perfecta (un producto
+  // creado en otro dispositivo mientras estabas offline no está), pero es
+  // muchísimo mejor que no comparar nada. Quien llama mira `desdeCache` para
+  // avisarlo.
+  let snap, desdeCache = false;
+  try {
+    snap = await getDocs(col('productos'));
+    desdeCache = snap.metadata.fromCache;
+  } catch (e) {
+    console.warn('[productos] claves desde caché:', e?.code || e);
+    snap = await getDocsFromCache(col('productos'));
+    desdeCache = true;
+  }
+  const mapa = new Map();
+  for (const d of snap.docs) {
+    const p = d.data();
+    const clave = p.clave || claveProducto(p.nombre || '');
+    if (clave) mapa.set(clave, { id: d.id, nombre: p.nombre || '', activo: p.activo !== false });
+  }
+  mapa.desdeCache = desdeCache;
+  return mapa;
 }
 
 /** Crea o actualiza un producto (los dos documentos a la vez). */
@@ -111,13 +146,29 @@ export async function marcarFoto(id, tiene = true) {
 
 /**
  * Guarda muchos productos de un golpe (el importador de Excel).
- * Firestore aguanta 500 operaciones por lote y aquí van 2 por producto,
- * así que se parte de 200 en 200. `alAvanzar(hechos, total)` pinta la barra.
+ *
+ * Cada producto cuesta hasta 3 operaciones (producto + espejo + asiento
+ * `inicial` en el ledger si trae existencia), y Firestore aguanta 500 por
+ * lote, así que se parte de 150 en 150. `alAvanzar(hechos, total)` pinta la
+ * barra.
+ *
+ * SIN CONEXIÓN FUNCIONA IGUAL, y es a propósito: `commit()` no se espera, como
+ * en una venta (ver data/ventas.js). Firestore escribe en el caché local al
+ * instante — el catálogo queda usable de inmediato — y encola la subida en
+ * IndexedDB, que sobrevive a cerrar la app. Si se esperara el `commit()`, la
+ * barra se quedaría congelada hasta que volviera la señal.
+ *
+ * El asiento `inicial` NO usa increment(): el stock ya va escrito con su valor
+ * exacto arriba. El movimiento está para que el ledger cuadre con el stock
+ * desde el primer día — si no, auditar de dónde salió cada unidad es imposible
+ * porque el inventario entero habría aparecido de la nada.
  */
 export async function guardarEnLote(lista, importId, alAvanzar = () => {}) {
-  const TAMANO = 200;
+  const TAMANO = 150;
+  const u = usuarioActual();
   let hechos = 0;
   const ids = [];
+  const subidas = [];
   for (let i = 0; i < lista.length; i += TAMANO) {
     const trozo = lista.slice(i, i + TAMANO);
     const lote = writeBatch(db);
@@ -127,25 +178,77 @@ export async function guardarEnLote(lista, importId, alAvanzar = () => {}) {
       ids.push(documento.id);
       lote.set(documento, { ...limpio, actualizado: serverTimestamp() }, { merge: !!p.id });
       lote.set(ref('productos_venta', documento.id), { ...versionVenta(limpio), actualizado: serverTimestamp() }, { merge: !!p.id });
+
+      if (u && limpio.stock) {
+        lote.set(refNuevo('movimientos'), {
+          productoId: documento.id,
+          nombre: limpio.nombre,
+          tipo: 'inicial',
+          cantidad: limpio.stock,
+          costoUnitUSD: limpio.costoUSD,
+          nota: `Carga inicial (importación ${importId})`,
+          ventaId: null,
+          importId,
+          uid: u.uid,
+          nombreUsuario: u.nombre,
+          ts: serverTimestamp(),
+        });
+      }
     }
-    await lote.commit();
+    // No se espera: si no hay señal, Firestore lo encola y lo sube después.
+    escribir('pendientes', (leer('pendientes') || 0) + 1);
+    subidas.push(
+      lote.commit()
+        .then(() => escribir('pendientes', Math.max(0, (leer('pendientes') || 1) - 1)))
+        .catch((e) => { console.warn('[productos] lote en cola:', e?.code || e); })
+    );
+
     hechos += trozo.length;
     alAvanzar(hechos, lista.length);
+    // Un respiro entre lotes: con miles de productos, encolar sin soltar el
+    // hilo congela la pantalla en un teléfono.
+    await new Promise((ok) => setTimeout(ok, 0));
   }
   anotar('importacion', { importId, cantidad: lista.length });
+  ids.subida = Promise.allSettled(subidas);
   return ids;
 }
 
-/** Deshace una importación completa: borra solo lo que entró con ese importId. */
+/**
+ * Deshace una importación completa: borra solo lo que entró con ese importId.
+ *
+ * Los asientos del ledger no se borran (la regla de Firestore no lo permite, y
+ * así debe ser: un libro contable no se tacha). Se compensan con un asiento
+ * contrario, que es como se corrige un error en contabilidad de verdad: el
+ * neto queda en cero y el rastro de que pasó se conserva.
+ */
 export async function deshacerImportacion(importId, alAvanzar = () => {}) {
   const snap = await getDocs(query(col('productos'), where('importId', '==', importId)));
   const docs = snap.docs;
-  const TAMANO = 200;
+  const u = usuarioActual();
+  const TAMANO = 150;
   for (let i = 0; i < docs.length; i += TAMANO) {
     const lote = writeBatch(db);
     for (const d of docs.slice(i, i + TAMANO)) {
+      const p = d.data();
       lote.delete(d.ref);
       lote.delete(ref('productos_venta', d.id));
+
+      if (u && p.stock) {
+        lote.set(refNuevo('movimientos'), {
+          productoId: d.id,
+          nombre: p.nombre || '',
+          tipo: 'ajuste',
+          cantidad: -Number(p.stock),
+          costoUnitUSD: Number(p.costoUSD || 0),
+          nota: `Importación ${importId} deshecha`,
+          ventaId: null,
+          importId,
+          uid: u.uid,
+          nombreUsuario: u.nombre,
+          ts: serverTimestamp(),
+        });
+      }
     }
     await lote.commit();
     alAvanzar(Math.min(i + TAMANO, docs.length), docs.length);

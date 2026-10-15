@@ -16,8 +16,7 @@
 import { registrar, ir } from '../core/router.js';
 import { el, esc, $, pegar } from '../ui/html.js';
 import { avisar, avisarOk, avisarMal, confirmar } from '../ui/avisos.js';
-import { guardarEnLote, deshacerImportacion } from '../data/productos.js';
-import { productos as catalogo } from '../data/catalogo.js';
+import { guardarEnLote, deshacerImportacion, clavesExistentes } from '../data/productos.js';
 import { claveProducto } from '../core/texto.js';
 import { aMenores, formatear } from '../core/dinero.js';
 import { leerCSV } from '../data/csv.js';
@@ -57,7 +56,7 @@ function adivinarMapeo(encabezados) {
   return mapeo;
 }
 
-let estado = null;   // { filas, encabezados, mapeo, archivo }
+let estado = null;   // { filas, encabezados, mapeo, archivo, existentes }
 
 registrar('importar', {
   titulo: 'Importar Excel', icono: '📥', soloDueno: true,
@@ -161,12 +160,19 @@ async function leerArchivo(archivo, caja) {
 
     if (!filasDatos.length) throw new Error('El archivo no contiene filas de datos válidas.');
 
+    // Las claves se piden AL SERVIDOR, no a la caché en memoria: esa solo trae
+    // los productos activos y además está vacía hasta que entra el primer
+    // snapshot. Si se importa en ese hueco, entra el inventario duplicado.
+    caja.innerHTML = '<div class="tarjeta cargando">Revisando el catálogo actual…</div>';
+    const existentes = await clavesExistentes();
+
     estado = {
       archivo: archivo.name,
       encabezados,
       filas: filasDatos,
       mapeo: adivinarMapeo(encabezados),
       hojas,
+      existentes,
     };
     pintarMapeo(caja);
   } catch (e) {
@@ -219,7 +225,7 @@ function pintarMapeo(caja) {
 function analizar() {
   const { filas, mapeo } = estado;
   const dato = (fila, campo) => (mapeo[campo] === undefined ? '' : fila[mapeo[campo]]);
-  const existentes = new Map(catalogo().map((p) => [p.clave || claveProducto(p.nombre), p]));
+  const existentes = estado.existentes || new Map();
   const vistasEnArchivo = new Map();
 
   const buenas = [], malas = [], duplicadas = [], incompletas = [];
@@ -247,7 +253,11 @@ function analizar() {
       linea: i + 2,
     };
 
-    if (existentes.has(clave)) { duplicadas.push({ ...producto, yaExiste: existentes.get(clave).nombre }); return; }
+    if (existentes.has(clave)) {
+      const ya = existentes.get(clave);
+      duplicadas.push({ ...producto, yaExiste: ya.nombre, desactivado: !ya.activo });
+      return;
+    }
     if (vistasEnArchivo.has(clave)) { duplicadas.push({ ...producto, repetidaEnLinea: vistasEnArchivo.get(clave) }); return; }
     vistasEnArchivo.set(clave, producto.linea);
 
@@ -269,8 +279,16 @@ function pintarPrevia(caja) {
   }
 
   const { buenas, malas, duplicadas, incompletas } = analizar();
+  const sinSenal = estado.existentes?.desdeCache;
   const tarjeta = el('div.tarjeta', { id: 'previa', style: 'margin-top:1rem' });
   pegar(tarjeta, el('h2', { texto: '2. Vista previa' }));
+
+  if (sinSenal) {
+    tarjeta.appendChild(el('p', {
+      style: 'color:var(--ambar);font-weight:600',
+      texto: 'Sin conexión: los duplicados se comparan contra la última copia sincronizada del catálogo. Puedes importar igual (se sube solo), pero si cargaste productos desde otro dispositivo hace poco, revisa esa lista después.',
+    }));
+  }
 
   tarjeta.appendChild(el('div.kpis', { style: 'margin-bottom:1rem' }, [
     kpi('Van a entrar', String(buenas.length), 'bueno'),
@@ -305,7 +323,7 @@ function pintarPrevia(caja) {
       el('div', {
         style: 'font-size:.85rem;color:var(--texto-suave);max-height:20vh;overflow:auto',
         html: duplicadas.slice(0, 40).map((p) =>
-          `Línea ${p.linea}: ${esc(p.nombre)} — ${p.yaExiste ? `ya existe como "${esc(p.yaExiste)}"` : `repetida de la línea ${p.repetidaEnLinea}`}`
+          `Línea ${p.linea}: ${esc(p.nombre)} — ${p.yaExiste ? `ya existe como "${esc(p.yaExiste)}"${p.desactivado ? ' (desactivado)' : ''}` : `repetida de la línea ${p.repetidaEnLinea}`}`
         ).join('<br>'),
       }),
     ]));
@@ -346,7 +364,7 @@ function pintarPrevia(caja) {
           $('#texto-barra', barra).textContent = `${hechos} de ${total}…`;
         });
         avisarOk(`${buenas.length} productos importados`);
-        pintarHecho(caja, importId, buenas.length, incompletas.length);
+        pintarHecho(caja, importId, buenas.length, incompletas.length, !navigator.onLine);
       } catch (e) {
         avisarMal('Falló la importación: ' + (e.message || e));
         boton.disabled = false;
@@ -358,11 +376,15 @@ function pintarPrevia(caja) {
   caja.appendChild(tarjeta);
 }
 
-function pintarHecho(caja, importId, cuantos, incompletos) {
+function pintarHecho(caja, importId, cuantos, incompletos, enCola = false) {
   caja.innerHTML = '';
   caja.appendChild(el('div.tarjeta.marca', {}, [
     el('h2', { texto: 'Inventario cargado' }),
     el('p', { texto: `Entraron ${cuantos} productos.` }),
+    enCola ? el('p', {
+      style: 'color:var(--ambar);font-weight:600',
+      texto: 'Sin conexión: ya están guardados en este dispositivo y puedes seguir trabajando. Se suben solos en cuanto haya señal, aunque cierres la app.',
+    }) : null,
     incompletos ? el('p', {
       style: 'color:var(--ambar);font-weight:600',
       texto: `${incompletos} quedaron sin precio o sin costo. Los ves en Inventario con el filtro "Sin precio o sin costo".`,
