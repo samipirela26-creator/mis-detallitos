@@ -97,6 +97,20 @@ input:focus, select:focus, textarea:focus {
   outline: 0; border-color: var(--marca);
   box-shadow: 0 0 0 3px rgba(11, 106, 130, .3);
 }
+/* Miniatura de producto (inventario, punto de venta y buscador).
+   La clase se usaba desde el principio pero nunca tuvo regla: mientras ningún
+   producto tenía foto, el gif transparente de 1x1 no se notaba. En cuanto
+   entró la primera foto real, salió a tamaño completo y reventó la lista.
+   `flex:0 0 auto` es necesario porque las filas son flex y si no, la foto se
+   estira o se aplasta según el largo del nombre. */
+.miniatura {
+  width: 48px; height: 48px;
+  flex: 0 0 auto;
+  border-radius: var(--r-chico);
+  object-fit: cover;
+  background: var(--superficie-2);
+}
+
 /* Buscador destacado.
    Antes era un input suelto en una fila: con el cliente enfrente no se veía
    dónde buscar. Ahora lleva etiqueta, lupa dentro del campo y botón de borrar. */
