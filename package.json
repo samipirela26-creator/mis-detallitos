@@ -13,6 +13,8 @@
     "precache": "node scripts/revisar-precache.mjs"
   },
   "devDependencies": {
-    "firebase-tools": "^14.0.0"
+    "firebase-admin": "^13.10.0",
+    "firebase-tools": "^14.0.0",
+    "sharp": "^0.35.5"
   }
 }

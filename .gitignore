@@ -10,3 +10,7 @@ ui-debug.log
 # Claves que NUNCA van al repo
 .secretos/
 *firebase-adminsdk*.json
+
+# Imágenes bajadas para revisar, no son del proyecto
+imagenes-descargadas/
+candidatas.json
