@@ -15,6 +15,7 @@
 import { registrar, ir } from '../core/router.js';
 import { el, esc, $, pegar } from '../ui/html.js';
 import { avisar, avisarOk, avisarMal } from '../ui/avisos.js';
+import { pedirRecorte } from '../ui/recortar.js';
 import { productos as catalogo } from '../data/catalogo.js';
 import { guardarFoto, obtenerFoto, borrarFoto } from '../data/fotos.js';
 import { procesar, cargarAjustes, lista as iaLista } from '../data/estudio-ia.js';
@@ -25,6 +26,9 @@ registrar('fotos', {
   montar(nodo) {
     let pendientes = [];
     let i = 0;
+    // La proporción elegida se queda puesta para las siguientes fotos: en una
+    // tirada de 200 productos nadie quiere volver a escogerla cada vez.
+    let razonPreferida = '1:1';
     // Los ajustes del fondo blanco se leen una vez al entrar. Si cambian en
     // Configuración, se vuelve a entrar a esta pantalla y ya.
     let ajustes = null;
@@ -114,10 +118,17 @@ registrar('fotos', {
     async function tomar(archivo) {
       const p = pendientes[i];
       const visor = $('#visor', nodo);
+
+      // Primero el recorte, después la IA: al servicio le llega la foto ya
+      // encuadrada, recorta mejor y no se paga por mostrador de más.
+      const recorte = await pedirRecorte(archivo, { titulo: p.nombre, razon: razonPreferida });
+      if (!recorte) { pintar(); return; }          // le dio a "Repetir foto"
+      if (recorte.razon) razonPreferida = recorte.razon;
+
       const conIA = iaLista(ajustes);
       visor.innerHTML = `<div class="cargando">${conIA ? 'Quitando el fondo con IA…' : 'Guardando la foto…'}</div>`;
       try {
-        const { datos, aviso } = await procesar(archivo, { ajustes });
+        const { datos, aviso } = await procesar(recorte.blob, { ajustes, encajar: recorte.recortada });
         if (aviso) avisar(`${aviso} La foto se guardó con su fondo original.`);
         visor.innerHTML = '';
         visor.appendChild(el('img', { src: datos, style: 'width:100%;max-height:40dvh;object-fit:contain;border-radius:var(--r)' }));
@@ -210,9 +221,11 @@ export async function verFoto(producto) {
     type: 'file', accept: 'image/*', capture: 'environment', hidden: '',
     onchange: async (ev) => {
       if (!ev.target.files[0]) return;
+      const recorte = await pedirRecorte(ev.target.files[0], { titulo: producto.nombre });
+      if (!recorte) { ev.target.value = ''; return; }
       const ajustes = await cargarAjustes();
       if (iaLista(ajustes)) avisar('Quitando el fondo con IA…');
-      const { datos, aviso } = await procesar(ev.target.files[0], { ajustes });
+      const { datos, aviso } = await procesar(recorte.blob, { ajustes, encajar: recorte.recortada });
       await guardarFoto(producto.id, datos);
       d.close();
       if (aviso) avisar(`${aviso} Se guardó con su fondo original.`);

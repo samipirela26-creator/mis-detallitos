@@ -223,14 +223,14 @@ function limites(img) {
  *  Si la IA está apagada, sin llave, sin internet o falla, devuelve la foto
  *  comprimida normal: NUNCA se pierde el disparo por culpa de la IA.
  *  → { datos, conIA, aviso } */
-export async function procesar(archivo, { ajustes } = {}) {
+export async function procesar(archivo, { ajustes, encajar = false } = {}) {
   const aj = ajustes || await cargarAjustes();
-  if (!lista(aj)) return { datos: await comprimir(archivo), conIA: false };
+  if (!lista(aj)) return { datos: await comprimir(archivo, { encajar }), conIA: false };
   try {
     const recorte = await recortar(archivo, aj);
     return { datos: await componer(recorte, aj), conIA: true };
   } catch (e) {
-    return { datos: await comprimir(archivo), conIA: false, aviso: e.message || 'La IA falló' };
+    return { datos: await comprimir(archivo, { encajar }), conIA: false, aviso: e.message || 'La IA falló' };
   }
 }
 

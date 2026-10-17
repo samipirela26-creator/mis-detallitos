@@ -16,21 +16,36 @@ import { marcarFoto } from './productos.js';
 export const LADO_MAX = 800;
 export const CALIDAD = 0.72;
 
-/** Comprime un File/Blob de la cámara y devuelve un dataURL WebP. */
-export function comprimir(archivo, { lado = LADO_MAX, calidad = CALIDAD } = {}) {
+/** Comprime un File/Blob de la cámara y devuelve un dataURL WebP.
+ *
+ *  `encajar`: la foto YA viene encuadrada a mano (pasó por el recorte), así que
+ *  cortarle otro cuadrado al centro se comería justo lo que el dueño acomodó.
+ *  En ese caso se mete completa en el cuadrado y lo que sobra se rellena de
+ *  blanco — nunca se estira, que es lo que haría ver chuecos los productos. */
+export function comprimir(archivo, { lado = LADO_MAX, calidad = CALIDAD, encajar = false } = {}) {
   return new Promise((ok, mal) => {
     const url = URL.createObjectURL(archivo);
     const img = new Image();
     img.onload = () => {
       URL.revokeObjectURL(url);
-      // Recorte cuadrado centrado: todas las fotos se ven parejas en la lista.
-      const corte = Math.min(img.width, img.height);
-      const x = (img.width - corte) / 2;
-      const y = (img.height - corte) / 2;
       const lienzo = document.createElement('canvas');
-      lienzo.width = lienzo.height = Math.min(lado, corte);
       const ctx = lienzo.getContext('2d');
-      ctx.drawImage(img, x, y, corte, corte, 0, 0, lienzo.width, lienzo.height);
+      if (encajar) {
+        lienzo.width = lienzo.height = Math.min(lado, Math.max(img.width, img.height));
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, lienzo.width, lienzo.height);
+        const escala = Math.min(lienzo.width / img.width, lienzo.height / img.height);
+        const w = img.width * escala;
+        const h = img.height * escala;
+        ctx.drawImage(img, (lienzo.width - w) / 2, (lienzo.height - h) / 2, w, h);
+      } else {
+        // Recorte cuadrado centrado: todas las fotos se ven parejas en la lista.
+        const corte = Math.min(img.width, img.height);
+        const x = (img.width - corte) / 2;
+        const y = (img.height - corte) / 2;
+        lienzo.width = lienzo.height = Math.min(lado, corte);
+        ctx.drawImage(img, x, y, corte, corte, 0, 0, lienzo.width, lienzo.height);
+      }
       let datos = lienzo.toDataURL('image/webp', calidad);
       if (!datos.startsWith('data:image/webp')) datos = lienzo.toDataURL('image/jpeg', calidad);
       ok(datos);

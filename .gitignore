@@ -6,3 +6,7 @@ firestore-debug.log
 ui-debug.log
 .env
 *.local
+
+# Claves que NUNCA van al repo
+.secretos/
+*firebase-adminsdk*.json
