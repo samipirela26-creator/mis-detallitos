@@ -108,6 +108,42 @@ export async function guardarProducto(datos, id = null) {
   return productoId;
 }
 
+/**
+ * Rehace `productos_venta` a partir de `productos`.
+ *
+ * Por qué hace falta: el espejo solo se escribe cuando el dueño guarda un
+ * producto. Un catálogo cargado antes de que el espejo existiera (o una
+ * importación hecha con una versión vieja) deja `productos` lleno y
+ * `productos_venta` vacío — y entonces el catálogo público de los clientes
+ * sale en blanco aunque el inventario esté completo.
+ *
+ * Solo copia; no borra ni toca `productos`. Es idempotente: correrlo dos veces
+ * deja lo mismo.
+ */
+export async function reconstruirCatalogoPublico() {
+  const snap = await getDocs(col('productos'));
+  let escritos = 0;
+
+  // Firestore admite 500 operaciones por lote; se va de 400 para ir holgado.
+  let lote = writeBatch(db);
+  let enLote = 0;
+
+  for (const d of snap.docs) {
+    const limpio = normalizarProducto(d.data());
+    lote.set(ref('productos_venta', d.id), { ...versionVenta(limpio), actualizado: serverTimestamp() }, { merge: true });
+    escritos++;
+    if (++enLote >= 400) {
+      await lote.commit();
+      lote = writeBatch(db);
+      enLote = 0;
+    }
+  }
+  if (enLote) await lote.commit();
+
+  anotar('catalogo-publico-reconstruido', { productos: escritos });
+  return { leidos: snap.size, escritos };
+}
+
 /** Desactivar en vez de borrar: las ventas viejas tienen que seguir cuadrando. */
 export async function desactivarProducto(id) {
   const lote = writeBatch(db);
@@ -215,6 +251,68 @@ export async function guardarEnLote(lista, importId, alAvanzar = () => {}) {
   anotar('importacion', { importId, cantidad: lista.length });
   ids.subida = Promise.allSettled(subidas);
   return ids;
+}
+
+/**
+ * Actualiza productos que YA existen, desde una importación.
+ *
+ * Nació de un problema real: el inventario se cargó bien, y después hubo que
+ * agregarle categorías y sinónimos a los 157 productos. Volver a importar no
+ * servía (las filas repetidas se saltan) y editarlos a mano era inviable.
+ *
+ * Lo que NO toca, a propósito:
+ *  - `stock`: el del archivo es una foto vieja del día que se contó. Si lo
+ *    pisara, borraría todas las ventas hechas desde entonces.
+ *  - `importId`: si le pusiera el de esta importación, "deshacer importación"
+ *    borraría productos que ya existían antes y que nadie pidió borrar.
+ *  - El ledger: no se asienta ningún movimiento, porque no entró ni salió
+ *    mercancía. Cambiar una etiqueta no es un movimiento de inventario.
+ */
+export async function actualizarEnLote(lista, alAvanzar = () => {}) {
+  const TAMANO = 150;
+  let hechos = 0;
+  const subidas = [];
+  for (let i = 0; i < lista.length; i += TAMANO) {
+    const trozo = lista.slice(i, i + TAMANO);
+    const lote = writeBatch(db);
+    for (const p of trozo) {
+      if (!p.id) continue;
+      const alias = (p.alias || []).map((a) => a.trim()).filter(Boolean);
+      // Solo los campos que el archivo describe de verdad. Un campo vacío en el
+      // Excel se ignora en vez de borrar lo que ya está cargado: el archivo casi
+      // nunca trae TODO, y una celda en blanco significa "no sé", no "bórralo".
+      const campos = { actualizado: serverTimestamp() };
+      if (p.categoria) campos.categoria = p.categoria.trim();
+      if (alias.length) { campos.alias = alias; campos.aliasNorm = alias.map(normalizar); }
+      if (p.sku) campos.sku = p.sku.trim();
+      if (p.codigoBarras) campos.codigoBarras = p.codigoBarras.trim();
+      if (p.unidad) campos.unidad = p.unidad.trim();
+      if (p.precioUSD) campos.precioUSD = Math.round(p.precioUSD);
+      if (p.costoUSD) campos.costoUSD = Math.round(p.costoUSD);
+      if (p.stockMinimo) campos.stockMinimo = Number(p.stockMinimo);
+      if (p.escalas && p.escalas.length) {
+        campos.escalas = p.escalas
+          .filter((e) => e && e.desdeCant > 0 && e.precioUSD >= 0)
+          .map((e) => ({ desdeCant: Number(e.desdeCant), precioUSD: Math.round(e.precioUSD) }))
+          .sort((a, b) => a.desdeCant - b.desdeCant);
+      }
+
+      lote.set(ref('productos', p.id), campos, { merge: true });
+      lote.set(ref('productos_venta', p.id), versionVenta(campos), { merge: true });
+    }
+    const cuantos = trozo.length;
+    escribir('pendientes', (leer('pendientes') || 0) + cuantos);
+    subidas.push(
+      lote.commit()
+        .then(() => escribir('pendientes', Math.max(0, (leer('pendientes') || cuantos) - cuantos)))
+        .catch((e) => { console.warn('[productos] actualización en cola:', e?.code || e); })
+    );
+    hechos += cuantos;
+    alAvanzar(hechos, lista.length);
+    await new Promise((ok) => setTimeout(ok, 0));
+  }
+  anotar('importacion-actualiza', { cantidad: lista.length });
+  return Promise.allSettled(subidas);
 }
 
 /**

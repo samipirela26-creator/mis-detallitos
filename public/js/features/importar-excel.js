@@ -16,7 +16,7 @@
 import { registrar, ir } from '../core/router.js';
 import { el, esc, $, pegar } from '../ui/html.js';
 import { avisar, avisarOk, avisarMal, confirmar } from '../ui/avisos.js';
-import { guardarEnLote, deshacerImportacion, clavesExistentes } from '../data/productos.js';
+import { guardarEnLote, actualizarEnLote, deshacerImportacion, clavesExistentes } from '../data/productos.js';
 import { claveProducto } from '../core/texto.js';
 import { aMenores, formatear } from '../core/dinero.js';
 import { leerCSV } from '../data/csv.js';
@@ -34,7 +34,35 @@ const CAMPOS = {
   unidad: { titulo: 'Unidad', pistas: ['unidad', 'medida', 'presentacion'] },
   alias: { titulo: 'Otros nombres', pistas: ['alias', 'sinonimo', 'sinonimos', 'otros nombres'] },
   stockMinimo: { titulo: 'Stock mínimo', pistas: ['minimo', 'stock minimo', 'reorden'] },
+  // Ojo con el título de esta columna: el que adivina puntúa por substring, así
+  // que si se llamara "precio por cantidad" le robaría la columna a precioUSD.
+  // "Mayoreo" no colisiona con ninguna pista de los demás campos.
+  escalas: { titulo: 'Mayoreo', pistas: ['mayoreo', 'mayor', 'escala', 'escalas', 'docena', 'tramo'] },
 };
+
+/**
+ * Lee "12 por 3.33" -> desde 12 unidades, las 12 cuestan $3,33 (o sea $0,2775 c/u).
+ *
+ * Se escribe el precio del PAQUETE porque es como lo piensa quien vende: "la
+ * docena a diez mil". La app guarda el unitario, así que aquí se divide.
+ * Varios tramos van separados por ; o por salto de línea:
+ *   "12 por 3.33; 100 por 23.33"
+ */
+export function parsearEscalas(texto) {
+  const crudo = String(texto || '').trim();
+  if (!crudo) return [];
+  const salida = [];
+  for (const parte of crudo.split(/[;\n]/)) {
+    const m = parte.trim().match(/^(\d+)\s*(?:por|x|=|:)\s*([\d.,]+)$/i);
+    if (!m) continue;
+    const desdeCant = Number(m[1]);
+    const totalPaquete = Number(String(m[2]).replace(',', '.'));
+    if (!desdeCant || !Number.isFinite(totalPaquete) || totalPaquete <= 0) continue;
+    const unitario = aMenores(totalPaquete / desdeCant);
+    if (unitario > 0) salida.push({ desdeCant, precioUSD: unitario });
+  }
+  return salida.sort((a, b) => a.desdeCant - b.desdeCant);
+}
 
 const sinAcentos = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
 
@@ -249,6 +277,7 @@ function analizar() {
       sku: String(dato(fila, 'sku') || '').trim(),
       unidad: String(dato(fila, 'unidad') || 'unidad').trim() || 'unidad',
       alias: String(dato(fila, 'alias') || '').split(/[,;|]/).map((s) => s.trim()).filter(Boolean),
+      escalas: parsearEscalas(dato(fila, 'escalas')),
       tipo: 'producto',
       tipoPrecio: 'fijo',
       linea: i + 2,
@@ -256,7 +285,9 @@ function analizar() {
 
     if (existentes.has(clave)) {
       const ya = existentes.get(clave);
-      duplicadas.push({ ...producto, yaExiste: ya.nombre, desactivado: !ya.activo });
+      // El id viaja con la fila: sin él, "actualizar los que ya existen" no
+      // sabría a qué documento escribirle.
+      duplicadas.push({ ...producto, id: ya.id, yaExiste: ya.nombre, desactivado: !ya.activo });
       return;
     }
     if (vistasEnArchivo.has(clave)) { duplicadas.push({ ...producto, repetidaEnLinea: vistasEnArchivo.get(clave) }); return; }
@@ -320,7 +351,7 @@ function pintarPrevia(caja) {
 
   if (duplicadas.length) {
     tarjeta.appendChild(el('details', { style: 'margin-top:.75rem' }, [
-      el('summary', { style: 'cursor:pointer;font-weight:600', texto: `${duplicadas.length} filas duplicadas (se saltan)` }),
+      el('summary', { style: 'cursor:pointer;font-weight:600', texto: `${duplicadas.length} filas duplicadas (no se crean de nuevo)` }),
       el('div', {
         style: 'font-size:.85rem;color:var(--texto-suave);max-height:20vh;overflow:auto',
         html: duplicadas.slice(0, 40).map((p) =>
@@ -374,7 +405,37 @@ function pintarPrevia(caja) {
     },
   });
 
-  pegar(tarjeta, boton, barra);
+  // Los que ya están cargados: en vez de saltarlos y perder el trabajo, se les
+  // puede volcar encima lo que el archivo traiga de nuevo (categoría, alias,
+  // precio, costo). El stock no se toca: ver actualizarEnLote().
+  const existentes = duplicadas.filter((d) => d.id);
+  const botonActualizar = existentes.length ? el('button.btn.plano.ancho', {
+    style: 'margin-top:.6rem',
+    texto: `Actualizar los ${existentes.length} que ya existen`,
+    onclick: async () => {
+      if (!await confirmar(`¿Actualizar ${existentes.length} productos que ya tienes cargados?`, {
+        detalle: 'Se les pone la categoría, los otros nombres, el precio y el costo que trae el '
+               + 'archivo. La CANTIDAD en inventario no se toca, para no borrar las ventas que '
+               + 'hiciste desde que contaste.',
+        aceptar: 'Sí, actualizar',
+      })) return;
+
+      botonActualizar.disabled = true;
+      barra.style.display = '';
+      try {
+        await actualizarEnLote(existentes, (hechos, total) => {
+          $('#relleno', barra).style.width = `${(hechos / total) * 100}%`;
+          $('#texto-barra', barra).textContent = `${hechos} de ${total}…`;
+        });
+        avisarOk(`${existentes.length} productos actualizados`);
+      } catch (e) {
+        avisarMal('Falló la actualización: ' + (e.message || e));
+        botonActualizar.disabled = false;
+      }
+    },
+  }) : null;
+
+  pegar(tarjeta, boton, botonActualizar, barra);
   caja.appendChild(tarjeta);
 }
 

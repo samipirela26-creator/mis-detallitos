@@ -94,7 +94,11 @@ export function buscar(texto, productos = [], { limite = 25 } = {}) {
   }
 
   // 4. Difusa: aquí entran los errores de dedo.
-  if (salida.length < limite && q.length >= 3) {
+  // Desde 4 letras, no 3: escribiendo "lap" la difusa colaba "Cinta aislante
+  // en PVC" por encima de nada útil. Con 4 el ruido desaparece y los errores de
+  // dedo ("lapiss", "crellones") se siguen aguantando, porque esos ya los toma
+  // el paso 3 por prefijo.
+  if (salida.length < limite && q.length >= 4) {
     for (const r of indiceDe(productos).search(q, { limit: limite })) {
       meter(r.item, 'difusa', 0.3 + (r.score || 0));
     }

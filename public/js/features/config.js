@@ -321,6 +321,24 @@ function pintarDatos(caja) {
         for (const a of Object.values(ALMACENES)) await vaciar(a);
         avisarOk('Caché limpio. Recarga la app.');
       } }),
+      el('button.btn.plano', { texto: 'Rehacer catálogo público', onclick: async (ev) => {
+        if (!await confirmar('¿Rehacer el catálogo público?', {
+          detalle: 'Copia tus productos al catálogo que ven los clientes. No borra nada y los costos no se publican.',
+          aceptar: 'Rehacer',
+        })) return;
+        const boton = ev.currentTarget;
+        boton.disabled = true;
+        try {
+          const { reconstruirCatalogoPublico } = await import('../data/productos.js');
+          const { escritos } = await reconstruirCatalogoPublico();
+          avisarOk(`Catálogo público al día: ${escritos} ${escritos === 1 ? 'producto' : 'productos'}.`);
+        } catch (e) {
+          console.warn('[catalogo-publico]', e);
+          avisarMal('No se pudo rehacer el catálogo público.');
+        } finally {
+          boton.disabled = false;
+        }
+      } }),
     ])
   );
 }

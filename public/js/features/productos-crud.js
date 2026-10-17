@@ -20,9 +20,19 @@ registrar('inventario', {
   titulo: 'Inventario', icono: '📦', menu: true, soloDueno: true, orden: 20,
   montar(nodo) {
     nodo.innerHTML = `
+      <div class="campo" style="margin-bottom:.6rem">
+        <label for="q">Buscar producto</label>
+        <div class="buscador">
+          <span class="buscador-icono" aria-hidden="true">🔎</span>
+          <input id="q" type="search" autocomplete="off" enterkeyhint="search"
+                 placeholder="Ej: lápiz, teipe, carpeta…">
+          <button type="button" class="buscador-limpiar" id="limpiar" hidden
+                  aria-label="Borrar lo escrito">&times;</button>
+        </div>
+        <p id="cuenta" class="pista-busqueda" aria-live="polite"></p>
+      </div>
       <div class="fila" style="margin-bottom:.75rem">
-        <input id="q" type="search" placeholder="🔎 Buscar en el inventario…" style="flex:3">
-        <select id="filtro" style="flex:1">
+        <select id="filtro">
           <option value="">Todos</option>
           <option value="bajo">Stock bajo</option>
           <option value="sinfoto">Sin foto</option>
@@ -61,6 +71,12 @@ registrar('inventario', {
       lista = [...lista].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
 
       const todos = catalogo();
+      // Decirle cuántos quedaron: sin esto, con 156 productos no se sabe si la
+      // búsqueda hizo algo o si la lista de abajo es la de siempre.
+      $('#limpiar', nodo).hidden = !q;
+      $('#cuenta', nodo).textContent = q
+        ? (lista.length ? `${lista.length} de ${todos.length} productos` : 'Ningún producto con ese nombre')
+        : '';
       $('#resumen', nodo).innerHTML = '';
       $('#resumen', nodo).appendChild(el('div.kpis', { style: 'margin-bottom:1rem' }, [
         tarjetaKpi('Productos', String(todos.length)),
@@ -111,6 +127,12 @@ registrar('inventario', {
 
     $('#q', nodo).addEventListener('input', pintar);
     $('#filtro', nodo).addEventListener('change', pintar);
+    $('#limpiar', nodo).addEventListener('click', () => {
+      const campo = $('#q', nodo);
+      campo.value = '';
+      campo.focus();       // devolver el cursor: lo normal es volver a escribir
+      pintar();
+    });
     return observar('productos', pintar);
   },
 });

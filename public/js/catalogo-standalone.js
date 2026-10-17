@@ -2,7 +2,7 @@
 // No contiene código de inicio de sesión, ni panel de ventas, ni datos administrativos.
 
 import { db, col, ref } from './core/firebase.js';
-import { onSnapshot, query, where, getDoc } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js';
+import { onSnapshot, query, where, getDoc, getDocs, orderBy, limit } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js';
 import { el, esc, $, abrirDialogo, pegar } from './ui/html.js';
 import { avisarOk } from './ui/avisos.js';
 import { MONEDAS, desdeUSD, formatear } from './core/dinero.js';
@@ -59,13 +59,26 @@ function escucharProductos() {
   }, (e) => console.warn('[catalogo] error:', e));
 }
 
+/**
+ * Tasa del día, y si hoy todavía no se cargó, la última que exista.
+ *
+ * Antes se pedía solo `tasas/<hoy>`: cualquier día sin tasa cargada dejaba al
+ * cliente sin ver bolívares ni pesos. Mejor una tasa de ayer que ninguna; el
+ * monto final igual se confirma por WhatsApp.
+ */
 function escucharTasas() {
   const hoyStr = new Date().toISOString().slice(0, 10);
   getDoc(ref('tasas', hoyStr)).then((snap) => {
     if (snap.exists()) {
       tasas = snap.data() || {};
       pintarProductos();
+      return;
     }
+    return getDocs(query(col('tasas'), orderBy('__name__', 'desc'), limit(1))).then((ultimas) => {
+      if (ultimas.empty) return;
+      tasas = ultimas.docs[0].data() || {};
+      pintarProductos();
+    });
   }).catch((e) => console.warn('[tasas] error:', e));
 }
 
