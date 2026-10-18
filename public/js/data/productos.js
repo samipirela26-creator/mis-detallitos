@@ -15,7 +15,7 @@ import { escribir, leer } from '../core/estado.js';
 import { anotar } from './auditoria.js';
 
 /** Campos que NUNCA pueden llegar a la app del empleado. */
-const SECRETOS = ['costoUSD', 'margenObjetivo', 'proveedor', 'notaCosto'];
+const SECRETOS = ['costoUSD', 'costoPaquete', 'margenObjetivo', 'proveedor', 'notaCosto'];
 
 /** Deja el producto listo para guardar: normaliza nombre, alias y números. */
 export function normalizarProducto(p) {
@@ -39,6 +39,11 @@ export function normalizarProducto(p) {
       .map((e) => ({ desdeCant: Number(e.desdeCant), precioUSD: Math.round(e.precioUSD) }))
       .sort((a, b) => a.desdeCant - b.desdeCant),
     costoUSD: Math.round(p.costoUSD || 0),
+    // Cómo se compró: "la docena en 1,80". Solo para que el dueño lo vea tal
+    // como lo escribió; lo que manda en las cuentas es el unitario de arriba.
+    costoPaquete: p.costoPaquete?.unidades > 1 && p.costoPaquete?.totalUSD > 0
+      ? { unidades: Number(p.costoPaquete.unidades), totalUSD: Math.round(p.costoPaquete.totalUSD) }
+      : null,
     stock: Number(p.stock || 0),
     stockMinimo: Number(p.stockMinimo || 0),
     unidad: p.unidad || 'unidad',

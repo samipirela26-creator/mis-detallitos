@@ -276,3 +276,56 @@ export function requiereAutorizacion(producto, precioUSD, { permitirBajoMinimo =
   const minimo = producto.precioMinimoUSD || producto.costoUSD || 0;
   return minimo > 0 && precioUSD < minimo;
 }
+
+// --- Costo por paquete -------------------------------------------------------
+// Quien compra no piensa en unidades: piensa "la docena de lápices me costó
+// 1,80". Si ese 1,80 se guarda como costo unitario, la ganancia de cada venta,
+// los reportes y el valor del inventario quedan inflados 12 veces, y nada
+// avisa. (Pasó: el Lapiz Kores decía costar 1,80 cuando la unidad cuesta 0,15.)
+//
+// Entonces el costo se puede escribir de las dos maneras, igual que el
+// mayoreo: "0,15" (unitario) o "12 por 1,80" (el paquete completo).
+
+/**
+ * Lee un costo escrito como unitario o como paquete.
+ *   "0,15"        -> { costoUSD: 15, paquete: null }
+ *   "12 por 1,80" -> { costoUSD: 15, paquete: { unidades: 12, totalUSD: 180 } }
+ * Devuelve `costoUSD: null` si no se entiende nada.
+ */
+export function parsearCosto(entrada) {
+  const texto = String(entrada ?? '').trim();
+  if (!texto) return { costoUSD: null, paquete: null };
+
+  const separador = /\s(?:por|x)\b|[=:]/i;
+  const m = texto.match(/^(\d+)\s*(?:por|x|=|:)\s*([\d.,]+)$/i);
+  if (!m && separador.test(texto)) {
+    // Dijo "paquete" pero quedó a medias ("12 por", "12 por mil"). Antes esto
+    // se leía como 12 dólares la unidad, que es justo el error que se quiere
+    // evitar. Mejor nada: el formulario lo marca incompleto y se ve.
+    return { costoUSD: null, paquete: null };
+  }
+  if (m) {
+    const unidades = Number(m[1]);
+    const totalUSD = aMenores(m[2]);
+    // "1 por 5" es un unitario escrito raro, no un paquete: no vale guardarlo.
+    if (!unidades || !totalUSD || totalUSD <= 0) return { costoUSD: null, paquete: null };
+    if (unidades === 1) return { costoUSD: totalUSD, paquete: null };
+    return {
+      costoUSD: redondear(totalUSD / unidades),
+      paquete: { unidades, totalUSD },
+    };
+  }
+
+  return { costoUSD: aMenores(texto), paquete: null };
+}
+
+/** Cómo se le muestra al dueño lo que guardó, para que lo pueda volver a editar. */
+export function escribirCosto(costoUSD, paquete) {
+  // Con `formatear` y sin símbolo: "1,80" y no "1.8", que es como lo escribe
+  // y lo lee el dueño.
+  const n = (c) => formatear(c, MONEDA_BASE, { simbolo: false });
+  if (paquete?.unidades > 1 && paquete?.totalUSD > 0) {
+    return `${paquete.unidades} por ${n(paquete.totalUSD)}`;
+  }
+  return costoUSD ? n(costoUSD) : '';
+}

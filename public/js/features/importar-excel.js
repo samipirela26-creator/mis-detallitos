@@ -18,7 +18,7 @@ import { el, esc, $, pegar } from '../ui/html.js';
 import { avisar, avisarOk, avisarMal, confirmar } from '../ui/avisos.js';
 import { guardarEnLote, actualizarEnLote, deshacerImportacion, clavesExistentes } from '../data/productos.js';
 import { claveProducto } from '../core/texto.js';
-import { aMenores, formatear } from '../core/dinero.js';
+import { aMenores, formatear, parsearCosto } from '../core/dinero.js';
 import { leerCSV } from '../data/csv.js';
 import { observar, leer } from '../core/estado.js';
 
@@ -26,7 +26,10 @@ import { observar, leer } from '../core/estado.js';
 const CAMPOS = {
   nombre: { titulo: 'Nombre', obligatorio: true, pistas: ['nombre', 'producto', 'descripcion', 'articulo', 'item', 'detalle'] },
   precioUSD: { titulo: 'Precio al cliente', pistas: ['precio', 'venta', 'pvp', 'precio venta', 'valor'] },
-  costoUSD: { titulo: 'Lo que te cuesta a ti', pistas: ['costo', 'compra', 'precio compra', 'costo unitario'] },
+  // El costo acepta "1,80" (unitario) o "12 por 1,80" (lo que costó el paquete).
+  // Muchos Excel traen el costo de la caja en esta columna, y guardarlo como
+  // unitario infla la ganancia y el valor del inventario sin avisar.
+  costoUSD: { titulo: 'Lo que te cuesta a ti', pistas: ['costo', 'compra', 'precio compra', 'costo unitario', 'costo caja', 'costo paquete'] },
   stock: { titulo: 'Cantidad', pistas: ['cantidad', 'stock', 'existencia', 'inventario', 'disponible'] },
   categoria: { titulo: 'Categoría', pistas: ['categoria', 'rubro', 'tipo', 'grupo', 'linea'] },
   codigoBarras: { titulo: 'Código de barras', pistas: ['codigo barras', 'barras', 'ean', 'upc', 'codigo de barras'] },
@@ -263,13 +266,15 @@ function analizar() {
     if (!nombre) { malas.push({ linea: i + 2, razon: 'sin nombre' }); return; }
 
     const precioUSD = aMenores(dato(fila, 'precioUSD')) || 0;
-    const costoUSD = aMenores(dato(fila, 'costoUSD')) || 0;
+    const { costoUSD: costoUnit, paquete: costoPaquete } = parsearCosto(dato(fila, 'costoUSD'));
+    const costoUSD = costoUnit || 0;
     const clave = claveProducto(nombre);
 
     const producto = {
       nombre,
       precioUSD,
       costoUSD,
+      costoPaquete,
       stock: Number(String(dato(fila, 'stock') || 0).replace(',', '.')) || 0,
       stockMinimo: Number(String(dato(fila, 'stockMinimo') || 0).replace(',', '.')) || 0,
       categoria: String(dato(fila, 'categoria') || '').trim(),

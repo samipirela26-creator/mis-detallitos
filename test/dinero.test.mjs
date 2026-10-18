@@ -93,3 +93,31 @@ test('margen y autorización por precio bajo', () => {
   assert.equal(d.requiereAutorizacion(prod, 65, { permitirBajoMinimo: true }), false);
   assert.equal(d.requiereAutorizacion({ costoUSD: 50 }, 40), true, 'sin mínimo, el piso es el costo');
 });
+
+test('el costo se puede escribir por unidad o por paquete', () => {
+  // Unitario de toda la vida: no cambia nada.
+  assert.deepEqual(d.parsearCosto('0,15'), { costoUSD: 15, paquete: null });
+  assert.deepEqual(d.parsearCosto(''), { costoUSD: null, paquete: null });
+
+  // El caso que rompía las cuentas: la docena de lápices en 1,80.
+  const docena = d.parsearCosto('12 por 1,80');
+  assert.equal(docena.costoUSD, 15);
+  assert.deepEqual(docena.paquete, { unidades: 12, totalUSD: 180 });
+
+  // Las otras maneras de escribirlo que ya acepta el mayoreo.
+  assert.equal(d.parsearCosto('12 x 1,80').costoUSD, 15);
+  assert.equal(d.parsearCosto('10 = 3,50').costoUSD, 35);
+
+  // "1 por 5" es un unitario escrito raro, no un paquete.
+  assert.deepEqual(d.parsearCosto('1 por 5'), { costoUSD: 500, paquete: null });
+
+  // Basura: no se inventa un costo.
+  assert.equal(d.parsearCosto('ni idea').costoUSD, null);
+  assert.equal(d.parsearCosto('12 por').costoUSD, null);
+});
+
+test('el costo se vuelve a mostrar como se escribió', () => {
+  assert.equal(d.escribirCosto(15, { unidades: 12, totalUSD: 180 }), '12 por 1,80');
+  assert.equal(d.escribirCosto(15, null), '0,15');
+  assert.equal(d.escribirCosto(0, null), '');
+});

@@ -12,7 +12,7 @@ import { registrarMovimientos, bajoMinimo, TIPOS } from '../data/inventario.js';
 import { pintarFoto } from '../data/fotos.js';
 import { buscar } from '../data/busqueda.js';
 import { observar } from '../core/estado.js';
-import { aMenores, formatear, margenPct, aMayores } from '../core/dinero.js';
+import { aMenores, formatear, margenPct, aMayores, parsearCosto, escribirCosto } from '../core/dinero.js';
 
 const MARGEN_FLOJO = 15;   // por debajo de esto, se marca en amarillo
 
@@ -178,7 +178,8 @@ export function formulario(p = null) {
         <div class="campo"><label>Precio al cliente (USD)</label>
           <input name="precio" inputmode="decimal" value="${p ? aMayores(p.precioUSD) : ''}" placeholder="0,50"></div>
         <div class="campo"><label>Lo que te cuesta a ti (USD)</label>
-          <input name="costo" inputmode="decimal" value="${p ? aMayores(p.costoUSD) : ''}" placeholder="0,30"></div>
+          <input name="costo" value="${p ? escribirCosto(p.costoUSD, p.costoPaquete) : ''}" placeholder="0,30">
+          <small style="color:var(--texto-suave)">Si lo compraste por paquete, escríbelo así: <strong>12 por 1,80</strong>. La app saca lo que cuesta cada uno.</small></div>
       </div>
       <div id="margen" style="margin:-.4rem 0 .9rem;font-weight:600"></div>
 
@@ -235,15 +236,18 @@ export function formulario(p = null) {
 
   const pintarMargen = () => {
     const precio = aMenores(f.precio.value) || 0;
-    const costo = aMenores(f.costo.value) || 0;
+    const { costoUSD: costo, paquete } = parsearCosto(f.costo.value);
     const m = precio ? margenPct(precio, costo) : null;
     const caja = $('#margen', d);
     if (m === null || !costo) { caja.textContent = ''; return; }
     const ganancia = precio - costo;
     caja.style.color = m < 0 ? 'var(--rojo)' : m < MARGEN_FLOJO ? 'var(--ambar)' : 'var(--verde)';
+    // Con paquete se dice primero el unitario: es el número que el dueño no
+    // tenía y la razón por la que puede escribirlo como lo compró.
+    const porPaquete = paquete ? `Cada uno te cuesta ${formatear(costo)}. ` : '';
     caja.textContent = m < 0
-      ? `Estás vendiendo con pérdida: ${formatear(ganancia)} por unidad`
-      : `Ganas ${formatear(ganancia)} por unidad — ${m.toFixed(0)}% de margen`;
+      ? `${porPaquete}Estás vendiendo con pérdida: ${formatear(ganancia)} por unidad`
+      : `${porPaquete}Ganas ${formatear(ganancia)} por unidad — ${m.toFixed(0)}% de margen`;
   };
   f.precio.addEventListener('input', pintarMargen);
   f.costo.addEventListener('input', pintarMargen);
@@ -271,6 +275,8 @@ export function formulario(p = null) {
       precioUSD: aMenores(fila.querySelector('[data-k="precio"]').value) || 0,
     })).filter((e) => e.desdeCant > 0);
 
+    const costo = parsearCosto(f.costo.value);
+
     try {
       await guardarProducto({
         nombre: f.nombre.value,
@@ -279,7 +285,10 @@ export function formulario(p = null) {
         tipo: f.tipo.value,
         tipoPrecio: f.tipoPrecio.value,
         precioUSD: aMenores(f.precio.value) || 0,
-        costoUSD: aMenores(f.costo.value) || 0,
+        costoUSD: costo.costoUSD || 0,
+        // Se guarda cómo lo compró, no solo el unitario: así la próxima vez ve
+        // "12 por 1,80" y no un 0,15 que no reconoce.
+        costoPaquete: costo.paquete,
         precioMinimoUSD: aMenores(f.minimo.value) || 0,
         unidad: f.unidad.value,
         stock: esNuevo ? Number(f.stock.value) || 0 : p.stock,
