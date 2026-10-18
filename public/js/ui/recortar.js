@@ -66,14 +66,20 @@ function abrir(img, original, { titulo, razon }) {
 
     // --- armazón ---
     const lienzo = el('canvas', {
-      style: 'display:block;width:100%;max-height:52dvh;object-fit:contain;'
-           + 'border-radius:var(--r);background:#0c1e24;touch-action:none',
+      // El tamaño en pantalla se calcula en `ajustar()`, no con CSS: un
+      // max-width y un max-height juntos aplastan el canvas en los dos ejes a
+      // la vez (una foto vertical salía en proporción 0,89 en vez de 0,56) y el
+      // marco apuntaba a otro lado.
+      style: 'display:block;border-radius:var(--r);background:#0c1e24;touch-action:none',
     });
     const caja = el('div', {
       style: 'position:absolute;outline:2px solid #fff;cursor:move;touch-action:none;'
            + 'box-shadow:0 0 0 9999px rgba(12,30,36,.55)',
     });
-    const escena = el('div', { style: 'position:relative;overflow:hidden;border-radius:var(--r)' }, [lienzo, caja]);
+    // El envoltorio mide lo que mide el canvas: el marco se posiciona contra la
+    // imagen de verdad, no contra el ancho del diálogo.
+    const envoltura = el('div', { style: 'position:relative;display:inline-block;line-height:0;max-width:100%' }, [lienzo, caja]);
+    const escena = el('div', { style: 'text-align:center' }, [envoltura]);
     const tira = el('div.fila', { style: 'gap:.4rem;margin-top:.75rem' });
 
     for (const esquina of ['nw', 'ne', 'sw', 'se']) {
@@ -144,9 +150,20 @@ function abrir(img, original, { titulo, razon }) {
       }
     }
 
+    /** Mete la foto en el hueco disponible SIN deformarla. El envoltorio queda
+     *  del tamaño exacto de lo que se ve, que es contra lo que se mide el marco. */
+    function ajustar() {
+      const anchoHueco = escena.clientWidth || 320;
+      const altoHueco = Math.max(200, window.innerHeight * 0.52);
+      const escala = Math.min(anchoHueco / fuente.width, altoHueco / fuente.height, 1);
+      lienzo.style.width = `${Math.round(fuente.width * escala)}px`;
+      lienzo.style.height = `${Math.round(fuente.height * escala)}px`;
+    }
+
     function pintar() {
       lienzo.width = fuente.width;
       lienzo.height = fuente.height;
+      ajustar();
       lienzo.getContext('2d').drawImage(fuente, 0, 0);
       const pc = (v, total) => `${(v / total) * 100}%`;
       caja.style.left = pc(marco.x, fuente.width);

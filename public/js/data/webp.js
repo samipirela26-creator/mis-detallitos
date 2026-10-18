@@ -13,7 +13,9 @@
 //
 // Orden: lo que el navegador sepa hacer primero, y el wasm como último recurso.
 
-const RUTA_WASM = '/vendor/webp-enc.js';
+// Relativa a ESTE archivo, no a la raíz del dominio: la app también se publica
+// en GitHub Pages colgando de un subdirectorio, y ahí '/vendor/…' daba 404.
+const RUTA_WASM = new URL('../../vendor/webp-enc.js', import.meta.url).href;
 
 // Opciones de libwebp. Vienen de struct WebPConfig: el binding las exige todas,
 // una que falte lo tumba. Solo `quality` se toca aquí.
