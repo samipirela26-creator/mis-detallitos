@@ -164,6 +164,16 @@ registrar('vender', {
         if (!seguir) return;
       }
 
+      // Precio fijo en 0: alguien lo cargó incompleto. Antes entraba a la venta
+      // sin decir nada (y el PIN tampoco salta, porque el mínimo también es 0).
+      if (p.tipoPrecio !== 'variable' && !(p.precioUSD > 0)) {
+        const seguir = await confirmar(`"${p.nombre}" no tiene precio`, {
+          detalle: 'Si lo vendes así, se cobra $0,00. Lo normal es ponerle su precio en Inventario primero.',
+          aceptar: 'Regalarlo igual', cancelar: 'Mejor no',
+        });
+        if (!seguir) return;
+      }
+
       if (p.tipoPrecio === 'variable') {
         const monto = await pedirMonto({
           titulo: p.nombre,

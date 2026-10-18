@@ -60,7 +60,9 @@ registrar('catalogo', {
 
     const pintarProductos = () => {
       const q = qInput.value.trim();
-      let lista = catalogo().filter((p) => p.activo !== false);
+      // Fuera los de precio 0: es un dato incompleto, no un regalo. Los de
+      // precio variable sí pasan: a esos el precio se les pone al vender.
+      let lista = catalogo().filter((p) => p.activo !== false && (p.precioUSD > 0 || p.tipoPrecio === 'variable'));
       const tasas = leer('tasas') || {};
 
       if (q) lista = buscar(q, lista, { limite: 200 });
