@@ -9,7 +9,7 @@
     "emuladores": "firebase emulators:start --project mis-detallitos --only auth,firestore,hosting",
     "sembrar": "node scripts/sembrar-emulador.mjs",
     "reglas": "node --test test/reglas.test.mjs",
-    "publicar": "firebase deploy",
+    "publicar": "npm run precache && firebase deploy --project mis-detallitos",
     "precache": "node scripts/revisar-precache.mjs"
   },
   "devDependencies": {
