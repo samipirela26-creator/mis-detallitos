@@ -302,7 +302,33 @@ function analizar() {
     buenas.push(producto);
   });
 
-  return { buenas, malas, duplicadas, incompletas };
+  return { buenas, malas, duplicadas, incompletas, formula: olerFormula(buenas) };
+}
+
+/**
+ * ¿La columna de costo es una fórmula en vez de un costo?
+ *
+ * Pasó de verdad y costó caro: el Excel que se importó traía costo = precio/1,30
+ * en 112 de 158 filas. No era lo que se le pagó al proveedor, era el precio
+ * dividido. Nadie se dio cuenta hasta meses después, y mientras tanto el valor
+ * del inventario y la ganancia de cada venta salían mal sin avisar.
+ *
+ * Se huele así: si muchas filas dan EXACTAMENTE el mismo cociente precio/costo,
+ * no es un negocio con márgenes parecidos, es una fórmula arrastrada.
+ */
+function olerFormula(filas) {
+  const conAmbos = filas.filter((p) => p.precioUSD > 0 && p.costoUSD > 0);
+  if (conAmbos.length < 10) return null;
+
+  const cuenta = new Map();
+  for (const p of conAmbos) {
+    // A dos decimales: 1,2987 y 1,3012 son la misma fórmula con otro redondeo.
+    const k = (p.precioUSD / p.costoUSD).toFixed(2);
+    cuenta.set(k, (cuenta.get(k) || 0) + 1);
+  }
+  const [cociente, cuantas] = [...cuenta.entries()].sort((a, b) => b[1] - a[1])[0];
+  const porcentaje = cuantas / conAmbos.length;
+  return porcentaje >= 0.4 ? { cociente, cuantas, total: conAmbos.length, porcentaje } : null;
 }
 
 function pintarPrevia(caja) {
@@ -315,7 +341,7 @@ function pintarPrevia(caja) {
     return;
   }
 
-  const { buenas, malas, duplicadas, incompletas } = analizar();
+  const { buenas, malas, duplicadas, incompletas, formula } = analizar();
   const sinSenal = estado.existentes?.desdeCache;
   const tarjeta = el('div.tarjeta', { id: 'previa', style: 'margin-top:1rem' });
   pegar(tarjeta, el('h2', { texto: '2. Vista previa' }));
@@ -324,6 +350,16 @@ function pintarPrevia(caja) {
     tarjeta.appendChild(el('p', {
       style: 'color:var(--ambar);font-weight:600',
       texto: 'Sin conexión: los duplicados se comparan contra la última copia sincronizada del catálogo. Puedes importar igual (se sube solo), pero si cargaste productos desde otro dispositivo hace poco, revisa esa lista después.',
+    }));
+  }
+
+  if (formula) {
+    tarjeta.appendChild(el('p', {
+      style: 'color:var(--ambar);font-weight:600',
+      texto: `Ojo con la columna de costo: ${formula.cuantas} de ${formula.total} filas dan exactamente `
+           + `precio ÷ ${formula.cociente}. Eso parece una fórmula del Excel, no lo que te costó a ti. `
+           + `Si es así, la ganancia y el valor del inventario van a salir mal sin avisarte. `
+           + `Puedes importar igual y corregir los costos después.`,
     }));
   }
 
