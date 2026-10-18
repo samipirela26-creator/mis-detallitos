@@ -2,7 +2,7 @@
 // No contiene código de inicio de sesión, ni panel de ventas, ni datos administrativos.
 
 import { db, col, ref } from './core/firebase.js';
-import { onSnapshot, query, where, getDoc, getDocs, orderBy, limit } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js';
+import { onSnapshot, query, where, getDoc } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js';
 import { el, esc, $, abrirDialogo, pegar } from './ui/html.js';
 import { avisarOk } from './ui/avisos.js';
 import { MONEDAS, desdeUSD, formatear } from './core/dinero.js';
@@ -66,20 +66,31 @@ function escucharProductos() {
  * cliente sin ver bolívares ni pesos. Mejor una tasa de ayer que ninguna; el
  * monto final igual se confirma por WhatsApp.
  */
-function escucharTasas() {
-  const hoyStr = new Date().toISOString().slice(0, 10);
-  getDoc(ref('tasas', hoyStr)).then((snap) => {
-    if (snap.exists()) {
-      tasas = snap.data() || {};
-      pintarProductos();
+async function escucharTasas() {
+  // Se piden los últimos días uno por uno, por su nombre de documento, en vez
+  // de ordenar la colección: un `orderBy('__name__','desc')` exige un índice
+  // compuesto que nadie creó, y la consulta reventaba siempre. El catálogo
+  // quedó sin bolívares desde que se publicó, sin que se notara: el error solo
+  // salía en la consola del navegador.
+  //
+  // Diez getDoc valen menos que un índice que mantener: casi siempre acierta
+  // en el primero (la tasa de hoy), y ya estaban todos en caché.
+  const dia = new Date();
+  for (let i = 0; i < 10; i++) {
+    const clave = new Date(dia.getTime() - i * 86400000).toISOString().slice(0, 10);
+    try {
+      const snap = await getDoc(ref('tasas', clave));
+      if (snap.exists()) {
+        tasas = snap.data() || {};
+        pintarProductos();
+        return;
+      }
+    } catch (e) {
+      console.warn('[tasas] error:', e);
       return;
     }
-    return getDocs(query(col('tasas'), orderBy('__name__', 'desc'), limit(1))).then((ultimas) => {
-      if (ultimas.empty) return;
-      tasas = ultimas.docs[0].data() || {};
-      pintarProductos();
-    });
-  }).catch((e) => console.warn('[tasas] error:', e));
+  }
+  console.warn('[tasas] no hay tasa de los últimos 10 días');
 }
 
 function obtenerWhatsApp() {
