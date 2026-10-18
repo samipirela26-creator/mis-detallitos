@@ -72,6 +72,16 @@ service cloud.firestore {
         allow delete: if false;
       }
 
+      // --- cosas del equipo: las lee quien trabaja aquí, NO el público ---
+      //
+      // Aquí vive el hash del PIN. Estaba en `config/`, que es de lectura
+      // pública, y de un PIN de 4 dígitos se saca el número a partir del hash.
+      // El empleado sí tiene que poder leerlo: es su app la que verifica.
+      match /equipo/{doc} {
+        allow read: if delEquipo();
+        allow write: if esDueno();
+      }
+
       // --- secretos (llaves de servicios): SOLO el dueño ---
       //
       // Va aparte de `config/` a propósito: ese es de lectura pública porque lo

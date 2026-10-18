@@ -10,7 +10,7 @@ import { setDoc, getDoc, getDocs, deleteDoc } from 'https://www.gstatic.com/fire
 import { cargarTasas, guardarTasas, sugerirTasas, hoyISO, baseBs, guardarBaseBs, BASES_BS } from '../data/tasas.js';
 import { pendientes, aprobar, descartar } from '../data/sinonimos.js';
 import { productos as catalogo } from '../data/catalogo.js';
-import { hashPin, olvidarHash } from '../ui/pin.js';
+import { hashPin, olvidarHash, salNueva, VUELTAS } from '../ui/pin.js';
 import { MONEDAS, aMenores, formatear, aMayores } from '../core/dinero.js';
 import { leer } from '../core/estado.js';
 import {
@@ -191,8 +191,13 @@ async function pintarPin(caja) {
     el('button.btn.principal', { texto: tiene ? 'Cambiar PIN' : 'Poner PIN', onclick: async () => {
       const pin = entrada.value.trim();
       if (pin.length < 4) return avisarMal('El PIN debe tener al menos 4 números.');
+      if (pin.length < 6) avisar('Con 6 números en vez de 4 es 100 veces más difícil de adivinar.');
       try {
-        await setDoc(ref('config', 'general'), { pinHash: await hashPin(pin) }, { merge: true });
+        // Sal nueva en cada cambio de PIN, y fuera de `config/` que es público.
+        const sal = salNueva();
+        await setDoc(ref('equipo', 'seguridad'), {
+          pinHash: await hashPin(pin, sal), pinSal: sal, pinVueltas: VUELTAS,
+        }, { merge: true });
         olvidarHash();
         entrada.value = '';
         avisarOk('PIN guardado');
