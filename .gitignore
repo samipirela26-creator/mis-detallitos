@@ -14,3 +14,6 @@ ui-debug.log
 # Imágenes bajadas para revisar, no son del proyecto
 imagenes-descargadas/
 candidatas.json
+
+# Imágenes generadas, se revisan antes de subir
+imagenes-generadas/
