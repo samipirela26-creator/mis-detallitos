@@ -121,3 +121,20 @@ test('el costo se vuelve a mostrar como se escribió', () => {
   assert.equal(d.escribirCosto(15, null), '0,15');
   assert.equal(d.escribirCosto(0, null), '');
 });
+
+test('el costo no se deja engañar por lo que el dueño escribe mal', () => {
+  // Sin la palabra "por" se pegaban los dos números: "12 1,80" daba $121,80,
+  // y con eso el empleado quedaba pidiendo PIN en cada venta del lápiz.
+  assert.equal(d.parsearCosto('12 1,80').costoUSD, null);
+  assert.equal(d.parsearCosto('12  1,80').costoUSD, null);
+
+  // Un costo negativo envenena el margen y el valor del inventario.
+  assert.equal(d.parsearCosto('-5').costoUSD, null);
+  assert.equal(d.parsearCosto('-0,15').costoUSD, null);
+
+  // El papel se compra por millar, y así es como se escribe.
+  const millar = d.parsearCosto('1.000 por 12,50');
+  assert.equal(millar.costoUSD, 1);                  // 1250/1000 = 1,25 centavos -> 1
+  assert.deepEqual(millar.paquete, { unidades: 1000, totalUSD: 1250 });
+  assert.equal(d.parsearCosto('500 por 2,00').paquete.unidades, 500);
+});

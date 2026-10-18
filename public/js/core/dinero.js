@@ -296,8 +296,18 @@ export function parsearCosto(entrada) {
   const texto = String(entrada ?? '').trim();
   if (!texto) return { costoUSD: null, paquete: null };
 
+  // Un costo negativo no existe: antes "-5" entraba como -500 y envenenaba el
+  // margen y el valor del inventario.
+  if (/^\s*-/.test(texto)) return { costoUSD: null, paquete: null };
+
+  // "12 1,80" (se le olvidó el "por") se leía como 121,80: aMenores borra lo
+  // que no es dígito y pega los dos números. Un costo de $121,80 en un lápiz
+  // deja al empleado pidiendo PIN en cada venta. Dos números sueltos = nulo.
+  if (/^\d[\d.,]*\s+[\d.,]+$/.test(texto)) return { costoUSD: null, paquete: null };
+
   const separador = /\s(?:por|x)\b|[=:]/i;
-  const m = texto.match(/^(\d+)\s*(?:por|x|=|:)\s*([\d.,]+)$/i);
+  // Las unidades admiten el punto de millar: el papel se compra "1.000 por 12,50".
+  const m = texto.match(/^(\d[\d.]*)\s*(?:por|x|=|:)\s*([\d.,]+)$/i);
   if (!m && separador.test(texto)) {
     // Dijo "paquete" pero quedó a medias ("12 por", "12 por mil"). Antes esto
     // se leía como 12 dólares la unidad, que es justo el error que se quiere
@@ -305,7 +315,7 @@ export function parsearCosto(entrada) {
     return { costoUSD: null, paquete: null };
   }
   if (m) {
-    const unidades = Number(m[1]);
+    const unidades = Number(m[1].replace(/\./g, ''));
     const totalUSD = aMenores(m[2]);
     // "1 por 5" es un unitario escrito raro, no un paquete: no vale guardarlo.
     if (!unidades || !totalUSD || totalUSD <= 0) return { costoUSD: null, paquete: null };
