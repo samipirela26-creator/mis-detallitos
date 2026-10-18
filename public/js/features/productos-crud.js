@@ -11,8 +11,8 @@ import { guardarProducto, desactivarProducto } from '../data/productos.js';
 import { registrarMovimientos, bajoMinimo, TIPOS } from '../data/inventario.js';
 import { pintarFoto } from '../data/fotos.js';
 import { buscar } from '../data/busqueda.js';
-import { observar } from '../core/estado.js';
-import { aMenores, formatear, margenPct, aMayores, parsearCosto, escribirCosto } from '../core/dinero.js';
+import { observar, leer } from '../core/estado.js';
+import { aMenores, formatear, margenPct, aMayores, parsearCosto, escribirCosto, aUSD } from '../core/dinero.js';
 
 const MARGEN_FLOJO = 15;   // por debajo de esto, se marca en amarillo
 
@@ -82,7 +82,9 @@ registrar('inventario', {
         tarjetaKpi('Productos', String(todos.length)),
         tarjetaKpi('Sin foto', String(todos.filter((p) => !p.tieneFoto).length), 'acento'),
         tarjetaKpi('Stock bajo', String(bajoMinimo(todos).length), bajoMinimo(todos).length ? 'malo' : ''),
-        tarjetaKpi('Valor del inventario', formatear(todos.reduce((t, p) => t + (p.costoUSD || 0) * (p.stock || 0), 0))),
+        tarjetaKpi(
+          todos.some((p) => p.costoEstimado) ? 'Valor del inventario (aprox.)' : 'Valor del inventario',
+          formatear(todos.reduce((t, p) => t + (p.costoUSD || 0) * (p.stock || 0), 0))),
       ]));
 
       const caja = $('#lista', nodo);
@@ -113,6 +115,7 @@ registrar('inventario', {
               el('span', { html: esc(p.categoria || 'Sin categoría') }),
               p.tipoPrecio === 'variable' ? el('span.etiqueta.info', { style: 'margin-left:.4rem', texto: 'precio libre' }) : null,
               (!p.precioUSD || !p.costoUSD) ? el('span.etiqueta.alerta', { style: 'margin-left:.4rem', texto: 'incompleto' }) : null,
+              p.costoEstimado ? el('span.etiqueta.info', { style: 'margin-left:.4rem', texto: 'costo estimado' }) : null,
             ]),
           ]),
           el('div', { style: 'text-align:right;font-size:.85rem' }, [
@@ -175,8 +178,9 @@ export function formulario(p = null) {
         </select></div>
 
       <div class="fila">
-        <div class="campo"><label>Precio al cliente (USD)</label>
-          <input name="precio" inputmode="decimal" value="${p ? aMayores(p.precioUSD) : ''}" placeholder="0,50"></div>
+        <div class="campo"><label>Precio al cliente (pesos)</label>
+          <input name="precioCop" inputmode="numeric" value="${p?.precioCOP ? aMayores(p.precioCOP, 'COP') : ''}" placeholder="10.000">
+          <small id="enDolares" style="color:var(--texto-suave)"></small></div>
         <div class="campo"><label>Lo que te cuesta a ti (USD)</label>
           <input name="costo" value="${p ? escribirCosto(p.costoUSD, p.costoPaquete) : ''}" placeholder="0,30">
           <small style="color:var(--texto-suave)">Si lo compraste por paquete, escríbelo así: <strong>12 por 1,80</strong>. La app saca lo que cuesta cada uno.</small></div>
@@ -235,7 +239,17 @@ export function formulario(p = null) {
   $('#mas-escala', d).onclick = () => filaEscala();
 
   const pintarMargen = () => {
-    const precio = aMenores(f.precio.value) || 0;
+    const tasaCop = (leer('tasas') || {}).COP || 0;
+    const enPesos = aMenores(f.precioCop.value, 'COP') || 0;
+    const precio = enPesos && tasaCop ? aUSD(enPesos, 'COP', tasaCop) : (p?.precioUSD || 0);
+    // Debajo del campo: cuánto es eso en dólares hoy, que es lo que cobra la app.
+    const nota = $('#enDolares', d);
+    if (nota) {
+      nota.textContent = !tasaCop
+        ? 'Carga la tasa del día para ver a cuánto equivale.'
+        : enPesos ? `Hoy son ${formatear(precio)} · tasa ${aMayores(tasaCop, 'COP')}`
+                  : 'El precio de la etiqueta, en pesos.';
+    }
     const { costoUSD: costo, paquete } = parsearCosto(f.costo.value);
     const m = precio ? margenPct(precio, costo) : null;
     const caja = $('#margen', d);
@@ -245,11 +259,17 @@ export function formulario(p = null) {
     // Con paquete se dice primero el unitario: es el número que el dueño no
     // tenía y la razón por la que puede escribirlo como lo compró.
     const porPaquete = paquete ? `Cada uno te cuesta ${formatear(costo)}. ` : '';
+    // Si el costo vino de la fórmula del Excel, el margen que se ve es humo.
+    if (p?.costoEstimado) {
+      caja.style.color = 'var(--ambar)';
+      caja.textContent = `${porPaquete}Este costo es estimado (salió del Excel, no de una factura): el ${m.toFixed(0)}% de margen no es real.`;
+      return;
+    }
     caja.textContent = m < 0
       ? `${porPaquete}Estás vendiendo con pérdida: ${formatear(ganancia)} por unidad`
       : `${porPaquete}Ganas ${formatear(ganancia)} por unidad — ${m.toFixed(0)}% de margen`;
   };
-  f.precio.addEventListener('input', pintarMargen);
+  f.precioCop.addEventListener('input', pintarMargen);
   f.costo.addEventListener('input', pintarMargen);
   pintarMargen();
 
@@ -276,6 +296,8 @@ export function formulario(p = null) {
     })).filter((e) => e.desdeCant > 0);
 
     const costo = parsearCosto(f.costo.value);
+    const precioCop = aMenores(f.precioCop.value, 'COP') || 0;
+    const tasaCop = (leer('tasas') || {}).COP || 0;
 
     try {
       await guardarProducto({
@@ -284,7 +306,11 @@ export function formulario(p = null) {
         categoria: f.categoria.value,
         tipo: f.tipo.value,
         tipoPrecio: f.tipoPrecio.value,
-        precioUSD: aMenores(f.precio.value) || 0,
+        precioCOP: precioCop,
+        // El dólar sale del peso con la tasa de hoy. Si no hay tasa cargada o
+        // el producto no tiene precio en pesos, se conserva el que tenía: no se
+        // le pone 0 a un producto por no haber cargado la tasa.
+        precioUSD: precioCop && tasaCop ? aUSD(precioCop, 'COP', tasaCop) : (p?.precioUSD || 0),
         costoUSD: costo.costoUSD || 0,
         // Se guarda cómo lo compró, no solo el unitario: así la próxima vez ve
         // "12 por 1,80" y no un 0,15 que no reconoce.
@@ -356,7 +382,9 @@ export function ajustarStock(p) {
       if (tipo === 'compra') {
         const nuevoCosto = aMenores(f.costo.value) || 0;
         if (nuevoCosto && nuevoCosto !== p.costoUSD) {
-          await guardarProducto({ ...p, costoUSD: nuevoCosto }, p.id);
+          // El costoPaquete viejo se va con él: es el costo de OTRA compra, y
+          // si se queda, el formulario lo muestra con prioridad y revierte este.
+          await guardarProducto({ ...p, costoUSD: nuevoCosto, costoPaquete: null }, p.id);
         }
       }
       d.close();

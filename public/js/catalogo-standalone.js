@@ -53,7 +53,11 @@ function iniciar() {
 function escucharProductos() {
   const q = query(col('productos_venta'), where('activo', '==', true));
   onSnapshot(q, (snap) => {
-    productos = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    productos = snap.docs
+      .map((d) => ({ id: d.id, ...d.data() }))
+      // Un precio en 0 es un dato que falta, no una oferta: no se le enseña al
+      // cliente. Los de precio variable se acuerdan por WhatsApp, esos sí pasan.
+      .filter((p) => p.precioUSD > 0 || p.tipoPrecio === 'variable');
     pintarCategorias();
     pintarProductos();
   }, (e) => console.warn('[catalogo] error:', e));
@@ -186,10 +190,19 @@ function pintarCategorias() {
 
 /* ---- Rejilla de productos --------------------------------------------- */
 
-function equivalentes(precioUSD) {
+/** Los equivalentes de un producto.
+ *
+ *  En pesos se muestra el precio GUARDADO, no el convertido: ese es el número
+ *  que está escrito en la etiqueta del estante. Reconvertirlo desde los dólares
+ *  lo corría unos pesos (un centavo de dólar son ~32 pesos, y en un producto de
+ *  1.000 eso ya se nota), y el cliente ve una cifra distinta a la del anaquel. */
+function equivalentes(producto) {
+  const precioUSD = producto.precioUSD;
   return Object.keys(MONEDAS)
     .filter((m) => m !== 'USD' && tasas[m])
-    .map((m) => formatear(desdeUSD(precioUSD, m, tasas[m]), m))
+    .map((m) => (m === 'COP' && producto.precioCOP > 0)
+      ? formatear(producto.precioCOP, 'COP')
+      : formatear(desdeUSD(precioUSD, m, tasas[m]), m))
     .join(' · ');
 }
 
@@ -249,7 +262,7 @@ function pintarProductos() {
   const rejilla = el('div.cat-rejilla');
   for (const p of lista) {
     const cant = enPedido(p.id);
-    const eq = equivalentes(p.precioUSD);
+    const eq = equivalentes(p);
 
     rejilla.appendChild(el('article.cat-producto', {}, [
       el('button.foto-boton', {
@@ -312,7 +325,9 @@ function abrirDetalle(producto) {
     .filter((m) => m !== 'USD' && tasas[m])
     .map((m) => el('div.renglon', {}, [
       el('span', { texto: `En ${MONEDAS[m].nombre.toLowerCase()}` }),
-      el('span', { texto: formatear(desdeUSD(producto.precioUSD, m, tasas[m]), m) }),
+      el('span', { texto: (m === 'COP' && producto.precioCOP > 0)
+        ? formatear(producto.precioCOP, 'COP')
+        : formatear(desdeUSD(producto.precioUSD, m, tasas[m]), m) }),
     ]));
 
   pegar(d,

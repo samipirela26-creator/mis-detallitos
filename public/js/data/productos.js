@@ -13,9 +13,10 @@ import { normalizar, claveProducto } from '../core/texto.js';
 import { usuarioActual } from '../core/sesion.js';
 import { escribir, leer } from '../core/estado.js';
 import { anotar } from './auditoria.js';
+import { aUSD } from '../core/dinero.js';
 
 /** Campos que NUNCA pueden llegar a la app del empleado. */
-const SECRETOS = ['costoUSD', 'costoPaquete', 'margenObjetivo', 'proveedor', 'notaCosto'];
+const SECRETOS = ['costoUSD', 'costoPaquete', 'costoEstimado', 'margenObjetivo', 'proveedor', 'notaCosto'];
 
 /** Deja el producto listo para guardar: normaliza nombre, alias y números. */
 export function normalizarProducto(p) {
@@ -32,6 +33,11 @@ export function normalizarProducto(p) {
     codigoBarras: (p.codigoBarras || '').trim(),
     tipo: p.tipo || 'producto',
     tipoPrecio: p.tipoPrecio === 'variable' ? 'variable' : 'fijo',
+    // El precio de verdad es el de la etiqueta del estante, que está en pesos.
+    // `precioUSD` se deriva de él con la tasa del día (ver recalcularPrecios).
+    // Antes era al revés y por eso la etiqueta y el catálogo se separaban 6%:
+    // la lista se armó a tasa 3.000 y el peso siguió moviéndose.
+    precioCOP: Math.round(p.precioCOP || 0),
     precioUSD: Math.round(p.precioUSD || 0),
     precioMinimoUSD: Math.round(p.precioMinimoUSD || 0),
     escalas: (p.escalas || [])
@@ -41,6 +47,11 @@ export function normalizarProducto(p) {
     costoUSD: Math.round(p.costoUSD || 0),
     // Cómo se compró: "la docena en 1,80". Solo para que el dueño lo vea tal
     // como lo escribió; lo que manda en las cuentas es el unitario de arriba.
+    // Marca que ese costo NO salió de una factura. 112 de los 158 productos
+    // importados traían costo = precio/1,30: era una fórmula del Excel, no lo
+    // que se le pagó al proveedor. Marcarlo evita que el valor del inventario
+    // y la ganancia se den por firmes.
+    costoEstimado: !!p.costoEstimado,
     costoPaquete: p.costoPaquete?.unidades > 1 && p.costoPaquete?.totalUSD > 0
       ? { unidades: Number(p.costoPaquete.unidades), totalUSD: Math.round(p.costoPaquete.totalUSD) }
       : null,
@@ -59,8 +70,11 @@ export function normalizarProducto(p) {
 export function versionVenta(p) {
   const copia = { ...p };
   for (const campo of SECRETOS) delete copia[campo];
-  // El mínimo tampoco se manda: delataría el costo.
-  delete copia.precioMinimoUSD;
+  // El mínimo SÍ viaja cuando el dueño puso uno: es un piso de venta que él
+  // eligió, no el costo. Sin él, `requiereAutorizacion` le daba `0` al empleado
+  // y el PIN no se pedía nunca — justo a quien debía frenar. Cuando no hay
+  // mínimo puesto, no se manda nada: ahí el campo sí delataría el costo.
+  if (!(copia.precioMinimoUSD > 0)) delete copia.precioMinimoUSD;
   delete copia.incompleto;
   return copia;
 }
@@ -111,6 +125,30 @@ export async function guardarProducto(datos, id = null) {
 
   anotar(id ? 'producto-editado' : 'producto-creado', { productoId, nombre: limpio.nombre });
   return productoId;
+}
+
+/**
+ * Vuelve a sacar el precio en dólares desde el precio en pesos, con la tasa que
+ * se acaba de cargar.
+ *
+ * Esto es lo que mantiene pegada la etiqueta del estante al catálogo: el número
+ * que el cliente lee en el anaquel está en pesos y no cambia; el dólar que
+ * cobra la app se recalcula cada vez que el peso se mueve. Antes era al revés y
+ * los dos se fueron separando hasta un 6%.
+ *
+ * Solo toca los productos que tienen precio en pesos: los demás siguen como
+ * estaban, con su precio en dólares escrito a mano.
+ */
+export async function recalcularPrecios(lista, tasaCOP) {
+  if (!tasaCOP || tasaCOP <= 0) return { cambiados: 0 };
+  const cambios = [];
+  for (const p of lista) {
+    if (!(p.precioCOP > 0)) continue;
+    const nuevo = aUSD(p.precioCOP, 'COP', tasaCOP);
+    if (nuevo > 0 && nuevo !== p.precioUSD) cambios.push({ id: p.id, precioUSD: nuevo });
+  }
+  if (cambios.length) await actualizarEnLote(cambios);
+  return { cambiados: cambios.length };
 }
 
 /**
@@ -292,6 +330,7 @@ export async function actualizarEnLote(lista, alAvanzar = () => {}) {
       if (p.sku) campos.sku = p.sku.trim();
       if (p.codigoBarras) campos.codigoBarras = p.codigoBarras.trim();
       if (p.unidad) campos.unidad = p.unidad.trim();
+      if (p.precioCOP) campos.precioCOP = Math.round(p.precioCOP);
       if (p.precioUSD) campos.precioUSD = Math.round(p.precioUSD);
       if (p.costoUSD) campos.costoUSD = Math.round(p.costoUSD);
       if (p.stockMinimo) campos.stockMinimo = Number(p.stockMinimo);

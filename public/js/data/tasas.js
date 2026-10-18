@@ -71,6 +71,20 @@ export async function guardarTasas({ VES, COP, fuente = 'manual' }) {
   await setDoc(ref('tasas', hoyISO()), datos);
   escribir('tasas', { VES, COP });
   escribir('tasaFecha', hoyISO());
+
+  // Los precios de la etiqueta están en pesos: cuando el peso se mueve, el
+  // precio en dólares que cobra la app tiene que moverse con él. Si esto falla
+  // (sin internet a mitad del lote), la tasa igual quedó guardada: se reintenta
+  // la próxima vez que se cargue una.
+  try {
+    const { productos } = await import('./catalogo.js');
+    const { recalcularPrecios } = await import('./productos.js');
+    const r = await recalcularPrecios(productos(), COP);
+    if (r.cambiados) console.info(`[tasas] ${r.cambiados} precios recalculados con la tasa nueva`);
+    datos.preciosRecalculados = r.cambiados;
+  } catch (e) {
+    console.warn('[tasas] no se pudieron recalcular los precios:', e?.message || e);
+  }
   return datos;
 }
 

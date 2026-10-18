@@ -1,0 +1,950 @@
+[
+  {
+    "id": "HnO3sKwuM9iirVsWIP8W",
+    "nombre": "Abre hueco",
+    "precioUSD": 333,
+    "precioCOP": 0
+  },
+  {
+    "id": "JrnZsqvG1J3qDqDxfiKa",
+    "nombre": "Almohadilla standard",
+    "precioUSD": 333,
+    "precioCOP": 0
+  },
+  {
+    "id": "0AaEJW8kn2do1oJvGmnX",
+    "nombre": "Carpeta",
+    "precioUSD": 333,
+    "precioCOP": 0
+  },
+  {
+    "id": "sjPHwlajpECT4QP1b5cI",
+    "nombre": "Carpeta 3 Aros",
+    "precioUSD": 833,
+    "precioCOP": 0
+  },
+  {
+    "id": "DnRlL6rPe0vMqUXsVM5p",
+    "nombre": "Carpeta amarilla tipo carta",
+    "precioUSD": 33,
+    "precioCOP": 0
+  },
+  {
+    "id": "YEfr3mEvguUG1wcjOIGE",
+    "nombre": "Carpeta amarilla tipo oficio",
+    "precioUSD": 40,
+    "precioCOP": 0
+  },
+  {
+    "id": "pmm5SbShmih7fSI4vY1H",
+    "nombre": "Carpeta de gancho para una hoja",
+    "precioUSD": 333,
+    "precioCOP": 0
+  },
+  {
+    "id": "8Ik8nvx2AP1w3yXKr2CR",
+    "nombre": "Carpeta Marrón Carta",
+    "precioUSD": 67,
+    "precioCOP": 0
+  },
+  {
+    "id": "KlCRWNjWNOVvorbIhv3y",
+    "nombre": "Carpeta Transparente",
+    "precioUSD": 33,
+    "precioCOP": 0
+  },
+  {
+    "id": "odOj6UQ0yo3LLwTdtP8s",
+    "nombre": "Carpetas con Gancho",
+    "precioUSD": 200,
+    "precioCOP": 0
+  },
+  {
+    "id": "qGuk5dMDYkhhVx2yNkVK",
+    "nombre": "Carpetas Marrones Oficio",
+    "precioUSD": 83,
+    "precioCOP": 0
+  },
+  {
+    "id": "AvxPOShr8MP5xIXzM56q",
+    "nombre": "Chinches",
+    "precioUSD": 133,
+    "precioCOP": 0
+  },
+  {
+    "id": "DGQXQ0QmpGVzFMPEprMP",
+    "nombre": "Clips",
+    "precioUSD": 117,
+    "precioCOP": 0
+  },
+  {
+    "id": "ukAbfyghWz36zCDhTRbn",
+    "nombre": "Gancho sujetador de metal",
+    "precioUSD": 333,
+    "precioCOP": 0
+  },
+  {
+    "id": "sRpYqk1itFb5QOP5ZAeH",
+    "nombre": "Grapadora con saca grapa",
+    "precioUSD": 667,
+    "precioCOP": 0
+  },
+  {
+    "id": "8amg1NkYTTFwJn5C7A6W",
+    "nombre": "Grapadora de gato",
+    "precioUSD": 467,
+    "precioCOP": 0
+  },
+  {
+    "id": "QCgE5FkxKtyL8imkvfQO",
+    "nombre": "Grapadora Xing LI",
+    "precioUSD": 333,
+    "precioCOP": 0
+  },
+  {
+    "id": "cD59QLgIjYsipD1VuNtQ",
+    "nombre": "Grapas Lisas",
+    "precioUSD": 333,
+    "precioCOP": 0
+  },
+  {
+    "id": "efXgRf6vO8qLuoWOogBp",
+    "nombre": "Grapas paquete",
+    "precioUSD": 333,
+    "precioCOP": 0
+  },
+  {
+    "id": "We90KBLuCKHbYNPYDljs",
+    "nombre": "Notas Adhesivas X5 KST",
+    "precioUSD": 667,
+    "precioCOP": 0
+  },
+  {
+    "id": "ikhzKLnxiBM9BVAqkxM7",
+    "nombre": "Perforadora Rekord 8cm",
+    "precioUSD": 400,
+    "precioCOP": 0
+  },
+  {
+    "id": "OdwvmCFAuZu8vvo3Ox9N",
+    "nombre": "Saca Grapa",
+    "precioUSD": 200,
+    "precioCOP": 0
+  },
+  {
+    "id": "79zeYBxr1aeh7sD82SxL",
+    "nombre": "Separadores tipo oficio (juego de 8)",
+    "precioUSD": 167,
+    "precioCOP": 0
+  },
+  {
+    "id": "RoVu0NkEP7SSi7hYgLAR",
+    "nombre": "Sobre manila tipo carta",
+    "precioUSD": 33,
+    "precioCOP": 0
+  },
+  {
+    "id": "YYG8KA4C9n7c0rzYqDrh",
+    "nombre": "Sobre manila tipo oficio",
+    "precioUSD": 50,
+    "precioCOP": 0
+  },
+  {
+    "id": "aIXofIzmEDO2SAt81JXI",
+    "nombre": "Cartulina grande doble faz",
+    "precioUSD": 200,
+    "precioCOP": 0
+  },
+  {
+    "id": "MfcgX1miC6iW3JtZ134e",
+    "nombre": "Cartulina Metalizada",
+    "precioUSD": 133,
+    "precioCOP": 0
+  },
+  {
+    "id": "4IIrhiF4SFhYkLnvcf9E",
+    "nombre": "Foami 4 carta",
+    "precioUSD": 200,
+    "precioCOP": 0
+  },
+  {
+    "id": "9Neuzgw23usufiV1wGv9",
+    "nombre": "Foami doble carta",
+    "precioUSD": 67,
+    "precioCOP": 0
+  },
+  {
+    "id": "lDHltuefI1bbcKR8uQTI",
+    "nombre": "Foami Escarchado",
+    "precioUSD": 33,
+    "precioCOP": 0
+  },
+  {
+    "id": "IUHgkESz7ypy4EXro9K3",
+    "nombre": "Foami grande",
+    "precioUSD": 67,
+    "precioCOP": 0
+  },
+  {
+    "id": "TDeGN3d0fwrUjdAngYtJ",
+    "nombre": "Foami tipo carta",
+    "precioUSD": 27,
+    "precioCOP": 0
+  },
+  {
+    "id": "6jnrIMf2lAEQdKPOEmzJ",
+    "nombre": "Lanas",
+    "precioUSD": 83,
+    "precioCOP": 0
+  },
+  {
+    "id": "dm2lgWr5xaathqZ9TevB",
+    "nombre": "Limpia pipa",
+    "precioUSD": 300,
+    "precioCOP": 0
+  },
+  {
+    "id": "VTvsyf6McRydsSoVFdBd",
+    "nombre": "Palillos de altura",
+    "precioUSD": 167,
+    "precioCOP": 0
+  },
+  {
+    "id": "vQQ19wVKLAtECBU6eO2n",
+    "nombre": "Pincel Uneeds",
+    "precioUSD": 150,
+    "precioCOP": 0
+  },
+  {
+    "id": "LxD6h6jFojT3zcp6ce5f",
+    "nombre": "Pintura Alfrio",
+    "precioUSD": 100,
+    "precioCOP": 0
+  },
+  {
+    "id": "qDL3HhUB2Gd79cM38FPR",
+    "nombre": "Plastilina Largas",
+    "precioUSD": 187,
+    "precioCOP": 0
+  },
+  {
+    "id": "jYRMr0M8j56gWUGsUbK6",
+    "nombre": "Plastilinas Cortas",
+    "precioUSD": 117,
+    "precioCOP": 0
+  },
+  {
+    "id": "2xIk8JOEVjm6eMVVAIoD",
+    "nombre": "Temperas marfil",
+    "precioUSD": 250,
+    "precioCOP": 0
+  },
+  {
+    "id": "u4pq8ttpBnK6wXIFZmcR",
+    "nombre": "Borrador con brocha",
+    "precioUSD": 83,
+    "precioCOP": 0
+  },
+  {
+    "id": "3JynsvZ0LsqB9qKY0K8q",
+    "nombre": "Borrador cuter corazón",
+    "precioUSD": 400,
+    "precioCOP": 0
+  },
+  {
+    "id": "8TQsNFXC1iEDDbLk90kI",
+    "nombre": "Borrador de animalito y alienigena",
+    "precioUSD": 200,
+    "precioCOP": 0
+  },
+  {
+    "id": "0jwM8xW24UBISzLH4hrj",
+    "nombre": "Borrador de balones",
+    "precioUSD": 50,
+    "precioCOP": 0
+  },
+  {
+    "id": "QFib8HMj0EhDmmKc6LHH",
+    "nombre": "Borrador de sandia",
+    "precioUSD": 67,
+    "precioCOP": 0
+  },
+  {
+    "id": "2VwjLEuumJCMfNAAO1ii",
+    "nombre": "Borrador Infinito",
+    "precioUSD": 133,
+    "precioCOP": 0
+  },
+  {
+    "id": "BLS9kvnh43mzijnICG7g",
+    "nombre": "Borrador Mata 612",
+    "precioUSD": 33,
+    "precioCOP": 0
+  },
+  {
+    "id": "QqmIG7lTktDKF1V7sDbs",
+    "nombre": "Borrador Multipunta",
+    "precioUSD": 160,
+    "precioCOP": 0
+  },
+  {
+    "id": "xvKyuNk3oadN5PivvXJn",
+    "nombre": "Borrador Nata",
+    "precioUSD": 67,
+    "precioCOP": 0
+  },
+  {
+    "id": "vCWqgypMJqPLVl9As19l",
+    "nombre": "Borradores de paleta",
+    "precioUSD": 200,
+    "precioCOP": 0
+  },
+  {
+    "id": "LiAcEzmhbBSnvC4yz9CQ",
+    "nombre": "Borradores Hello Kitty",
+    "precioUSD": 133,
+    "precioCOP": 0
+  },
+  {
+    "id": "Sbn8EPbI0EYQ8R9JjraD",
+    "nombre": "Liquipeiper",
+    "precioUSD": 133,
+    "precioCOP": 0
+  },
+  {
+    "id": "3KzHTt5XtyGHIn1GV9Dd",
+    "nombre": "Liquipeiper de brocha",
+    "precioUSD": 167,
+    "precioCOP": 0
+  },
+  {
+    "id": "NXcpYIZjICHtndqpmYs7",
+    "nombre": "Acetato",
+    "precioUSD": 33,
+    "precioCOP": 0
+  },
+  {
+    "id": "kD6AlHJF3l8tDuNAGhxy",
+    "nombre": "Agenda de muñecos",
+    "precioUSD": 400,
+    "precioCOP": 0
+  },
+  {
+    "id": "7tPCDLSPvzYdaBIWobvx",
+    "nombre": "Block carta grande",
+    "precioUSD": 333,
+    "precioCOP": 0
+  },
+  {
+    "id": "EOQ2ydOrbmpe3Hmz9IoY",
+    "nombre": "Block carta pequeño",
+    "precioUSD": 267,
+    "precioCOP": 0
+  },
+  {
+    "id": "3FMFHityHRkOtDCfDTP2",
+    "nombre": "Block de Dibujo",
+    "precioUSD": 333,
+    "precioCOP": 0
+  },
+  {
+    "id": "2SX1LJZgMGJsFMd31mrR",
+    "nombre": "Block Lustrillo",
+    "precioUSD": 167,
+    "precioCOP": 0
+  },
+  {
+    "id": "PviuxxlYnhxsEEBIFo1l",
+    "nombre": "Block Milimetrado",
+    "precioUSD": 200,
+    "precioCOP": 0
+  },
+  {
+    "id": "zHdsLWbIQBqLnZ0MLwA4",
+    "nombre": "Cuaderno Multicuaderno",
+    "precioUSD": 667,
+    "precioCOP": 0
+  },
+  {
+    "id": "Ze9gaiS0WQxEnDcJVJvD",
+    "nombre": "Cuadernos Sencillos",
+    "precioUSD": 100,
+    "precioCOP": 0
+  },
+  {
+    "id": "EdSbQoZDAdwfVBLRK85J",
+    "nombre": "Ficha Grande",
+    "precioUSD": 7,
+    "precioCOP": 0
+  },
+  {
+    "id": "PM58wHHVtclcGv8ayX9L",
+    "nombre": "Ficha Pequeña",
+    "precioUSD": 7,
+    "precioCOP": 0
+  },
+  {
+    "id": "YkGR3rZePY6BDpdagDld",
+    "nombre": "Hoja de Examen",
+    "precioUSD": 8,
+    "precioCOP": 0
+  },
+  {
+    "id": "X4d1BqYzFrVxSnglCOXz",
+    "nombre": "Libreta Skole",
+    "precioUSD": 275,
+    "precioCOP": 0
+  },
+  {
+    "id": "F2MMaVJ3v9AqEUqRmm1n",
+    "nombre": "Libro Contable",
+    "precioUSD": 700,
+    "precioCOP": 0
+  },
+  {
+    "id": "v9ouSJ5XebHDqFBAzSp0",
+    "nombre": "Libro de Acta",
+    "precioUSD": 833,
+    "precioCOP": 0
+  },
+  {
+    "id": "clD5a1tgQdQmhQo9a0df",
+    "nombre": "Libro de artes",
+    "precioUSD": 833,
+    "precioCOP": 0
+  },
+  {
+    "id": "oSDMzIcFjBN1LL9ElFaE",
+    "nombre": "Papel bond",
+    "precioUSD": 50,
+    "precioCOP": 0
+  },
+  {
+    "id": "D4bTUVZiyu0VxRs56F6b",
+    "nombre": "Papel Crepe",
+    "precioUSD": 50,
+    "precioCOP": 0
+  },
+  {
+    "id": "MenLjMHs6zZ2kztM3UZ9",
+    "nombre": "Papel seda",
+    "precioUSD": 33,
+    "precioCOP": 0
+  },
+  {
+    "id": "TgpsDeWDHXL6n2L039RR",
+    "nombre": "Stiker para libro o libreta",
+    "precioUSD": 233,
+    "precioCOP": 0
+  },
+  {
+    "id": "psay1ZniDGhzECx9KV3V",
+    "nombre": "Talonario de notas de entrega",
+    "precioUSD": 73,
+    "precioCOP": 0
+  },
+  {
+    "id": "FbOoCLTw4oUPmmOqxEHT",
+    "nombre": "Calculadora Pequeña",
+    "precioUSD": 333,
+    "precioCOP": 0
+  },
+  {
+    "id": "D0nr37UQzd1qP195pD1h",
+    "nombre": "Cartucheras",
+    "precioUSD": 200,
+    "precioCOP": 0
+  },
+  {
+    "id": "SuAc9LNZdl2yfluSShnY",
+    "nombre": "Lonchera",
+    "precioUSD": 333,
+    "precioCOP": 0
+  },
+  {
+    "id": "Jz4tOUcnLs94yTuYoW0p",
+    "nombre": "Paraguas",
+    "precioUSD": 667,
+    "precioCOP": 0
+  },
+  {
+    "id": "nTeDQtQMlapInabiL0EO",
+    "nombre": "Bicolor",
+    "precioUSD": 67,
+    "precioCOP": 0
+  },
+  {
+    "id": "yL1i1O3m7DHsa4NTCBoR",
+    "nombre": "Boligrafo azul",
+    "precioUSD": 50,
+    "precioCOP": 0
+  },
+  {
+    "id": "gfSEUcik9b0fgeTOvVs5",
+    "nombre": "Boligrafo Borrable",
+    "precioUSD": 267,
+    "precioCOP": 0
+  },
+  {
+    "id": "2RFSv6kAf5dltEbVlNAh",
+    "nombre": "Boligrafo Maksim",
+    "precioUSD": 133,
+    "precioCOP": 0
+  },
+  {
+    "id": "7D5er6g0P9y7CIkTYmWh",
+    "nombre": "Boligrafo marca Apple",
+    "precioUSD": 67,
+    "precioCOP": 0
+  },
+  {
+    "id": "cPVNzdGziZAAhibiwQOU",
+    "nombre": "Boligrafo metalizado",
+    "precioUSD": 100,
+    "precioCOP": 0
+  },
+  {
+    "id": "hWWzXhQiMzaMnisNRor6",
+    "nombre": "Boligrafo multipunta",
+    "precioUSD": 267,
+    "precioCOP": 0
+  },
+  {
+    "id": "fqH3BWg3UWcbSEz5bTUd",
+    "nombre": "Boligrafo negro",
+    "precioUSD": 83,
+    "precioCOP": 0
+  },
+  {
+    "id": "hDndEoWyagt2M3QLcTFd",
+    "nombre": "Boligrafo pompon",
+    "precioUSD": 267,
+    "precioCOP": 0
+  },
+  {
+    "id": "7P9FXlWrTUhVWukWxwKq",
+    "nombre": "Boligrafos neón",
+    "precioUSD": 667,
+    "precioCOP": 0
+  },
+  {
+    "id": "n2sOOEkYqSLtVja132Ku",
+    "nombre": "Colores Kores",
+    "precioUSD": 467,
+    "precioCOP": 0
+  },
+  {
+    "id": "PMBhtggck4FII3gTXCrI",
+    "nombre": "Colores neón",
+    "precioUSD": 200,
+    "precioCOP": 0
+  },
+  {
+    "id": "sHGtcwikwb4cpZ4COYio",
+    "nombre": "Colores Norma AAA",
+    "precioUSD": 267,
+    "precioCOP": 0
+  },
+  {
+    "id": "HImqv7CjrXdu6MEl84ML",
+    "nombre": "Colores Norma original",
+    "precioUSD": 400,
+    "precioCOP": 0
+  },
+  {
+    "id": "9OwOHTzB8hTnd5KgBuZZ",
+    "nombre": "Creyones Borrables",
+    "precioUSD": 1167,
+    "precioCOP": 0
+  },
+  {
+    "id": "QCeKRho9G4sj4GUIa289",
+    "nombre": "Kit de lapices",
+    "precioUSD": 500,
+    "precioCOP": 0
+  },
+  {
+    "id": "4uSoazpYyRKifKdMpQqV",
+    "nombre": "Lapices",
+    "precioUSD": 20,
+    "precioCOP": 0
+  },
+  {
+    "id": "otVzu6EwVFEmqQ1U7lug",
+    "nombre": "Lapiz Infinito",
+    "precioUSD": 133,
+    "precioCOP": 0
+  },
+  {
+    "id": "qHEXpxEpguCYS6n4jB5C",
+    "nombre": "Lapiz Kores",
+    "precioUSD": 33,
+    "precioCOP": 0
+  },
+  {
+    "id": "b3cgBzygzJoUjhjgEpXW",
+    "nombre": "Lapiz Pointer",
+    "precioUSD": 33,
+    "precioCOP": 0
+  },
+  {
+    "id": "exb1U9OXqKatz991sCXt",
+    "nombre": "Minas de repuesto",
+    "precioUSD": 83,
+    "precioCOP": 0
+  },
+  {
+    "id": "YcKSqJ75jT0DvmlkBKu9",
+    "nombre": "Portamina de Stitch",
+    "precioUSD": 233,
+    "precioCOP": 0
+  },
+  {
+    "id": "o4Pnk6aBNdGvaAHYX1NR",
+    "nombre": "Portaminas",
+    "precioUSD": 83,
+    "precioCOP": 0
+  },
+  {
+    "id": "EB6mVbkNeqWRvXdLSXV4",
+    "nombre": "Tapa para lapiz",
+    "precioUSD": 267,
+    "precioCOP": 0
+  },
+  {
+    "id": "M6OF2QvOPzlGdBplQP4t",
+    "nombre": "Marcador acrilico",
+    "precioUSD": 167,
+    "precioCOP": 0
+  },
+  {
+    "id": "Szatrjw442QfiFCjTTWF",
+    "nombre": "Marcador color Fibre",
+    "precioUSD": 167,
+    "precioCOP": 0
+  },
+  {
+    "id": "UEKp1y8BNreBNu7frTNp",
+    "nombre": "Marcador Gixin",
+    "precioUSD": 83,
+    "precioCOP": 0
+  },
+  {
+    "id": "lvqjFFU8Q3dt1bueBQp3",
+    "nombre": "Marcador gliter",
+    "precioUSD": 133,
+    "precioCOP": 0
+  },
+  {
+    "id": "ANzAkiMw1UTpoR69QM6Y",
+    "nombre": "Marcador permanente Sharpie",
+    "precioUSD": 167,
+    "precioCOP": 0
+  },
+  {
+    "id": "zt9xAa6lmCnNm0e2MwDu",
+    "nombre": "Marcador Sharpie punta fina",
+    "precioUSD": 133,
+    "precioCOP": 0
+  },
+  {
+    "id": "OyAV1d04aD2f0ilSjTos",
+    "nombre": "Marcadores Color Pens",
+    "precioUSD": 400,
+    "precioCOP": 0
+  },
+  {
+    "id": "nssCwBi1dGBJh2dbL4jU",
+    "nombre": "Marcadores para CD",
+    "precioUSD": 133,
+    "precioCOP": 0
+  },
+  {
+    "id": "P6XtrAUcLLDdBsoBLle8",
+    "nombre": "Resaltador",
+    "precioUSD": 100,
+    "precioCOP": 0
+  },
+  {
+    "id": "LYC5LxWrhCDzJNQJv4EJ",
+    "nombre": "Resaltador Pointer",
+    "precioUSD": 133,
+    "precioCOP": 0
+  },
+  {
+    "id": "ex4NdTjD5TCVSmRZk63U",
+    "nombre": "Compas",
+    "precioUSD": 200,
+    "precioCOP": 0
+  },
+  {
+    "id": "GvMgufuDe7DGk0hCsMOO",
+    "nombre": "Cuter",
+    "precioUSD": 50,
+    "precioCOP": 0
+  },
+  {
+    "id": "sU06TyHaZIfGvaPzk0dO",
+    "nombre": "Regla de 30 cm",
+    "precioUSD": 67,
+    "precioCOP": 0
+  },
+  {
+    "id": "VS0VuU3rZhlbnXMZbby7",
+    "nombre": "Regla flexible",
+    "precioUSD": 133,
+    "precioCOP": 0
+  },
+  {
+    "id": "Bh9d0WfXcAlM0hws3fzo",
+    "nombre": "Set de regla",
+    "precioUSD": 133,
+    "precioCOP": 0
+  },
+  {
+    "id": "mHoDvEKcoX9vB2gzG48E",
+    "nombre": "Set de regla flex",
+    "precioUSD": 400,
+    "precioCOP": 0
+  },
+  {
+    "id": "oE4fvdjJvVjmiOGt4g9W",
+    "nombre": "Tijera",
+    "precioUSD": 133,
+    "precioCOP": 0
+  },
+  {
+    "id": "CBPWlOHcsBy4SGBWoN7e",
+    "nombre": "Tijera de metal",
+    "precioUSD": 133,
+    "precioCOP": 0
+  },
+  {
+    "id": "x2h6fzIDEo1zu4HLhRFp",
+    "nombre": "Tijeras de oficina",
+    "precioUSD": 400,
+    "precioCOP": 0
+  },
+  {
+    "id": "R7pcuoqjptXcwsIUqf7Z",
+    "nombre": "Tijeras para niños",
+    "precioUSD": 133,
+    "precioCOP": 0
+  },
+  {
+    "id": "fJC41coXVUzKq2VgvWBX",
+    "nombre": "Barra de silicona liquida",
+    "precioUSD": 133,
+    "precioCOP": 0
+  },
+  {
+    "id": "gPIIiGXlIOgQidjJoOaz",
+    "nombre": "Cinta aislante en PVC",
+    "precioUSD": 167,
+    "precioCOP": 0
+  },
+  {
+    "id": "Cyc5TbrNamAGYpK8JQGE",
+    "nombre": "Cinta Doble FAZ",
+    "precioUSD": 267,
+    "precioCOP": 0
+  },
+  {
+    "id": "KNCFFwuwTEHvhYqSbc7E",
+    "nombre": "Cinta plastica grande",
+    "precioUSD": 333,
+    "precioCOP": 0
+  },
+  {
+    "id": "Yywv3Rg66Xhzg7RiBRFW",
+    "nombre": "Cinta plastica pequeña",
+    "precioUSD": 83,
+    "precioCOP": 0
+  },
+  {
+    "id": "IkXAmQLh4kFpNnCjWSJr",
+    "nombre": "Pega blanca 250g",
+    "precioUSD": 200,
+    "precioCOP": 0
+  },
+  {
+    "id": "W4P8drqj1DL7pP8neTH0",
+    "nombre": "Pega en barra pequeña",
+    "precioUSD": 133,
+    "precioCOP": 0
+  },
+  {
+    "id": "syR8JiAoh5ZLrrHI86DK",
+    "nombre": "Pega grande",
+    "precioUSD": 200,
+    "precioCOP": 0
+  },
+  {
+    "id": "vNPPv32Btv7HmHaLmswa",
+    "nombre": "Pega loka",
+    "precioUSD": 67,
+    "precioCOP": 0
+  },
+  {
+    "id": "g5UITCxReDOHRUGwwBxv",
+    "nombre": "Pega mediana",
+    "precioUSD": 117,
+    "precioCOP": 0
+  },
+  {
+    "id": "DqnimyAScSzjGyi1daDh",
+    "nombre": "Pegas Blancas Pequeñas",
+    "precioUSD": 67,
+    "precioCOP": 0
+  },
+  {
+    "id": "JvSq57OdZL58vZlVuSzl",
+    "nombre": "Silicon Barra Fina",
+    "precioUSD": 27,
+    "precioCOP": 0
+  },
+  {
+    "id": "LlAgIO5bBZtQIZ1Xp1C1",
+    "nombre": "Silicon Grueso",
+    "precioUSD": 83,
+    "precioCOP": 0
+  },
+  {
+    "id": "d1KIzqMMjIjvGf7qNVeW",
+    "nombre": "Silicona liquida 100ml",
+    "precioUSD": 200,
+    "precioCOP": 0
+  },
+  {
+    "id": "AhiwCJgTPfjZNwFSOWuz",
+    "nombre": "Silicona liquida 30ml",
+    "precioUSD": 120,
+    "precioCOP": 0
+  },
+  {
+    "id": "8ETpUR4yslYlUJyfV2OP",
+    "nombre": "Caja blanca rectangular",
+    "precioUSD": 167,
+    "precioCOP": 0
+  },
+  {
+    "id": "gDLN7CJz0sM6PKYjIITB",
+    "nombre": "Caja grande blanca",
+    "precioUSD": 167,
+    "precioCOP": 0
+  },
+  {
+    "id": "Fb0A68QLoYKoVzSvCUCg",
+    "nombre": "Caja grande con transparente",
+    "precioUSD": 167,
+    "precioCOP": 0
+  },
+  {
+    "id": "mDYYlUR7KYZf6iJ4oe2i",
+    "nombre": "Caja marrón",
+    "precioUSD": 167,
+    "precioCOP": 0
+  },
+  {
+    "id": "1abMmUOk8v1Kc9mDLlES",
+    "nombre": "Globo de cumpleaños",
+    "precioUSD": 267,
+    "precioCOP": 0
+  },
+  {
+    "id": "yzggh6kwAA20lnt7P94u",
+    "nombre": "Globos de colores",
+    "precioUSD": 17,
+    "precioCOP": 0
+  },
+  {
+    "id": "Elg3de2Zc67wbSTs23Rk",
+    "nombre": "Lazo",
+    "precioUSD": 133,
+    "precioCOP": 0
+  },
+  {
+    "id": "KNzOyY6G1ytdl1wQs39p",
+    "nombre": "Peluche llavero",
+    "precioUSD": 333,
+    "precioCOP": 0
+  },
+  {
+    "id": "oPeWiYF0cSgstoJfCr3O",
+    "nombre": "Sacapunta capibara",
+    "precioUSD": 133,
+    "precioCOP": 0
+  },
+  {
+    "id": "yhynU54v2a3HKCCKdPI9",
+    "nombre": "Sacapunta de caramelo",
+    "precioUSD": 233,
+    "precioCOP": 0
+  },
+  {
+    "id": "8Ia2QZDue1flqiIKM7sO",
+    "nombre": "Sacapunta de carro",
+    "precioUSD": 133,
+    "precioCOP": 0
+  },
+  {
+    "id": "GQMbg8jgy9pcHsRAZEuo",
+    "nombre": "Sacapunta de gato",
+    "precioUSD": 117,
+    "precioCOP": 0
+  },
+  {
+    "id": "fB3ujEZwbNjjp0cMXfBS",
+    "nombre": "Sacapunta de metal",
+    "precioUSD": 33,
+    "precioCOP": 0
+  },
+  {
+    "id": "ls0esgYEbYiwIU1sDGhu",
+    "nombre": "Sacapunta de muñecos",
+    "precioUSD": 200,
+    "precioCOP": 0
+  },
+  {
+    "id": "aZNqRv0yIYR3GNMSAU3T",
+    "nombre": "Sacapunta Discovery",
+    "precioUSD": 667,
+    "precioCOP": 0
+  },
+  {
+    "id": "XO0603SKnfFAOqYbApEM",
+    "nombre": "Sacapunta Skole",
+    "precioUSD": 83,
+    "precioCOP": 0
+  },
+  {
+    "id": "9s9IhFQpDBIrtIvwBbow",
+    "nombre": "Curitas",
+    "precioUSD": 7,
+    "precioCOP": 0
+  },
+  {
+    "id": "pCwuBOS0WOMnygavkj3s",
+    "nombre": "Gancho de metal",
+    "precioUSD": 333,
+    "precioCOP": 0
+  },
+  {
+    "id": "emlrufCBcOAWowKOWV50",
+    "nombre": "Gancho de ropa mediano",
+    "precioUSD": 333,
+    "precioCOP": 0
+  },
+  {
+    "id": "zwTkj4e4K8sYnZ8vZ9nE",
+    "nombre": "Mini gancho de ropa",
+    "precioUSD": 200,
+    "precioCOP": 0
+  },
+  {
+    "id": "DAkstDaNb3zrUCaxvKES",
+    "nombre": "Pañitos Amarillos",
+    "precioUSD": 133,
+    "precioCOP": 0
+  }
+]
