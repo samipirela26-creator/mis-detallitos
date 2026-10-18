@@ -19,6 +19,7 @@
 import { ref } from '../core/firebase.js';
 import { getDoc, setDoc } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js';
 import { comprimir, LADO_MAX, CALIDAD } from './fotos.js';
+import { aWebp } from './webp.js';
 
 export const PROVEEDORES = {
   photoroom: {
@@ -173,9 +174,10 @@ function dibujar(img, ajustes, lado) {
   ctx.drawImage(img, caja.x, caja.y, caja.ancho, caja.alto, x, y, ancho, alto);
   ctx.shadowColor = 'transparent';
 
-  let datos = lienzo.toDataURL('image/webp', CALIDAD);
-  if (!datos.startsWith('data:image/webp')) datos = lienzo.toDataURL('image/jpeg', CALIDAD);
-  return datos;
+  // Igual que en fotos.js: WebP aunque el navegador no sepa hacerlo. `componer`
+  // ya devuelve una promesa, así que devolver otra aquí encadena sin cambiar a
+  // quien llama.
+  return aWebp(lienzo, { calidad: CALIDAD }).then(({ datos }) => datos);
 }
 
 /** Caja que ocupa realmente el producto dentro del PNG transparente.

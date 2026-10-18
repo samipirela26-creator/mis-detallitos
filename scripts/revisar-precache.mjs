@@ -24,7 +24,12 @@ import { createHash } from 'node:crypto';
 const RAIZ = 'public';
 const SW = join(RAIZ, 'service-worker.js');
 // Pesados y de uso puntual: se cachean solos la primera vez que se usan.
-const DIFERIDOS = new Set(['vendor/xlsx.js', 'vendor/exceljs.min.js', 'vendor/jspdf.js', 'vendor/jspdf-autotable.js', 'vendor/chart.js']);
+const DIFERIDOS = new Set([
+  'vendor/xlsx.js', 'vendor/exceljs.min.js', 'vendor/jspdf.js', 'vendor/jspdf-autotable.js', 'vendor/chart.js',
+  // El codificador WebP: 320 KB que solo baja el teléfono que no sabe hacer
+  // WebP por su cuenta. El service worker lo guarda la primera vez que se usa.
+  'vendor/webp-enc.js', 'vendor/webp_enc.wasm',
+]);
 const IGNORAR = new Set(['index.html', 'service-worker.js']);
 
 const soloRevisar = process.argv.includes('--revisar');

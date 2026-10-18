@@ -12,6 +12,7 @@ import { db, ref } from '../core/firebase.js';
 import { getDoc, writeBatch, deleteDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js';
 import { guardar, leer as leerIdb, borrar as borrarIdb, ALMACENES } from './idb.js';
 import { marcarFoto } from './productos.js';
+import { aWebp } from './webp.js';
 
 export const LADO_MAX = 800;
 export const CALIDAD = 0.72;
@@ -46,9 +47,12 @@ export function comprimir(archivo, { lado = LADO_MAX, calidad = CALIDAD, encajar
         lienzo.width = lienzo.height = Math.min(lado, corte);
         ctx.drawImage(img, x, y, corte, corte, 0, 0, lienzo.width, lienzo.height);
       }
-      let datos = lienzo.toDataURL('image/webp', calidad);
-      if (!datos.startsWith('data:image/webp')) datos = lienzo.toDataURL('image/jpeg', calidad);
-      ok(datos);
+      // WebP siempre que se pueda, con el codificador propio si el navegador
+      // del teléfono no sabe (el iPhone no sabe). Pesa ~5 veces menos que JPEG.
+      aWebp(lienzo, { calidad }).then(({ datos, via }) => {
+        if (via === 'jpeg') console.warn('[fotos] se guardó en JPEG: pesará más de lo normal');
+        ok(datos);
+      }).catch(mal);
     };
     img.onerror = () => { URL.revokeObjectURL(url); mal(new Error('No se pudo leer la imagen')); };
     img.src = url;
