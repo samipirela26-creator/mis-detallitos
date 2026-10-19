@@ -30,6 +30,9 @@ registrar('inventario', {
                   aria-label="Borrar lo escrito">&times;</button>
         </div>
         <p id="cuenta" class="pista-busqueda" aria-live="polite"></p>
+        <p style="color:var(--texto-suave);font-size:.85rem;margin:.3rem 0 0">
+          Desde la computadora puedes arrastrar una foto encima de cualquier producto de la lista y queda puesta.
+        </p>
       </div>
       <div class="fila" style="margin-bottom:.75rem">
         <select id="filtro">
@@ -104,7 +107,7 @@ registrar('inventario', {
         const img = el('img.miniatura', { alt: '', src: 'data:image/gif;base64,R0lGODlhAQABAAAAACw=' });
         if (p.tieneFoto) pintarFoto(img, p.id);
 
-        tarjeta.appendChild(el('div', {
+        const fila = el('div', {
           style: 'display:flex;gap:.7rem;align-items:center;padding:.55rem;border-bottom:1px solid var(--borde);cursor:pointer',
           onclick: () => formulario(p),
         }, [
@@ -123,7 +126,9 @@ registrar('inventario', {
             el('div', { style: `color:${colorMargen};font-weight:600`, texto: m === null ? 'sin costo' : `${m.toFixed(0)}% margen` }),
             el('div', { style: 'color:var(--texto-suave)', texto: p.tipo === 'servicio' ? 'servicio' : `${p.stock} ${esc(p.unidad || 'u')}` }),
           ]),
-        ]));
+        ]);
+        soltarFotoEn(fila, p);
+        tarjeta.appendChild(fila);
       }
       caja.appendChild(tarjeta);
     };
@@ -139,6 +144,40 @@ registrar('inventario', {
     return observar('productos', pintar);
   },
 });
+
+/**
+ * Deja caer una foto encima del producto y queda puesta.
+ *
+ * En la computadora es el camino más corto que hay: el dueño tiene la carpeta
+ * de fotos abierta al lado, arrastra una a su fila y listo. Con el selector de
+ * archivos hay que entrar al producto, buscar el botón y navegar la carpeta
+ * entera por cada foto.
+ */
+function soltarFotoEn(fila, producto) {
+  const normal = fila.getAttribute('style');
+  const resaltar = (si) => fila.setAttribute('style', si
+    ? `${normal};outline:3px dashed var(--marca);outline-offset:-3px;background:var(--marca-suave)`
+    : normal);
+
+  fila.addEventListener('dragover', (ev) => { ev.preventDefault(); resaltar(true); });
+  fila.addEventListener('dragleave', () => resaltar(false));
+  fila.addEventListener('drop', async (ev) => {
+    ev.preventDefault();
+    ev.stopPropagation();        // que no se abra además la ficha del producto
+    resaltar(false);
+
+    const archivo = [...(ev.dataTransfer?.files || [])].find((f) => f.type.startsWith('image/'));
+    if (!archivo) return avisarMal('Eso no es una imagen.');
+
+    try {
+      const { ponerFoto } = await import('./estudio-fotos.js');
+      const puesta = await ponerFoto(producto, archivo);
+      if (puesta) avisarOk(`Foto de ${producto.nombre}`);
+    } catch (e) {
+      avisarMal(e.message || 'No se pudo guardar la foto');
+    }
+  });
+}
 
 function tarjetaKpi(rotulo, valor, clase = '') {
   return el(`div.kpi${clase ? '.' + clase : ''}`, {}, [
@@ -227,10 +266,14 @@ export function formulario(p = null) {
   const f = $('#f', d);
   const cajaEscalas = $('#escalas', d);
 
-  const filaEscala = (e = { desdeCant: '', precioUSD: '' }) => {
+  // El tramo se escribe en PESOS, igual que el precio de la etiqueta. Pedirlo
+  // en dólares era la otra mitad del desfase: el dueño pone 10.000 arriba y
+  // 300 abajo pensando en lo mismo, y la app guardaba uno en peso y otro en
+  // dólar.
+  const filaEscala = (e = { desdeCant: '', precioCOP: '' }) => {
     const fila = el('div.fila', { style: 'margin-bottom:.4rem' }, [
       el('input', { type: 'number', min: '1', placeholder: 'Desde cantidad', value: e.desdeCant || '', 'data-k': 'cant' }),
-      el('input', { inputmode: 'decimal', placeholder: 'Precio c/u', value: e.precioUSD ? aMayores(e.precioUSD) : '', 'data-k': 'precio' }),
+      el('input', { inputmode: 'numeric', placeholder: 'Precio c/u (pesos)', value: e.precioCOP ? aMayores(e.precioCOP, 'COP') : '', 'data-k': 'precio' }),
       el('button.btn.plano', { type: 'button', texto: '', style: 'flex:0 0 52px', onclick: () => fila.remove() }),
     ]);
     cajaEscalas.appendChild(fila);
@@ -290,10 +333,15 @@ export function formulario(p = null) {
 
   f.addEventListener('submit', async (ev) => {
     ev.preventDefault();
-    const escalas = [...cajaEscalas.querySelectorAll('.fila')].map((fila) => ({
-      desdeCant: Number(fila.querySelector('[data-k="cant"]').value),
-      precioUSD: aMenores(fila.querySelector('[data-k="precio"]').value) || 0,
-    })).filter((e) => e.desdeCant > 0);
+    const tasaEscalas = (leer('tasas') || {}).COP || 0;
+    const escalas = [...cajaEscalas.querySelectorAll('.fila')].map((fila) => {
+      const cop = aMenores(fila.querySelector('[data-k="precio"]').value, 'COP') || 0;
+      return {
+        desdeCant: Number(fila.querySelector('[data-k="cant"]').value),
+        precioCOP: cop,
+        precioUSD: cop && tasaEscalas ? aUSD(cop, 'COP', tasaEscalas) : 0,
+      };
+    }).filter((e) => e.desdeCant > 0);
 
     const costo = parsearCosto(f.costo.value);
     const precioCop = aMenores(f.precioCop.value, 'COP') || 0;

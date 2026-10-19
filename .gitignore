@@ -20,3 +20,6 @@ imagenes-generadas/
 
 # Fotos procesadas de la carpeta del dueño
 imagenes-carpeta/
+
+# Respaldos de fotos: pesan y se regeneran
+respaldo-fotos-*/

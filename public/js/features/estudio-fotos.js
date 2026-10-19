@@ -44,6 +44,11 @@ registrar('fotos', {
     };
     recargar();
 
+    // En una computadora no hay cámara que abrir: el botón "Tomar foto" lleva a
+    // un selector de archivos, que no es lo que promete. Ahí lo natural es
+    // arrastrar la foto desde la carpeta que ya está abierta al lado.
+    const esComputadora = !window.matchMedia('(any-pointer: coarse)').matches;
+
     function pintar() {
       if (!pendientes.length) {
         nodo.innerHTML = '';
@@ -71,23 +76,59 @@ registrar('fotos', {
 
         el('div', { id: 'visor' }),
 
+        esComputadora ? zonaSoltar(p) : null,
+
         el('div.fila', { style: 'margin-top:1rem' }, [
           el('button.btn.plano', { texto: '', style: 'flex:0 0 70px', disabled: i === 0 ? '' : null, onclick: () => { i--; pintar(); } }),
-          el('button.btn.acento.grande', { style: 'flex:3', texto: 'Tomar foto', onclick: () => $('#camara', nodo).click() }),
+          el('button.btn.acento.grande', {
+            style: 'flex:3',
+            texto: esComputadora ? 'Elegir la foto' : 'Tomar foto',
+            onclick: () => $('#camara', nodo).click(),
+          }),
           el('button.btn.plano', { texto: '', style: 'flex:0 0 70px', onclick: saltar }),
         ]),
         el('p', {
           style: 'color:var(--texto-suave);font-size:.85rem;margin-top:.75rem',
-          texto: 'Al tomar la foto pasa solo al siguiente producto. Si no tienes el producto a mano, dale a la flecha.',
+          texto: esComputadora
+            ? 'Al poner la foto pasa solo al siguiente producto. Si no tienes esa foto, dale a la flecha.'
+            : 'Al tomar la foto pasa solo al siguiente producto. Si no tienes el producto a mano, dale a la flecha.',
         }),
 
-        // `capture` abre directamente la cámara trasera en el teléfono.
+        // En el teléfono, `capture` abre la cámara trasera directo. En la
+        // computadora no se pone: ahí abre el selector de archivos y punto.
         el('input', {
-          type: 'file', id: 'camara', accept: 'image/*', capture: 'environment', hidden: '',
+          type: 'file', id: 'camara', accept: 'image/*',
+          ...(esComputadora ? {} : { capture: 'environment' }),
+          hidden: '',
           onchange: (ev) => ev.target.files[0] && tomar(ev.target.files[0]),
         }),
       ]));
       nodo.appendChild(zonaLote());
+    }
+
+    /** El cuadro donde se suelta la foto del producto que toca ahora. */
+    function zonaSoltar(producto) {
+      const caja = el('div', {
+        style: 'border:3px dashed var(--borde);border-radius:var(--r-bloque);padding:1.6rem 1rem;'
+             + 'text-align:center;color:var(--texto-suave);margin-top:.5rem;transition:background .1s',
+      }, [
+        el('div', { style: 'font-weight:600;color:var(--texto)', texto: 'Arrastra aquí la foto' }),
+        el('div', { style: 'font-size:.85rem;margin-top:.25rem', html: `de <strong>${esc(producto.nombre)}</strong>` }),
+      ]);
+      const resaltar = (si) => {
+        caja.style.borderColor = si ? 'var(--marca)' : 'var(--borde)';
+        caja.style.background = si ? 'var(--marca-suave)' : '';
+      };
+      caja.addEventListener('dragover', (ev) => { ev.preventDefault(); resaltar(true); });
+      caja.addEventListener('dragleave', () => resaltar(false));
+      caja.addEventListener('drop', (ev) => {
+        ev.preventDefault();
+        resaltar(false);
+        const foto = [...(ev.dataTransfer?.files || [])].find((f) => f.type.startsWith('image/'));
+        if (foto) tomar(foto);
+        else avisarMal('Eso no es una imagen.');
+      });
+      return caja;
     }
 
     function saltar() {
@@ -159,6 +200,24 @@ registrar('fotos', {
         }),
         el('div', { id: 'lote' })
       );
+
+      // Arrastrar la carpeta entera encima. En la computadora es mucho más
+      // rápido que ir a buscar los archivos con el selector.
+      const normal = caja.style.cssText;
+      const resaltar = (si) => {
+        caja.style.cssText = si
+          ? `${normal};outline:3px dashed var(--marca);outline-offset:-6px;background:var(--marca-suave)`
+          : normal;
+      };
+      caja.addEventListener('dragover', (ev) => { ev.preventDefault(); resaltar(true); });
+      caja.addEventListener('dragleave', () => resaltar(false));
+      caja.addEventListener('drop', (ev) => {
+        ev.preventDefault();
+        resaltar(false);
+        const fotos = [...(ev.dataTransfer?.files || [])].filter((f) => f.type.startsWith('image/'));
+        if (fotos.length) porLote(fotos);
+        else avisarMal('Eso no son imágenes.');
+      });
       return caja;
     }
 
@@ -211,6 +270,31 @@ registrar('fotos', {
     pintar();
   },
 });
+
+/**
+ * Deja una foto puesta en un producto: recorte, fondo blanco si está activo, y
+ * guardado. Es el único camino, venga la foto de la cámara, del botón de la
+ * ficha o arrastrada desde una carpeta.
+ *
+ * `conRecorte` se apaga cuando entran muchas de golpe: abrir el recorte
+ * cincuenta veces seguidas no lo aguanta nadie.
+ * → true si quedó guardada, false si el dueño canceló el recorte.
+ */
+export async function ponerFoto(producto, archivo, { conRecorte = true, ajustes = null } = {}) {
+  let entrada = archivo;
+  let recortada = false;
+  if (conRecorte) {
+    const r = await pedirRecorte(archivo, { titulo: producto.nombre });
+    if (!r) return false;
+    entrada = r.blob;
+    recortada = r.recortada;
+  }
+  const aj = ajustes || await cargarAjustes();
+  const { datos, aviso } = await procesar(entrada, { ajustes: aj, encajar: recortada });
+  await guardarFoto(producto.id, datos);
+  if (aviso) avisar(`${aviso} Se guardó con su fondo original.`);
+  return true;
+}
 
 /** Ver / cambiar la foto de un producto puntual (lo usa Inventario). */
 export async function verFoto(producto) {
