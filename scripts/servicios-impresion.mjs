@@ -25,7 +25,7 @@
 //   hoja de opalina 400 · papel fotográfico 1.000 · vinilo autoadhesible 2.000
 //   mica de carnet: 5 USD las 100  ->  0,05 USD cada una
 //   mica tamaño carta: 21 USD las 100  ->  0,21 USD cada una
-// El tóner y la tinta van ESTIMADOS (ver TONER_POR_HOJA e INTA más abajo): esos
+// El tóner y la tinta van ESTIMADOS (ver TONER_POR_HOJA y TINTA_* más abajo): esos
 // dos son los únicos números que faltan de factura, y por eso los servicios que
 // imprimen quedan con `costoEstimado: true`. Los plastificados NO: su costo es
 // la mica y ese sí es un precio de compra real.
@@ -76,12 +76,28 @@ const VINILO = 2000;   // la hoja, corregido por Samuel el 19/10
 const MICA_CARNET_USD = 5;   // las 100
 const MICA_CARTA_USD = 21;   // las 100
 
-// Los dos estimados. Todos los márgenes se calculan como si todo se imprimiera
-// en la Canon imageCLASS, que es la que sale más caro por hoja: si el número
-// cuadra ahí, cuadra en la Epson.
-const TONER_POR_HOJA = 31;   // tóner genérico ~50.000 para ~1.600 hojas
-const TINTA_TEXTO = 40;      // página con color de texto o gráfico liviano
-const TINTA_LLENA = 200;     // página cubierta de lado a lado (foto)
+// --- qué se imprime en qué impresora, y cuánto cuesta esa hoja --------------
+// Lo dijo Samuel: la hoja normal en blanco y negro va a la Canon de tóner; la
+// opalina, el papel fotográfico y el vinilo NO van a la de tóner, van a la
+// Epson. El color también es de la Epson (la láser imprime en negro).
+//
+// TÓNER (Canon imageCLASS, cartucho genérico de 2.000 páginas al 5%):
+//   ~85.000 el cartucho ÷ 2.000 páginas = 43 por hoja.
+//   Es el único número que sigue siendo de mercado y no de factura: falta el
+//   precio que paga Samuel. Si el cartucho le sale en 60.000, esto baja a 30.
+//
+// TINTA (Epson EcoTank, cuatro botellas genéricas en 8 USD):
+//   8 USD = ~25.400 pesos los 4 frascos de 65 ml = 260 ml → ~98 el ml.
+//   Epson califica el juego en 4.500 páginas en negro y 7.500 a color, las dos
+//   al 5% de cobertura. Con lo que cuestan esas botellas:
+//     negro al 5%  →  6.350 / 4.500   = 1,4 por hoja
+//     color al 5%  → 19.050 / 7.500   = 2,5 por hoja
+//   Una hoja cubierta de lado a lado gasta unas 20 veces la del 5%. De ahí los
+//   tres números de abajo, redondeados hacia arriba para no mentirse:
+const TONER_POR_HOJA = 43;   // Canon: hoja normal en blanco y negro
+const TINTA_BN = 10;         // Epson en negro: texto o carátula en opalina
+const TINTA_COLOR = 20;      // color liviano o medio (copia, gráfico, logo)
+const TINTA_LLENA = 80;      // hoja cubierta de lado a lado (foto, sticker)
 
 const SERVICIOS = [
   {
@@ -94,7 +110,7 @@ const SERVICIOS = [
   {
     nombre: 'Impresión o copia a color carta',
     precioCOP: 1500, minimoCOP: 1500,
-    costoCOP: HOJA + TINTA_TEXTO, estimado: true,
+    costoCOP: HOJA + TINTA_COLOR, estimado: true,
     alias: ['copia color', 'impresion color carta', 'color carta'],
   },
   {
@@ -106,7 +122,7 @@ const SERVICIOS = [
   {
     nombre: 'Impresión a color oficio',
     precioCOP: 2000, minimoCOP: 2000,
-    costoCOP: HOJA + TINTA_TEXTO, estimado: true,
+    costoCOP: HOJA + TINTA_COLOR, estimado: true,
     alias: ['color oficio', 'copia color oficio'],
   },
   {
@@ -124,19 +140,19 @@ const SERVICIOS = [
   {
     nombre: 'Impresión en opalina B/N',
     precioCOP: 2000, minimoCOP: 2000,
-    costoCOP: OPALINA + TONER_POR_HOJA, estimado: true,
+    costoCOP: OPALINA + TINTA_BN, estimado: true,
     alias: ['opalina blanco y negro', 'opalina bn'],
   },
   {
     nombre: 'Impresión en opalina a color',
     precioCOP: 2500, minimoCOP: 2500,
-    costoCOP: OPALINA + TINTA_TEXTO, estimado: true,
+    costoCOP: OPALINA + TINTA_COLOR, estimado: true,
     alias: ['opalina color'],
   },
   {
     nombre: 'Impresión en papel fotográfico',
     precioCOP: 10000, minimoCOP: 10000,
-    costoCOP: FOTOGRAFICO + TINTA_TEXTO, estimado: true,
+    costoCOP: FOTOGRAFICO + TINTA_COLOR, estimado: true,
     alias: ['papel fotografico', 'foto impresa', 'impresion fotografica'],
   },
   {
@@ -284,8 +300,8 @@ if (repetidos.length) {
   for (const r of repetidos) console.log(`  ${r.nombre} → "${r.ya.nombre}"${r.ya.activo ? '' : ' (desactivado)'}`);
 }
 console.log(`\n${nuevos.length} servicios por crear · todo en pesos, el dólar se deriva de la tasa del día`);
-console.log(`Los márgenes salen calculados con la Canon imageCLASS, que es la que sale más caro por hoja.`);
-console.log(`"Costo estimado" = la hoja y la mica son de factura, el tóner (${TONER_POR_HOJA}/hoja) y la tinta (${TINTA_TEXTO}-${TINTA_LLENA}/hoja) son cálculo.`);
+console.log(`Hoja normal B/N en la Canon de tóner; opalina, fotográfico, vinilo y todo el color en la Epson.`);
+console.log(`Tóner ${TONER_POR_HOJA}/hoja (Canon, falta su factura) · tinta ${TINTA_BN}-${TINTA_LLENA}/hoja (Epson, 8 USD el juego de 4).`);
 console.log('Precio fijo con mínimo: por debajo del mínimo el POS pide el PIN del dueño.');
 
 if (!aplicar) {

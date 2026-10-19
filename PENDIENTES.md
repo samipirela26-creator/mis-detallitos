@@ -49,16 +49,21 @@ Los **12 servicios** están cargados y se pueden vender (`scripts/servicios-impr
 `--borrar` los desactiva, `--actualizar --aplicar` les baja precios y costos nuevos sin
 duplicarlos). Faltan dos datos tuyos, y los dos son el mismo tipo de dato:
 
-- [ ] **Cuánto cuesta el tóner de la Canon imageCLASS y cuántas hojas rinde.** Hoy está
-      estimado en **31 pesos por hoja** (tóner genérico ~50.000 para ~1.600 hojas). De
-      ese número salen los márgenes de todas las impresiones B/N.
-- [ ] **Cuánto cuesta el juego de tintas de la Epson** (Blackberry Oro) y cada cuánto se
-      compra. Hoy está estimado en **40 pesos** la página con color liviano y **200** la
-      página cubierta de lado a lado.
+- [ ] **Cuánto te cuesta el cartucho de tóner de la Canon.** Es el único número que
+      falta. Hoy está puesto en **85.000 el cartucho genérico de 2.000 páginas = 43 por
+      hoja**, que es precio de mercado colombiano, no tu factura. Afecta solo a las dos
+      impresiones B/N en hoja normal; si lo consigues en 60.000, bajan a 30 por hoja.
 
-Cuando aparezcan las dos facturas: se cambian `TONER_POR_HOJA`, `TINTA_TEXTO` y
-`TINTA_LLENA` en el script, se corre `--actualizar --aplicar`, y a los 10 servicios que
-imprimen se les cae la marca de "costo estimado". Los dos plastificados ya no la tienen:
+La tinta ya está resuelta con tu dato: **8 USD el juego de 4 botellas** genéricas de 65 ml
+= ~98 pesos el ml. Epson califica el juego en 4.500 páginas en negro y 7.500 a color al 5%
+de cobertura, y una hoja cubierta de lado a lado gasta unas 20 veces eso. De ahí salen los
+tres números del script: 10 por hoja en negro, 20 a color liviano, 80 la hoja llena.
+La tinta es tan barata que **no mueve ningún margen**: lo que los mueve es el papel.
+
+Cuando aparezca la factura del tóner: se cambia `TONER_POR_HOJA` en el script, se corre
+`--actualizar --aplicar`, y a los 10 servicios que imprimen se les cae la marca de
+"costo estimado". El reparto por impresora ya está puesto como lo dijiste: hoja normal
+B/N en la Canon de tóner, y opalina, fotográfico, vinilo y todo el color en la Epson. Los dos plastificados ya no la tienen:
 su costo es la mica, y ese sí es precio de factura ($0,05 el carnet y $0,21 la carta).
 
 El resto de los costos del catálogo quedó en pesos asumiendo que **se le compra al
