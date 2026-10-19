@@ -8,10 +8,17 @@ va en "Esperan tu respuesta" y nadie lo toca hasta que la dé.
 
 ## Estado
 
-Todo lo de la auditoría está **commiteado y desplegado**. Nada pendiente de subir.
-Comprobado en producción el 19/10: v30 en el aire, 158 de 160 productos con precio en pesos,
-112 costos marcados como estimados, 2 sin precio (ocultos al cliente a propósito),
-0 fugas de costo al espejo público, 21 productos con foto.
+Comprobado contra producción el 19/10, después de cargar los servicios:
+
+- **172 activos**: 160 productos + **12 servicios de impresión**.
+- **172 de 172 con precio y costo en pesos.** El costo dejó de estar solo en dólares
+  (`scripts/costos-en-pesos.mjs`), así que el margen ya no se abre solo cuando se mueve
+  la tasa. 1 producto sin precio, oculto al cliente a propósito.
+- **122 costos marcados como estimados** (112 del Excel + 10 servicios que imprimen).
+- **0 fugas de costo al espejo público**, verificado producto por producto.
+- **0 fotos en producción.** `scripts/fotos-de-carpeta.mjs` ya está commiteado y empareja
+  48, pero todavía no se ha corrido contra Firebase: la colección `fotos` no existe.
+  Hasta que se corra, el catálogo no muestra ninguna.
 
 Lo que queda abajo depende de Samuel: son datos que solo él tiene o cosas que hace con el
 teléfono en la mano. **Ninguna sesión debe inventarlos.**
@@ -38,25 +45,34 @@ teléfono en la mano. **Ninguna sesión debe inventarlos.**
 
 ## Esperan tu respuesta — servicios de impresión (19/10/2026)
 
-Los 11 servicios ya están cargados y se pueden vender (`scripts/servicios-impresion.mjs`,
-se deshace con `--borrar`). Faltan tres datos tuyos:
+Los **12 servicios** están cargados y se pueden vender (`scripts/servicios-impresion.mjs`;
+`--borrar` los desactiva, `--actualizar --aplicar` les baja precios y costos nuevos sin
+duplicarlos). Faltan dos datos tuyos, y los dos son el mismo tipo de dato:
 
-- [ ] **A cuánto se vende la impresión en vinilo autoadhesible.** Es el único que NO se
-      creó: la hoja te cuesta 1.000 y sin precio de venta el POS lo cobraría en 0.
-- [ ] **Cuánto cuesta el tóner de la Canon y cuántas hojas rinde.** Hoy está estimado en
-      31 pesos por hoja (tóner genérico ~50.000 para ~1.600 hojas). De ese número salen
-      los márgenes de todas las impresiones B/N.
+- [ ] **Cuánto cuesta el tóner de la Canon imageCLASS y cuántas hojas rinde.** Hoy está
+      estimado en **31 pesos por hoja** (tóner genérico ~50.000 para ~1.600 hojas). De
+      ese número salen los márgenes de todas las impresiones B/N.
 - [ ] **Cuánto cuesta el juego de tintas de la Epson** (Blackberry Oro) y cada cuánto se
-      compra. Hoy está estimado en 40 pesos la página con color liviano y 200 la página
-      cubierta de lado a lado.
+      compra. Hoy está estimado en **40 pesos** la página con color liviano y **200** la
+      página cubierta de lado a lado.
 
-Mientras falten los dos últimos, los 9 servicios que imprimen salen marcados
-"costo estimado" y la app avisa que el margen no es firme. Los dos plastificados
-no: su costo es la mica, y ese sí es precio de factura ($0,05 y $0,21).
+Cuando aparezcan las dos facturas: se cambian `TONER_POR_HOJA`, `TINTA_TEXTO` y
+`TINTA_LLENA` en el script, se corre `--actualizar --aplicar`, y a los 10 servicios que
+imprimen se les cae la marca de "costo estimado". Los dos plastificados ya no la tienen:
+su costo es la mica, y ese sí es precio de factura ($0,05 el carnet y $0,21 la carta).
+
+El resto de los costos del catálogo quedó en pesos asumiendo que **se le compra al
+proveedor en pesos**. Si algún producto se paga en dólares, su `costoCOP` está mintiendo
+y hay que corregirlo a mano (el respaldo para deshacer todo es
+`respaldo-costos-2026-10-19.json`).
 
 ## Por hacer
 
-- [ ] **139 productos sin foto.** `scripts/generar-imagenes.mjs` cubre los 139 y está probado
+- [ ] **Correr `scripts/fotos-de-carpeta.mjs` contra Firebase.** Las 48 fotos emparejadas
+      están en el código pero no en producción: hoy el catálogo no muestra ninguna.
+
+- [ ] **160 productos sin foto** (los 12 servicios no llevan).
+      `scripts/generar-imagenes.mjs` `scripts/generar-imagenes.mjs` cubre los 139 y está probado
       en seco; falta la llave en `.secretos/clave-imagenes.txt`. ~$5,56 el lote completo.
       Alternativa sin costo: el Estudio de Fotos con el recorte, ~25 minutos.
 

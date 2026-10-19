@@ -22,7 +22,7 @@
 //
 // Los costos son los que dio Samuel el 19/10/2026, en pesos:
 //   resma de 500 hojas (carta u oficio) 15.000  ->  30 por hoja
-//   hoja de opalina 400 · papel fotográfico 1.000 · vinilo autoadhesible 1.000
+//   hoja de opalina 400 · papel fotográfico 1.000 · vinilo autoadhesible 2.000
 //   mica de carnet: 5 USD las 100  ->  0,05 USD cada una
 //   mica tamaño carta: 21 USD las 100  ->  0,21 USD cada una
 // El tóner y la tinta van ESTIMADOS (ver TONER_POR_HOJA e INTA más abajo): esos
@@ -72,7 +72,7 @@ const claveProducto = (n = '') => tokens(n).sort().join(' ');
 const HOJA = 30;          // resma de 500 en 15.000
 const OPALINA = 400;
 const FOTOGRAFICO = 1000;
-const VINILO = 1000;
+const VINILO = 2000;   // la hoja, corregido por Samuel el 19/10
 const MICA_CARNET_USD = 5;   // las 100
 const MICA_CARTA_USD = 21;   // las 100
 
@@ -152,10 +152,8 @@ const SERVICIOS = [
     alias: ['sticker', 'calcomania', 'adhesivo impreso'],
   },
   {
-    // Falta el precio de venta: hasta que Samuel lo diga, este no se crea.
-    // Un servicio en 0 lo cobraría el POS en 0 (y solo avisaría antes).
     nombre: 'Impresión en vinilo autoadhesible',
-    precioCOP: 0, minimoCOP: 0,
+    precioCOP: 12000, minimoCOP: 12000,
     costoCOP: VINILO + TINTA_LLENA, estimado: true,
     alias: ['vinilo', 'autoadhesivo', 'vinilo adhesivo'],
   },
@@ -174,6 +172,56 @@ if (!tasaCOP) {
   process.exit(1);
 }
 const aUSD = (pesos) => Math.round((pesos * 100) / tasaCOP);
+
+/** El costo de un servicio, en centavos de dólar. La mica ya viene en dólares. */
+const costoDe = (s) => (s.costoUSD != null ? s.costoUSD : aUSD(s.costoCOP || 0));
+
+// --- corregir precios y costos de los que ya están ---------------------------
+// Para cuando aparezca la factura del tóner o de la tinta: se cambia la
+// constante de arriba y esto lo baja a los servicios ya creados, sin
+// duplicarlos y sin tocar el resto del catálogo.
+//
+//   node scripts/servicios-impresion.mjs --actualizar             → muestra
+//   node scripts/servicios-impresion.mjs --actualizar --aplicar   → escribe
+if (process.argv.includes('--actualizar')) {
+  const snap = await col('productos').where('importId', '==', LOTE).get();
+  const porClave = new Map(snap.docs.map((doc) => [doc.data().clave, doc]));
+  const lote = col('productos').firestore.batch();
+  let n = 0;
+  for (const s of SERVICIOS) {
+    const doc = porClave.get(claveProducto(s.nombre));
+    if (!doc || !(s.precioCOP > 0)) continue;
+    const costoUSD = costoDe(s);
+    const costoCOP = s.costoCOP || Math.round((costoUSD / 100) * tasaCOP);
+    const publico = {
+      precioCOP: s.precioCOP,
+      precioUSD: aUSD(s.precioCOP),
+      precioMinimoUSD: aUSD(s.minimoCOP),
+      escalas: (s.escalas || []).map((e) => ({
+        desdeCant: e.desdeCant, precioCOP: e.precioCOP, precioUSD: aUSD(e.precioCOP),
+      })),
+      actualizado: new Date(),
+    };
+    const viejo = doc.data();
+    const cambia = viejo.precioCOP !== s.precioCOP || (viejo.costoCOP || 0) !== costoCOP;
+    if (!cambia) continue;
+    console.log(`  ${s.nombre.slice(0, 40).padEnd(40)} precio ${cop(viejo.precioCOP)} → ${cop(s.precioCOP)} · costo ${cop(viejo.costoCOP || 0)} → ${cop(costoCOP)}`);
+    lote.set(col('productos').doc(doc.id), {
+      ...publico, costoUSD, costoCOP, costoEstimado: !!s.estimado,
+    }, { merge: true });
+    // El espejo NO lleva costo.
+    lote.set(col('productos_venta').doc(doc.id), publico, { merge: true });
+    n++;
+  }
+  if (!n) { console.log('Los servicios ya están con estos precios y costos.'); process.exit(0); }
+  if (!process.argv.includes('--aplicar')) {
+    console.log(`\n${n} por corregir. No se escribió nada. Agrega --aplicar.`);
+    process.exit(0);
+  }
+  await lote.commit();
+  console.log(`\n${n} servicios corregidos.`);
+  process.exit(0);
+}
 
 // --- desactivar lo que creó este script --------------------------------------
 if (borrar) {
@@ -204,8 +252,6 @@ for (const s of SERVICIOS) {
   else nuevos.push({ ...s, clave });
 }
 
-/** El costo de un servicio, en centavos de dólar. La mica ya viene en dólares. */
-const costoDe = (s) => (s.costoUSD != null ? s.costoUSD : aUSD(s.costoCOP || 0));
 
 console.log(`Tasa del peso: ${cop(tasaCOP)} por dólar (del ${diaTasa})\n`);
 console.log('servicio                                    precio       te cuesta      ganas    margen');
