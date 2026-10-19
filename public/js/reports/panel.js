@@ -9,6 +9,7 @@ import { ventasEntre } from '../data/ventas.js';
 import { gastosEntre } from '../data/gastos.js';
 import { productos as catalogo } from '../data/catalogo.js';
 import { bajoMinimo } from '../data/inventario.js';
+import { turnoAbierto } from '../data/caja.js';
 import { formatear } from '../core/dinero.js';
 import {
   resumen, porProducto, porVendedor, porDia, margenFlojo, descuentos,
@@ -31,6 +32,7 @@ async function montarReportes(nodo) {
   let rango = 'mes';
   nodo.innerHTML = `
     <div class="fila" id="rangos" style="margin-bottom:1rem"></div>
+    <div id="aviso-turno"></div>
     <div id="cuerpo"><div class="cargando">Sacando las cuentas…</div></div>`;
 
   const barraRangos = $('#rangos', nodo);
@@ -50,7 +52,30 @@ async function montarReportes(nodo) {
   };
   marcar();
 
+  // Un turno sin cerrar hay que verlo desde el Panel, que es la primera
+  // pantalla del día: si solo se avisa dentro de Caja, se entera quien ya iba
+  // a cerrarla, no quien se olvidó.
+  async function avisarTurnoViejo() {
+    const caja = $('#aviso-turno', nodo);
+    if (!caja) return;
+    caja.innerHTML = '';
+    try {
+      const turno = await turnoAbierto();
+      if (!turno || !turno.dia || turno.dia === diaISO()) return;
+      const dias = Math.max(1, Math.round(
+        (new Date(`${diaISO()}T12:00:00`) - new Date(`${turno.dia}T12:00:00`)) / 86400000));
+      caja.appendChild(el('div.tarjeta', {
+        style: 'background:var(--rojo-suave);border:1px solid var(--rojo);cursor:pointer;margin-bottom:1rem',
+        onclick: () => ir('caja'),
+      }, [
+        el('div', { style: 'font-weight:700;color:var(--rojo)', texto: dias === 1 ? 'Tienes la caja abierta desde ayer' : `Tienes la caja abierta desde hace ${dias} días` }),
+        el('div', { style: 'font-size:.9rem;margin-top:.2rem', texto: 'Toca aquí para cerrarla. Mientras no se cierre, el arqueo no cuadra.' }),
+      ]));
+    } catch { /* sin internet: el Panel no es el sitio para quejarse de eso */ }
+  }
+
   async function cargar() {
+    avisarTurnoViejo();
     const caja = $('#cuerpo', nodo);
     caja.innerHTML = '<div class="cargando">Sacando las cuentas…</div>';
     const desde = RANGOS[rango].desde();

@@ -5,7 +5,7 @@
 // cual (no se "corrige" para que cuadre).
 
 import { registrar } from '../core/router.js';
-import { el, esc, $, fecha, abrirDialogo, pegar } from '../ui/html.js';
+import { el, esc, $, fecha, diaISO, abrirDialogo, pegar } from '../ui/html.js';
 import { avisarOk, avisarMal, confirmar } from '../ui/avisos.js';
 import {
   DENOMINACIONES, turnoAbierto, abrirTurno, reporteX, cerrarTurno,
@@ -21,6 +21,15 @@ registrar('caja', {
 });
 registrar('caja-dueno', { titulo: 'Caja', icono: '💵', montar: montarCaja });
 
+/** Cuántos días lleva abierto un turno, contando por fecha y no por horas:
+ *  un turno abierto anoche a las 11 ya es de ayer aunque no hayan pasado 24h. */
+function diasAbierto(diaTurno) {
+  if (!diaTurno) return 0;
+  const hoy = new Date(`${diaISO()}T12:00:00`);
+  const abierto = new Date(`${diaTurno}T12:00:00`);
+  return Math.max(0, Math.round((hoy - abierto) / 86400000));
+}
+
 async function montarCaja(nodo) {
   nodo.innerHTML = '<div class="cargando">Revisando tu turno…</div>';
   let turno = null;
@@ -35,6 +44,25 @@ async function montarCaja(nodo) {
 
   const datos = await reporteX(turno).catch(() => null);
   nodo.innerHTML = '';
+
+  // Un turno que viene de días atrás es un turno que nadie cerró. El arqueo
+  // deja de servir: mezcla las ventas de varios días contra un fondo de otro
+  // día, y así fue como quedaron dos cajas abiertas a la vez en las pruebas.
+  // Se dice fuerte, arriba de todo, y con los días que lleva.
+  const dias = diasAbierto(turno.dia);
+  if (dias >= 1) {
+    nodo.appendChild(el('div.tarjeta', {
+      style: 'background:var(--rojo-suave);border:1px solid var(--rojo);margin-bottom:1rem',
+    }, [
+      el('h2', { style: 'color:var(--rojo);margin-top:0', texto: dias === 1 ? 'Este turno quedó abierto desde ayer' : `Este turno lleva ${dias} días abierto` }),
+      el('p', {
+        style: 'margin:.3rem 0 0',
+        texto: 'Mientras no se cierre, el arqueo mezcla las ventas de varios días contra el fondo '
+             + 'de otro día y deja de cuadrar. Ciérralo abajo y abre uno nuevo con el fondo de hoy.',
+      }),
+    ]));
+  }
+
   nodo.appendChild(el('div.tarjeta.marca', {}, [
     el('div', { style: 'display:flex;justify-content:space-between;align-items:center' }, [
       el('div', {}, [
