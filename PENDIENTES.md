@@ -36,6 +36,24 @@ teléfono en la mano. **Ninguna sesión debe inventarlos.**
       hoy cualquier empleado puede bajar un precio sin que nadie lo frene. Con 6 dígitos en
       vez de 4 es 100 veces más difícil de adivinar.
 
+## Esperan tu respuesta — servicios de impresión (19/10/2026)
+
+Los 11 servicios ya están cargados y se pueden vender (`scripts/servicios-impresion.mjs`,
+se deshace con `--borrar`). Faltan tres datos tuyos:
+
+- [ ] **A cuánto se vende la impresión en vinilo autoadhesible.** Es el único que NO se
+      creó: la hoja te cuesta 1.000 y sin precio de venta el POS lo cobraría en 0.
+- [ ] **Cuánto cuesta el tóner de la Canon y cuántas hojas rinde.** Hoy está estimado en
+      31 pesos por hoja (tóner genérico ~50.000 para ~1.600 hojas). De ese número salen
+      los márgenes de todas las impresiones B/N.
+- [ ] **Cuánto cuesta el juego de tintas de la Epson** (Blackberry Oro) y cada cuánto se
+      compra. Hoy está estimado en 40 pesos la página con color liviano y 200 la página
+      cubierta de lado a lado.
+
+Mientras falten los dos últimos, los 9 servicios que imprimen salen marcados
+"costo estimado" y la app avisa que el margen no es firme. Los dos plastificados
+no: su costo es la mica, y ese sí es precio de factura ($0,05 y $0,21).
+
 ## Por hacer
 
 - [ ] **139 productos sin foto.** `scripts/generar-imagenes.mjs` cubre los 139 y está probado

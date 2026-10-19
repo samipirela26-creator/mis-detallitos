@@ -16,7 +16,7 @@ import { anotar } from './auditoria.js';
 import { aUSD } from '../core/dinero.js';
 
 /** Campos que NUNCA pueden llegar a la app del empleado. */
-const SECRETOS = ['costoUSD', 'costoPaquete', 'costoEstimado', 'margenObjetivo', 'proveedor', 'notaCosto'];
+const SECRETOS = ['costoUSD', 'costoCOP', 'costoPaquete', 'costoEstimado', 'margenObjetivo', 'proveedor', 'notaCosto'];
 
 /** Deja el producto listo para guardar: normaliza nombre, alias y números. */
 export function normalizarProducto(p) {
@@ -40,11 +40,27 @@ export function normalizarProducto(p) {
     precioCOP: Math.round(p.precioCOP || 0),
     precioUSD: Math.round(p.precioUSD || 0),
     precioMinimoUSD: Math.round(p.precioMinimoUSD || 0),
+    // Igual que el precio base: el número de verdad es el peso y el dólar se
+    // deriva. Antes la escala SOLO se guardaba en dólares y `recalcularPrecios`
+    // no la tocaba, así que al mover la tasa el precio de la etiqueta se
+    // corregía y el del mayoreo se quedaba atrás: el mismo desfase del 6% que
+    // ya se arregló arriba, vivo en las fotocopias al mayor.
+    // Las escalas viejas no traen `precioCOP` (0): esas se dejan como están.
     escalas: (p.escalas || [])
-      .filter((e) => e && e.desdeCant > 0 && e.precioUSD >= 0)
-      .map((e) => ({ desdeCant: Number(e.desdeCant), precioUSD: Math.round(e.precioUSD) }))
+      .filter((e) => e && e.desdeCant > 0 && (e.precioCOP >= 0 || e.precioUSD >= 0))
+      .map((e) => ({
+        desdeCant: Number(e.desdeCant),
+        precioCOP: Math.round(e.precioCOP || 0),
+        precioUSD: Math.round(e.precioUSD || 0),
+      }))
       .sort((a, b) => a.desdeCant - b.desdeCant),
     costoUSD: Math.round(p.costoUSD || 0),
+    // El costo también se paga en pesos (la resma, la mica, la tinta), así que
+    // también se guarda en pesos y el dólar se deriva. Sin esto el precio se
+    // corregía con cada tasa nueva y el costo se quedaba quieto: el margen que
+    // muestran los reportes se iba abriendo solo, sin que nadie cambiara nada.
+    // OJO: `costoCOP` está en SECRETOS. No puede llegar al empleado.
+    costoCOP: Math.round(p.costoCOP || 0),
     // Cómo se compró: "la docena en 1,80". Solo para que el dueño lo vea tal
     // como lo escribió; lo que manda en las cuentas es el unitario de arriba.
     // Marca que ese costo NO salió de una factura. 112 de los 158 productos
@@ -143,9 +159,22 @@ export async function recalcularPrecios(lista, tasaCOP) {
   if (!tasaCOP || tasaCOP <= 0) return { cambiados: 0 };
   const cambios = [];
   for (const p of lista) {
-    if (!(p.precioCOP > 0)) continue;
-    const nuevo = aUSD(p.precioCOP, 'COP', tasaCOP);
-    if (nuevo > 0 && nuevo !== p.precioUSD) cambios.push({ id: p.id, precioUSD: nuevo });
+    const cambio = { id: p.id };
+    if (p.precioCOP > 0) {
+      const nuevo = aUSD(p.precioCOP, 'COP', tasaCOP);
+      if (nuevo > 0 && nuevo !== p.precioUSD) cambio.precioUSD = nuevo;
+    }
+    // Los tramos de mayoreo se recalculan junto con el precio base, o el que
+    // pide 200 fotocopias paga la tasa de hace un mes.
+    if (p.costoCOP > 0) {
+      const nuevo = aUSD(p.costoCOP, 'COP', tasaCOP);
+      if (nuevo > 0 && nuevo !== p.costoUSD) cambio.costoUSD = nuevo;
+    }
+    const escalas = (p.escalas || []).map((e) => (
+      e.precioCOP > 0 ? { ...e, precioUSD: aUSD(e.precioCOP, 'COP', tasaCOP) } : e
+    ));
+    if (escalas.some((e, i) => e.precioUSD !== p.escalas[i].precioUSD)) cambio.escalas = escalas;
+    if (cambio.precioUSD || cambio.costoUSD || cambio.escalas) cambios.push(cambio);
   }
   if (cambios.length) await actualizarEnLote(cambios);
   return { cambiados: cambios.length };
@@ -333,11 +362,16 @@ export async function actualizarEnLote(lista, alAvanzar = () => {}) {
       if (p.precioCOP) campos.precioCOP = Math.round(p.precioCOP);
       if (p.precioUSD) campos.precioUSD = Math.round(p.precioUSD);
       if (p.costoUSD) campos.costoUSD = Math.round(p.costoUSD);
+      if (p.costoCOP) campos.costoCOP = Math.round(p.costoCOP);
       if (p.stockMinimo) campos.stockMinimo = Number(p.stockMinimo);
       if (p.escalas && p.escalas.length) {
         campos.escalas = p.escalas
-          .filter((e) => e && e.desdeCant > 0 && e.precioUSD >= 0)
-          .map((e) => ({ desdeCant: Number(e.desdeCant), precioUSD: Math.round(e.precioUSD) }))
+          .filter((e) => e && e.desdeCant > 0 && (e.precioCOP >= 0 || e.precioUSD >= 0))
+          .map((e) => ({
+            desdeCant: Number(e.desdeCant),
+            precioCOP: Math.round(e.precioCOP || 0),
+            precioUSD: Math.round(e.precioUSD || 0),
+          }))
           .sort((a, b) => a.desdeCant - b.desdeCant);
       }
 

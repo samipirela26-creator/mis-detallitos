@@ -71,6 +71,25 @@ test('escalas de cantidad: la fotocopia baja de precio al pedir más', () => {
   assert.equal(d.precioPorCantidad({ precioUSD: 25 }, 7), 25, 'sin escalas usa el precio base');
 });
 
+test('la escala cobra el dólar derivado del peso, no el peso', () => {
+  // La impresión B/N vale 1.000 pesos y 300 al llegar a 200. Lo que manda al
+  // cobrar es `precioUSD`, derivado con la tasa del día; `precioCOP` es el
+  // número de la etiqueta y lo que `recalcularPrecios` usa para rehacer el
+  // dólar cuando se mueve la tasa. Si alguna vez se cobra el peso por error,
+  // la fotocopia saldría en 300 dólares.
+  const tasa = 317400;   // 3.174 pesos por dólar, en menores
+  const impresion = {
+    precioCOP: 100000,
+    precioUSD: d.aUSD(100000, 'COP', tasa),
+    escalas: [{ desdeCant: 200, precioCOP: 30000, precioUSD: d.aUSD(30000, 'COP', tasa) }],
+  };
+  assert.equal(impresion.precioUSD, 32, 'mil pesos son 32 centavos');
+  assert.equal(d.precioPorCantidad(impresion, 1), 32);
+  assert.equal(d.precioPorCantidad(impresion, 199), 32);
+  assert.equal(d.precioPorCantidad(impresion, 200), 9, 'trescientos pesos son 9 centavos');
+  assert.equal(d.precioPorCantidad(impresion, 500), 9);
+});
+
 test('invariante: ganancia = total - costo, al centavo', () => {
   const lineas = [
     { cantidad: 3, precioUSD: 150, costoUSD: 90 },
