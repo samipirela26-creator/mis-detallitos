@@ -8,12 +8,12 @@ import { registrar } from '../core/router.js';
 import { el, esc, $, fecha, diaISO, abrirDialogo, pegar } from '../ui/html.js';
 import { avisarOk, avisarMal, confirmar } from '../ui/avisos.js';
 import {
-  DENOMINACIONES, turnoAbierto, abrirTurno, reporteX, cerrarTurno,
+  DENOMINACIONES, turnoAbierto, abrirTurno, reporteX, cerrarTurno, quienTieneLaCaja,
   turnosRecientes, sumarConteo,
 } from '../data/caja.js';
 import { MONEDAS, formatear, aMenores } from '../core/dinero.js';
 import { leer } from '../core/estado.js';
-import { esDueno } from '../core/sesion.js';
+import { esDueno, usuarioActual } from '../core/sesion.js';
 
 registrar('caja', {
   titulo: 'Mi caja', icono: '💵', menu: true, soloEmpleado: true, orden: 40,
@@ -40,7 +40,14 @@ async function montarCaja(nodo) {
     return nodo.appendChild(el('div.vacio', { texto: 'No se pudo leer la caja (¿sin internet?). Puedes seguir vendiendo igual.' }));
   }
 
-  if (!turno) return pintarApertura();
+  if (!turno) {
+    // La gaveta es una sola: si otro la tiene abierta, no se muestra ni el
+    // formulario. Enseñar los campos y fallar al final del llenado es peor que
+    // decirlo de entrada.
+    const otro = await quienTieneLaCaja();
+    if (otro && otro.uid !== (usuarioActual()?.uid)) return pintarOcupada(otro);
+    return pintarApertura();
+  }
 
   const datos = await reporteX(turno).catch(() => null);
   nodo.innerHTML = '';
@@ -106,6 +113,23 @@ async function montarCaja(nodo) {
   if (esDueno()) nodo.appendChild(await historial());
 
   // --- apertura ---
+  /** Otro tiene la caja abierta: se dice quién y desde cuándo, y nada más. */
+  function pintarOcupada(otro) {
+    const hoy = otro.dia === diaISO();
+    nodo.innerHTML = '';
+    nodo.appendChild(el('div.tarjeta', { style: 'background:var(--ambar-suave);border:1px solid var(--ambar)' }, [
+      el('h1', { style: 'margin-top:0', texto: 'La caja ya está abierta' }),
+      el('p', { style: 'font-size:1.05rem', html: `<strong>${esc(otro.nombre || 'Otra persona')}</strong> la abrió ${hoy ? 'hoy' : `el ${esc(otro.dia || '')}`}.` }),
+      el('p', {
+        style: 'color:var(--texto-suave)',
+        texto: 'No se puede abrir otra mientras tanto: la gaveta es una sola, y si dos turnos '
+             + 'cuentan el mismo dinero, ninguno de los dos cuadra al cerrar. '
+             + 'Hay que cerrar ese turno primero.',
+      }),
+      el('button.btn.plano.ancho', { texto: 'Volver a mirar', onclick: () => montarCaja(nodo) }),
+    ]));
+  }
+
   function pintarApertura() {
     nodo.innerHTML = '';
     nodo.appendChild(el('div.tarjeta', {}, [
@@ -118,7 +142,13 @@ async function montarCaja(nodo) {
         ])),
       el('button.btn.principal.grande.ancho', {
         texto: 'Abrir turno',
-        onclick: async () => {
+        onclick: async (ev) => {
+          // Dos clics seguidos abrían dos turnos. La transacción ya lo frena en
+          // el servidor, pero el botón tampoco debe dejar intentarlo.
+          const boton = ev.currentTarget;
+          if (boton.disabled) return;
+          boton.disabled = true;
+          boton.textContent = 'Abriendo…';
           const fondo = {};
           for (const m of Object.values(MONEDAS)) {
             fondo[m.codigo] = aMenores($(`#f-${m.codigo}`, nodo).value, m.codigo) || 0;
@@ -128,7 +158,9 @@ async function montarCaja(nodo) {
             avisarOk('Turno abierto');
             montarCaja(nodo);
           } catch (e) {
-            avisarMal('No se pudo abrir el turno: ' + (e.message || e));
+            avisarMal(e.message || 'No se pudo abrir el turno.');
+            boton.disabled = false;
+            boton.textContent = 'Abrir turno';
           }
         },
       }),

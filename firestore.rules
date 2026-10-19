@@ -82,6 +82,13 @@ service cloud.firestore {
         allow write: if esDueno();
       }
 
+      // El marcador de quién tiene la gaveta abierta. Lo escribe cualquiera del
+      // equipo porque el empleado abre y cierra su propio turno; no lleva
+      // cifras de dinero, solo el nombre y el día.
+      match /equipo/turno {
+        allow read, write: if delEquipo();
+      }
+
       // --- secretos (llaves de servicios): SOLO el dueño ---
       //
       // Va aparte de `config/` a propósito: ese es de lectura pública porque lo

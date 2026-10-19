@@ -6,7 +6,8 @@
 
 import { db, col, ref, refNuevo } from '../core/firebase.js';
 import {
-  writeBatch, getDocs, query, where, orderBy, limit, serverTimestamp, setDoc,
+  writeBatch, getDocs, getDoc, query, where, orderBy, limit, serverTimestamp, setDoc,
+  runTransaction,
 } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js';
 import { usuarioActual } from '../core/sesion.js';
 import { MONEDAS, desdeUSD } from '../core/dinero.js';
@@ -29,18 +30,54 @@ export async function turnoAbierto() {
   return snap.empty ? null : { id: snap.docs[0].id, ...snap.docs[0].data() };
 }
 
+/**
+ * Quién tiene la caja abierta AHORA, sea quien sea.
+ *
+ * `turnoAbierto()` solo mira los turnos propios, y por reglas de Firestore el
+ * empleado ni siquiera puede leer los de otro. Pero la gaveta es UNA SOLA: si
+ * dos personas abren turno, el mismo dinero físico queda en dos arqueos y
+ * ninguno de los dos cuadra. Por eso hay un marcador aparte, sin cifras de
+ * plata, que el equipo entero puede leer: dice quién la tiene abierta y desde
+ * cuándo, y nada más.
+ */
+export async function quienTieneLaCaja() {
+  try {
+    const snap = await getDoc(ref('equipo', 'turno'));
+    const d = snap.exists() ? snap.data() : null;
+    return d?.abierto ? d : null;
+  } catch {
+    return null;   // sin internet no se bloquea el trabajo
+  }
+}
+
 /** fondo = { USD: 2000, COP: 50000, VES: 0 } en unidades menores. */
 export async function abrirTurno(fondo) {
   const u = usuarioActual();
   const documento = refNuevo('cajas');
-  await setDoc(documento, {
-    estado: 'abierta',
-    fondo,
-    apertura: serverTimestamp(),
-    dia: hoyISO(),
-    uid: u.uid,
-    nombreUsuario: u.nombre,
+  const marcador = ref('equipo', 'turno');
+
+  // En transacción y no con un simple "si no hay, abre": entre leer y escribir
+  // caben dos clics seguidos o dos teléfonos a la vez, y así fue como quedaron
+  // dos cajas abiertas del mismo minuto en las pruebas.
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(marcador);
+    const abierto = snap.exists() ? snap.data() : null;
+    if (abierto?.abierto) {
+      const quien = abierto.uid === u.uid ? 'Ya tienes' : `${abierto.nombre || 'Alguien'} ya tiene`;
+      const desde = abierto.dia === hoyISO() ? 'hoy' : `desde el ${abierto.dia}`;
+      throw new Error(`${quien} la caja abierta ${desde}. La gaveta es una sola: hay que cerrar ese turno antes de abrir otro.`);
+    }
+    tx.set(documento, {
+      estado: 'abierta',
+      fondo,
+      apertura: serverTimestamp(),
+      dia: hoyISO(),
+      uid: u.uid,
+      nombreUsuario: u.nombre,
+    });
+    tx.set(marcador, { abierto: true, cajaId: documento.id, uid: u.uid, nombre: u.nombre, dia: hoyISO() });
   });
+
   anotar('caja-abierta', { cajaId: documento.id, fondo });
   return documento.id;
 }
@@ -93,6 +130,8 @@ export async function cerrarTurno(turno, contado, { nota = '' } = {}) {
   }
 
   const lote = writeBatch(db);
+  // Soltar la gaveta: sin esto nadie podría volver a abrir turno.
+  lote.set(ref('equipo', 'turno'), { abierto: false, cajaId: turno.id, cerradoPor: u.nombre, dia: hoyISO() });
   lote.set(ref('cajas', turno.id), {
     estado: 'cerrada',
     esperado, contado, diferencia,
