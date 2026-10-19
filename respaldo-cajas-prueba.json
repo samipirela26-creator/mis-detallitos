@@ -1,0 +1,80 @@
+[
+  {
+    "id": "AcOBL30v6CsXJ70LjAaS",
+    "datos": {
+      "estado": "abierta",
+      "fondo": {
+        "USD": 1100,
+        "VES": 0,
+        "COP": 414
+      },
+      "dia": "2026-10-12",
+      "uid": "8FNL87edVLQJyA0ONj1PG79FHrD3",
+      "nombreUsuario": "Abraham",
+      "apertura": {
+        "_seconds": 1791818809,
+        "_nanoseconds": 798000000
+      }
+    }
+  },
+  {
+    "id": "FzQsN6bGKQbNgMob7izk",
+    "datos": {
+      "fondo": {
+        "USD": 1000,
+        "VES": 0,
+        "COP": 50
+      },
+      "dia": "2026-10-10",
+      "uid": "5f0FgkMwOIXec1AOyk1UoQjfQqD3",
+      "nombreUsuario": "Samuel",
+      "apertura": {
+        "_seconds": 1791665011,
+        "_nanoseconds": 587000000
+      },
+      "cerradaPor": "Samuel",
+      "cierre": {
+        "_seconds": 1791665030,
+        "_nanoseconds": 680000000
+      },
+      "estado": "cerrada",
+      "ventasUSD": 0,
+      "cantidadVentas": 0,
+      "esperado": {
+        "COP": 50,
+        "VES": 0,
+        "USD": 1000
+      },
+      "nota": "",
+      "contado": {
+        "COP": 0,
+        "VES": 0,
+        "USD": 0
+      },
+      "diferencia": {
+        "COP": -50,
+        "VES": 0,
+        "USD": -1000
+      },
+      "gananciaUSD": 0
+    }
+  },
+  {
+    "id": "VKPMIGhbihFeLiSxq9Sd",
+    "datos": {
+      "estado": "abierta",
+      "fondo": {
+        "USD": 1000,
+        "VES": 0,
+        "COP": 50
+      },
+      "dia": "2026-10-10",
+      "uid": "5f0FgkMwOIXec1AOyk1UoQjfQqD3",
+      "nombreUsuario": "Samuel",
+      "apertura": {
+        "_seconds": 1791665011,
+        "_nanoseconds": 643000000
+      }
+    }
+  }
+]

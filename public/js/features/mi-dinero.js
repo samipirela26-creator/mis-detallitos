@@ -53,6 +53,23 @@ async function montarMiDinero(nodo) {
     <div class="seccion"><h2>Movimientos de dinero</h2></div>
     <div class="fila" id="pestanas" style="margin-bottom:.6rem"></div>
 
+    <div class="tarjeta" data-form="contar">
+      <form id="f-contar">
+        <p style="color:var(--texto-suave);font-size:.9rem;margin-top:0">
+          Contaste la plata y la vas a cargar. Escribe cuánto hay de cada moneda
+          en un sitio; lo que esté en cero se ignora. Cada moneda queda anotada
+          aparte, con la tasa de hoy.
+        </p>
+        <div class="campo"><label>¿Dónde está ese dinero?</label>
+          <select name="lugar">${opciones(LUGARES)}</select></div>
+        <div id="contar-monedas"></div>
+        <div id="contar-total" style="font-weight:700;margin:.2rem 0 .9rem"></div>
+        <div class="campo"><label>¿Qué es ese dinero?</label>
+          <input name="porque" required value="Conteo de la plata que hay"></div>
+        <button class="btn principal ancho" type="submit">Cargar lo que conté</button>
+      </form>
+    </div>
+
     <div class="tarjeta" data-form="meter">
       <form id="f-meter">
         <div class="campo"><label>¿Qué dinero es?</label>
@@ -124,8 +141,8 @@ async function montarMiDinero(nodo) {
 
   // --- pestañas de los tres formularios ---
   const pestanas = $('#pestanas', nodo);
-  const FORMS = [['meter', 'Meter'], ['sacar', 'Sacar'], ['mover', 'Mover de sitio']];
-  let formActivo = 'meter';
+  const FORMS = [['contar', 'Conté mi dinero'], ['meter', 'Meter'], ['sacar', 'Sacar'], ['mover', 'Mover de sitio']];
+  let formActivo = 'contar';
   const marcarForm = () => {
     $$('[data-form]', nodo).forEach((c) => { c.style.display = c.dataset.form === formActivo ? '' : 'none'; });
     $$('button', pestanas).forEach((b) => {
@@ -158,6 +175,81 @@ async function montarMiDinero(nodo) {
     });
   };
   marcarRango();
+
+  // --- conteo de las tres monedas de una vez ---------------------------------
+  //
+  // El formulario de "Meter" toma una moneda por vez, y quien acaba de contar
+  // toda su plata tiene tres montones delante: dólares, bolívares y pesos.
+  // Hacerlo en tres pasadas invita a olvidar uno.
+  const fContar = $('#f-contar', nodo);
+  const cajaMonedas = $('#contar-monedas', fContar);
+  for (const m of Object.values(MONEDAS)) {
+    cajaMonedas.appendChild(el('div.campo', {}, [
+      el('label', { for: `contar-${m.codigo}`, texto: `${m.nombre} (${m.simbolo})` }),
+      el('input', { id: `contar-${m.codigo}`, 'data-moneda': m.codigo, inputmode: 'decimal', placeholder: '0' }),
+    ]));
+  }
+
+  /** Lo contado, moneda por moneda, con la tasa del día. */
+  function loContado() {
+    const tasas = leer('tasas') || {};
+    const partes = [];
+    const sinTasa = [];
+    for (const campo of $$('[data-moneda]', cajaMonedas)) {
+      const moneda = campo.dataset.moneda;
+      const monto = aMenores(campo.value, moneda);
+      if (!monto || monto <= 0) continue;
+      if (moneda !== 'USD' && !tasas[moneda]) { sinTasa.push(MONEDAS[moneda].nombre); continue; }
+      const tasa = moneda === 'USD' ? 100 : tasas[moneda];
+      partes.push({ moneda, monto, tasa, montoUSD: aUSD(monto, moneda, moneda === 'USD' ? null : tasa) });
+    }
+    return { partes, sinTasa };
+  }
+
+  const pintarTotalContado = () => {
+    const { partes, sinTasa } = loContado();
+    const caja = $('#contar-total', fContar);
+    const total = partes.reduce((t, x) => t + x.montoUSD, 0);
+    caja.style.color = sinTasa.length ? 'var(--ambar)' : 'var(--texto)';
+    caja.textContent = sinTasa.length
+      ? `Falta la tasa de hoy para ${sinTasa.join(' y ')}: ese monto no se puede cargar todavía.`
+      : total ? `En total son ${formatear(total)}` : '';
+  };
+  cajaMonedas.addEventListener('input', pintarTotalContado);
+
+  fContar.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const { partes, sinTasa } = loContado();
+    if (sinTasa.length) return avisarMal(`Falta la tasa de hoy para ${sinTasa.join(' y ')}.`);
+    if (!partes.length) return avisarMal('Escribe cuánto hay de al menos una moneda.');
+
+    const total = partes.reduce((t, x) => t + x.montoUSD, 0);
+    const detalle = partes.map((x) => formatear(x.monto, x.moneda)).join(' + ');
+    // Cargar dos veces el mismo conteo duplica la plata del negocio, y eso no
+    // se ve a simple vista: por eso se confirma con el detalle delante.
+    const seguro = await confirmar(`¿Cargar ${formatear(total)}?`, {
+      detalle: `${detalle}, en ${fContar.lugar.value}. Si ya habías cargado este mismo dinero antes, se sumaría dos veces.`,
+      aceptar: 'Sí, cargarlo',
+    });
+    if (!seguro) return;
+
+    try {
+      for (const parte of partes) {
+        await registrarIngreso({
+          ...parte,
+          categoria: 'Dinero inicial',
+          lugar: fContar.lugar.value,
+          porque: fContar.porque.value,
+        });
+      }
+      for (const campo of $$('[data-moneda]', cajaMonedas)) campo.value = '';
+      pintarTotalContado();
+      avisarOk(`Cargado: ${formatear(total)}`);
+      cargar();
+    } catch (e) {
+      avisarMal('No se pudo guardar: ' + (e.message || e));
+    }
+  });
 
   /** Lee moneda y monto de un formulario y los deja en centavos de dólar. */
   function plataDelForm(f) {
