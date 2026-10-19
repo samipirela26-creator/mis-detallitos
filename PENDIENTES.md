@@ -42,6 +42,34 @@ teléfono en la mano. **Ninguna sesión debe inventarlos.**
       en seco; falta la llave en `.secretos/clave-imagenes.txt`. ~$5,56 el lote completo.
       Alternativa sin costo: el Estudio de Fotos con el recorte, ~25 minutos.
 
+## De la investigación de reseñas (19/10/2026)
+
+Ver [`docs/RESENAS.md`](docs/RESENAS.md). En orden de cuánto riesgo de abandono
+quitan. Los tres primeros atacan el **registro parcial**, que es como mueren
+estas apps: nadie las abandona, se dejan de registrar ventas y los reportes
+empiezan a mentir.
+
+- [ ] **Venta rápida de producto suelto.** Nombre libre y monto libre, sin tocar
+      inventario, marcado "fuera de catálogo" en reportes. Sin esto, lo que no
+      está en el catálogo se cobra por fuera de la app y los números se arruinan.
+- [ ] **"Qué pudo pasar" en el cierre con descuadre.** Anulaciones, precios
+      bajados a mano, descuentos con su autor y retiros del turno, en la misma
+      pantalla del faltante. Los datos ya están en `auditoria`.
+- [ ] **Respaldo que el dueño pueda guardar.** Un botón que baje un JSON con
+      catálogo, ventas, cajas, clientes y deudas. "El respaldo no restauró y
+      perdí todo" es la queja que no se perdona.
+- [ ] **Primera corrida guiada y modo de práctica.** Una venta de ejemplo que no
+      toca la caja, y ayuda corta de las tres cosas que asustan: anular, cambiar
+      precio, cerrar turno. El empleado que no entiende vuelve al papel.
+- [ ] **Carrito en espera** en el punto de venta.
+- [ ] **Aviso más visible del stock congelado sin señal**, para que nadie dude de
+      que la venta entró y la cobre dos veces.
+- [ ] **Camino de vuelta a la versión anterior** si una publicación sale mal, sin
+      borrar caché a mano desde el teléfono.
+
+(El PIN ya está arriba, en "Esperan tu respuesta": sin él, la causa "el empleado
+hace lo que quiera" sigue abierta.)
+
 ## Hecho en la ronda de la auditoría (18/10/2026)
 
 - **Precios fijados en pesos.** `precioCOP` es ahora el precio de verdad y el dólar se deriva

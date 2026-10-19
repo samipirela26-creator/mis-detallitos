@@ -17,3 +17,6 @@ candidatas.json
 
 # Imágenes generadas, se revisan antes de subir
 imagenes-generadas/
+
+# Fotos procesadas de la carpeta del dueño
+imagenes-carpeta/

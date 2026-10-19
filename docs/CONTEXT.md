@@ -7,7 +7,9 @@ es control interno de ventas, inventario y **ganancia real**.
 ## Por qué existe
 
 Se usaba **Treinta** y se abandonó por dos razones: es de pago, y **el buscador
-no encontraba los productos** cuando uno no recuerda el nombre exacto. La
+no encontraba los productos** cuando uno no recuerda el nombre exacto.
+Las dos razones son las dos quejas más repetidas en las reseñas de todo el
+sector; la investigación está en [`RESENAS.md`](RESENAS.md). La
 pregunta que el dueño no puede responder hoy es *"¿cuánto le estoy ganando de
 verdad a cada cosa?"*.
 

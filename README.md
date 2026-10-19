@@ -6,6 +6,8 @@ G&M C.A. Funciona sin internet, en el teléfono, y es gratis de mantener
 
 Contexto y decisiones: [`docs/CONTEXT.md`](docs/CONTEXT.md) ·
 Qué hacer en Firebase: [`docs/FIREBASE-SETUP.md`](docs/FIREBASE-SETUP.md)
+Por qué la gente abandona estas apps (y qué nos falta):
+[`docs/RESENAS.md`](docs/RESENAS.md)
 
 ## Qué hace
 
