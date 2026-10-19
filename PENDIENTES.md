@@ -4,16 +4,17 @@ Lo que quedó a medias, para que una sesión nueva lo retome sin preguntar de ce
 Cuando algo se termina, se borra de aquí. Si algo espera una decisión de Samuel,
 va en "Esperan tu respuesta" y nadie lo toca hasta que la dé.
 
-Última revisión: 2026-10-18 (auditoría de 5 frentes aplicada)
+Última revisión: 2026-10-19
 
-## Sin commitear ahora mismo
+## Estado
 
-Todo lo de la auditoría, aplicado y probado (`npm test` 54/54, `CACHE_NAME` en v30).
-Falta que Samuel lo revise, haga el commit y despliegue con `npm run publicar`.
+Todo lo de la auditoría está **commiteado y desplegado**. Nada pendiente de subir.
+Comprobado en producción el 19/10: v30 en el aire, 158 de 160 productos con precio en pesos,
+112 costos marcados como estimados, 2 sin precio (ocultos al cliente a propósito),
+0 fugas de costo al espejo público, 21 productos con foto.
 
-**Importante mientras no se despliegue:** los precios ya están en pesos en la base, pero el
-código desplegado todavía reconvierte desde el dólar. El cliente ve 987 COP donde la etiqueta
-dice 1.000 (antes la diferencia era de 600). Al desplegar, cuadra exacto.
+Lo que queda abajo depende de Samuel: son datos que solo él tiene o cosas que hace con el
+teléfono en la mano. **Ninguna sesión debe inventarlos.**
 
 ## Esperan tu respuesta
 
@@ -30,7 +31,9 @@ dice 1.000 (antes la diferencia era de 600). Al desplegar, cuadra exacto.
       está arreglado y verificado en el navegador, pero sigue sin probarse tomando una foto
       real. Confirmar también que sale en WebP de ~15 KB y no en JPEG de 122 KB.
 
-- [ ] **Poner el PIN.** Ya se puede: el hash salió de la colección pública. Con 6 dígitos en
+- [ ] **Poner el PIN.** Ya se puede: el hash salió de la colección pública y las reglas
+      nuevas están desplegadas. Comprobado el 19/10: todavía no hay ninguno puesto, así que
+      hoy cualquier empleado puede bajar un precio sin que nadie lo frene. Con 6 dígitos en
       vez de 4 es 100 veces más difícil de adivinar.
 
 ## Por hacer
