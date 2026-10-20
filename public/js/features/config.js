@@ -7,7 +7,7 @@ import { el, esc, $, fecha, pegar } from '../ui/html.js';
 import { avisar, avisarOk, avisarMal, confirmar } from '../ui/avisos.js';
 import { ref, col } from '../core/firebase.js';
 import { setDoc, getDoc, getDocs, deleteDoc } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js';
-import { cargarTasas, guardarTasas, sugerirTasas, hoyISO, baseBs, guardarBaseBs, BASES_BS } from '../data/tasas.js';
+import { cargarTasas, guardarTasas, sugerirTasas, hoyISO, baseBs, guardarBaseBs, BASES_BS, tasasFijas, fijarTasa } from '../data/tasas.js';
 import { pendientes, aprobar, descartar } from '../data/sinonimos.js';
 import { productos as catalogo } from '../data/catalogo.js';
 import { hashPin, olvidarHash, salNueva, VUELTAS } from '../ui/pin.js';
@@ -82,6 +82,7 @@ async function pintarTasas(caja) {
   ]));
 
   const entradas = {};
+  const fijas = await tasasFijas();
   for (const m of Object.values(MONEDAS)) {
     if (m.codigo === 'USD') continue;
     entradas[m.codigo] = el('input', {
@@ -89,9 +90,40 @@ async function pintarTasas(caja) {
       value: tasas[m.codigo] ? String(aMayores(tasas[m.codigo], m.codigo)).replace('.', ',') : '',
       placeholder: m.codigo === 'VES' ? '980,61' : '3240',
     });
+
+    // Dejarla fija. El peso no se compra en una casa de cambio: el dueño vende
+    // a la tasa que él decide, y esa es la de las etiquetas del estante. Sin
+    // esto, cada mañana el automático escribía la del mercado encima y los
+    // precios dejaban de ser los suyos.
+    const idFija = `fija-${m.codigo}`;
+    const casilla = el('input', {
+      type: 'checkbox', id: idFija, style: 'width:20px;height:20px;accent-color:var(--marca)',
+      ...(fijas[m.codigo] ? { checked: '' } : {}),
+      onchange: async (ev) => {
+        const valor = aMenores(entradas[m.codigo].value, m.codigo) || 0;
+        if (ev.target.checked && !valor) {
+          ev.target.checked = false;
+          return avisarMal(`Escribe primero la tasa de ${m.nombre.toLowerCase()}.`);
+        }
+        try {
+          await fijarTasa(m.codigo, ev.target.checked ? valor : 0);
+          avisarOk(ev.target.checked
+            ? `${m.nombre}: queda fija en ${formatear(valor, m.codigo)}`
+            : `${m.nombre}: vuelve a actualizarse sola`);
+        } catch (e) { avisarMal('No se pudo guardar: ' + (e.message || e)); }
+      },
+    });
+
     caja.appendChild(el('div.campo', {}, [
       el('label', { texto: `${m.nombre} por 1 dólar` }),
       entradas[m.codigo],
+      el('label', {
+        for: idFija,
+        style: 'display:flex;align-items:center;gap:.5rem;margin-top:.4rem;cursor:pointer;font-weight:400',
+      }, [
+        casilla,
+        el('span', { style: 'font-size:.88rem', texto: 'Dejarla fija (no la actualices sola cada día)' }),
+      ]),
     ]));
   }
 
@@ -123,6 +155,12 @@ async function pintarTasas(caja) {
       }
       try {
         await guardarTasas(datos);
+        // Si esa moneda está fija, lo que acaba de escribir es la nueva fija:
+        // si no, mañana volvería al valor viejo y parecería que no guardó.
+        const yaFijas = await tasasFijas();
+        for (const codigo of Object.keys(entradas)) {
+          if (yaFijas[codigo] && datos[codigo] > 0) await fijarTasa(codigo, datos[codigo]);
+        }
         avisarOk('Tasas guardadas');
         pintarTasas(caja);
       } catch (e) { avisarMal('No se pudo guardar: ' + (e.message || e)); }

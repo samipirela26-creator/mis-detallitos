@@ -64,6 +64,32 @@ export async function cargarTasas() {
   return null;
 }
 
+/**
+ * Las tasas que el dueño decidió DEJAR FIJAS.
+ *
+ * El peso no se compra en una casa de cambio: el dueño vende a la tasa que él
+ * fija, y esa es la que está en las etiquetas del estante. Pero cada mañana el
+ * automático escribía la del mercado encima, y al día siguiente los precios ya
+ * no eran los suyos. Ahora lo que él fija manda, hasta que lo suelte.
+ */
+export async function tasasFijas() {
+  try {
+    const snap = await getDoc(ref('config', 'general'));
+    return (snap.exists() ? snap.data().tasasFijas : null) || {};
+  } catch {
+    return {};
+  }
+}
+
+export async function fijarTasa(moneda, valorMenores) {
+  const actuales = await tasasFijas();
+  const nuevas = { ...actuales };
+  if (valorMenores > 0) nuevas[moneda] = valorMenores;
+  else delete nuevas[moneda];
+  await setDoc(ref('config', 'general'), { tasasFijas: nuevas }, { merge: true });
+  return nuevas;
+}
+
 /** Guarda las tasas de hoy. `VES` y `COP` vienen en unidades menores por USD. */
 export async function guardarTasas({ VES, COP, fuente = 'manual' }) {
   const u = usuarioActual();
@@ -148,13 +174,18 @@ export async function actualizarTasasAuto() {
     const s = await sugerirTasas();
     if (!s?.VES) return null;
 
+    // Lo que el dueño fijó no se toca: es la tasa a la que vende.
+    const fijas = await tasasFijas();
+
+    let VES = fijas.VES || s.VES;
+    let COP = fijas.COP || s.COP;
     // El peso se arrastra de la última tasa si hoy el cambio no respondió.
-    let COP = s.COP;
     if (!COP) {
       const ultimas = await getDocs(query(col('tasas'), orderBy('ts', 'desc'), limit(1)));
       COP = ultimas.empty ? 0 : (ultimas.docs[0].data().COP || 0);
     }
-    return await guardarTasas({ VES: s.VES, COP, fuente: s.fuente });
+    const fuente = (fijas.VES && fijas.COP) ? 'fija' : s.fuente;
+    return await guardarTasas({ VES, COP, fuente });
   } catch (e) {
     console.warn('[tasas] auto', e?.code || e);
     return null;

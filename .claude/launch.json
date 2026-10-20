@@ -4,14 +4,38 @@
     {
       "name": "detallitos-estatico",
       "runtimeExecutable": "python3",
-      "runtimeArgs": ["-m", "http.server", "5050", "--directory", "public"],
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "5050",
+        "--directory",
+        "public"
+      ],
       "port": 5050
     },
     {
       "name": "detallitos-catalogo",
       "runtimeExecutable": "python3",
-      "runtimeArgs": ["-m", "http.server", "5070", "--directory", "public"],
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "5070",
+        "--directory",
+        "public"
+      ],
       "port": 5070
+    },
+    {
+      "name": "detallitos-pruebas",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "5090",
+        "--directory",
+        "public"
+      ],
+      "port": 5090
     }
   ]
 }
