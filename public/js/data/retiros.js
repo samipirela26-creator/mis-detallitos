@@ -15,7 +15,10 @@ import { usuarioActual } from '../core/sesion.js';
 import { LUGARES } from '../core/dinero.js';
 import { anotar } from './auditoria.js';
 
-export const CATEGORIAS = ['Pago de trabajador', 'Compra de insumos', 'Diezmo'];
+// "Personal / familia" existe porque en un negocio familiar la plata sale así y
+// hay que poder anotarlo sin disfrazarlo de otra cosa: si se mete como "compra
+// de insumos", el reporte de gastos miente y nadie sabe cuánto se llevó la casa.
+export const CATEGORIAS = ['Pago de trabajador', 'Compra de insumos', 'Personal / familia', 'Diezmo'];
 
 /**
  * `porque` es el motivo (qué pasó) y `paraQue` el destino (a qué va a parar).

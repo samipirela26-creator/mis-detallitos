@@ -100,9 +100,11 @@ lote.set(ventaRef, {
   numero: Date.parse(pedido.dia + 'T12:00:00'),
   lineas: lineas.map(({ esServicio, stockAntes, ...l }) => l),
   totalUSD, costoTotalUSD: costoUSD, gananciaUSD: totalUSD - costoUSD,
-  pagos: [{ moneda, monto: enMoneda, tasa, montoUSD: totalUSD }],
-  pagadoUSD: totalUSD, saldoUSD: 0,
-  fiado: false, clienteId: null,
+  // Fiado: no entró plata, así que no hay pago y el saldo queda debiendo.
+  pagos: pedido.fiado ? [] : [{ moneda, monto: enMoneda, tasa, montoUSD: totalUSD }],
+  pagadoUSD: pedido.fiado ? 0 : totalUSD,
+  saldoUSD: pedido.fiado ? totalUSD : 0,
+  fiado: !!pedido.fiado, clienteId: pedido.clienteId || null,
   nota: pedido.nota || 'Registrada después, dictada por el dueño',
   estado: 'ok',
   uid: UID, nombreUsuario: NOMBRE,
@@ -122,5 +124,13 @@ for (const l of lineas.filter((x) => !x.esServicio)) {
   lote.set(col('productos_venta').doc(l.productoId), { stock: nuevo }, { merge: true });
 }
 
+// Lo fiado se le suma al cliente, o la deuda no queda en ningún lado.
+if (pedido.fiado && pedido.clienteId) {
+  const cli = await col('clientes').doc(pedido.clienteId).get();
+  const saldo = (cli.exists ? cli.data().saldoUSD || 0 : 0) + totalUSD;
+  lote.set(col('clientes').doc(pedido.clienteId), { saldoUSD: saldo, ultimaCompra: new Date() }, { merge: true });
+}
+
 await lote.commit();
 console.log(`\n✓ Venta guardada (${ventaRef.id}) en el negocio ${NEGOCIO}`);
+if (pedido.fiado) console.log('  queda FIADA: el saldo se le sumó al cliente.');
