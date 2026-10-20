@@ -124,8 +124,13 @@ export async function cerrarTurno(turno, contado, { nota = '' } = {}) {
   const u = usuarioActual();
   const { esperado, totalUSD, gananciaUSD, cantidad } = await esperadoDelTurno(turno);
 
+  // Una moneda que NO se contó no es una moneda en cero. Antes, dejar los
+  // bolívares en blanco reportaba un faltante del tamaño de todos los
+  // bolívares del turno, y un faltante inventado tapa los de verdad.
+  const contadas = Object.keys(MONEDAS).filter((m) => contado[m] !== undefined && contado[m] !== null);
+  const noContadas = Object.keys(MONEDAS).filter((m) => !contadas.includes(m) && (esperado[m] || 0) !== 0);
   const diferencia = {};
-  for (const moneda of Object.keys(MONEDAS)) {
+  for (const moneda of contadas) {
     diferencia[moneda] = (contado[moneda] || 0) - (esperado[moneda] || 0);
   }
 
@@ -134,7 +139,7 @@ export async function cerrarTurno(turno, contado, { nota = '' } = {}) {
   lote.set(ref('equipo', 'turno'), { abierto: false, cajaId: turno.id, cerradoPor: u.nombre, dia: hoyISO() });
   lote.set(ref('cajas', turno.id), {
     estado: 'cerrada',
-    esperado, contado, diferencia,
+    esperado, contado, diferencia, noContadas,
     ventasUSD: totalUSD,
     gananciaUSD,
     cantidadVentas: cantidad,
@@ -145,7 +150,7 @@ export async function cerrarTurno(turno, contado, { nota = '' } = {}) {
   await lote.commit();
 
   anotar('caja-cerrada', { cajaId: turno.id, diferencia, contado, esperado });
-  return { esperado, contado, diferencia, totalUSD, gananciaUSD, cantidad };
+  return { esperado, contado, diferencia, noContadas, totalUSD, gananciaUSD, cantidad };
 }
 
 export async function turnosRecientes(cuantos = 20) {

@@ -11,7 +11,7 @@ import {
   DENOMINACIONES, turnoAbierto, abrirTurno, reporteX, cerrarTurno, quienTieneLaCaja,
   turnosRecientes, sumarConteo,
 } from '../data/caja.js';
-import { MONEDAS, formatear, aMenores } from '../core/dinero.js';
+import { MONEDAS, formatear, aMenores, aMayores } from '../core/dinero.js';
 import { leer } from '../core/estado.js';
 import { esDueno, usuarioActual } from '../core/sesion.js';
 
@@ -50,6 +50,9 @@ async function montarCaja(nodo) {
   }
 
   const datos = await reporteX(turno).catch(() => null);
+  // El cierre necesita saber qué debería haber para enseñarlo al lado de cada
+  // campo: sin ese número, escribir lo que hay es puro papeleo.
+  if (datos) turno.__esperado = datos.esperado;
   nodo.innerHTML = '';
 
   // Un turno que viene de días atrás es un turno que nadie cerró. El arqueo
@@ -169,46 +172,85 @@ async function montarCaja(nodo) {
 
   // --- cierre con conteo por denominaciones ---
   function pintarCierre(turno) {
-    const conteos = {};
     const d = abrirDialogo('');
-    const totales = el('div');
+    const campos = {};
+    const detalle = el('div');
+    let porBilletes = false;
+    const conteos = {};
 
-    const pintarTotales = () => {
-      totales.innerHTML = '';
+    // Lo que debería haber, al lado de cada campo: es la única razón por la que
+    // uno cuenta. Sin eso, escribir el número es papeleo.
+    const esperado = (turno.__esperado) || {};
+
+    /** La manera sencilla: un total por moneda y ya. */
+    function pintarSimple() {
+      detalle.innerHTML = '';
       for (const m of Object.values(MONEDAS)) {
-        totales.appendChild(el('div', {
-          style: 'display:flex;justify-content:space-between;padding:.3rem 0',
-        }, [
-          el('span', { texto: m.nombre }),
-          el('strong.cifra', { texto: formatear(sumarConteo(conteos[m.codigo] || {}), m.codigo) }),
-        ]));
-      }
-    };
-
-    const cuerpo = el('div', { style: 'max-height:52vh;overflow:auto' });
-    for (const m of Object.values(MONEDAS)) {
-      conteos[m.codigo] = {};
-      const bloque = el('details', { open: m.codigo === 'USD' ? '' : null, style: 'margin-bottom:.5rem' });
-      bloque.appendChild(el('summary', { style: 'cursor:pointer;font-weight:700;padding:.4rem 0', texto: m.nombre }));
-      // De mayor a menor: contar un arqueo se hace empezando por los grandes.
-      for (const valor of [...DENOMINACIONES[m.codigo]].reverse()) {
-        bloque.appendChild(el('div.fila', { style: 'align-items:center;margin-bottom:.35rem' }, [
-          el('span', { style: 'flex:1', texto: formatear(valor, m.codigo) }),
-          el('input', {
-            type: 'number', min: '0', inputmode: 'numeric', placeholder: '0', style: 'flex:0 0 90px',
-            oninput: (ev) => { conteos[m.codigo][valor] = Number(ev.target.value) || 0; pintarTotales(); },
+        const esp = esperado[m.codigo] || 0;
+        const campo = el('input', {
+          inputmode: 'decimal', placeholder: 'déjalo vacío si no lo contaste',
+          value: campos[m.codigo] ?? '',
+          oninput: (ev) => { campos[m.codigo] = ev.target.value; },
+        });
+        detalle.appendChild(el('div.campo', { style: 'margin-bottom:.6rem' }, [
+          el('label', { texto: m.nombre }),
+          campo,
+          el('small', {
+            style: 'color:var(--texto-suave)',
+            texto: esp ? `Debería haber ${formatear(esp, m.codigo)}` : 'No se movió en este turno',
           }),
         ]));
       }
-      cuerpo.appendChild(bloque);
     }
-    pintarTotales();
 
-    pegar(d, 
+    /** La manera larga, para quien sí quiere contar billete por billete. */
+    function pintarBilletes() {
+      detalle.innerHTML = '';
+      for (const m of Object.values(MONEDAS)) {
+        conteos[m.codigo] = conteos[m.codigo] || {};
+        const bloque = el('details', { open: m.codigo === 'USD' ? '' : null, style: 'margin-bottom:.5rem' });
+        const total = el('strong.cifra', { texto: formatear(sumarConteo(conteos[m.codigo]), m.codigo) });
+        bloque.appendChild(el('summary', { style: 'cursor:pointer;font-weight:700;padding:.4rem 0' }, [
+          el('span', { texto: m.nombre + '  ' }), total,
+        ]));
+        for (const valor of [...DENOMINACIONES[m.codigo]].reverse()) {
+          bloque.appendChild(el('div.fila', { style: 'align-items:center;margin-bottom:.35rem' }, [
+            el('span', { style: 'flex:1', texto: formatear(valor, m.codigo) }),
+            el('input', {
+              type: 'number', min: '0', inputmode: 'numeric', placeholder: '0', style: 'flex:0 0 90px',
+              oninput: (ev) => {
+                conteos[m.codigo][valor] = Number(ev.target.value) || 0;
+                const suma = sumarConteo(conteos[m.codigo]);
+                campos[m.codigo] = String(aMayores(suma, m.codigo));
+                total.textContent = formatear(suma, m.codigo);
+              },
+            }),
+          ]));
+        }
+        detalle.appendChild(bloque);
+      }
+    }
+
+    pintarSimple();
+
+    const cambiar = el('button.btn.plano', {
+      style: 'min-height:36px;font-size:.85rem',
+      texto: 'Contar billete por billete',
+      onclick: () => {
+        porBilletes = !porBilletes;
+        cambiar.textContent = porBilletes ? 'Volver a escribir el total' : 'Contar billete por billete';
+        porBilletes ? pintarBilletes() : pintarSimple();
+      },
+    });
+
+    pegar(d,
       el('h2', { texto: 'Cierre de caja' }),
-      el('p', { style: 'color:var(--texto-suave);font-size:.9rem', texto: 'Cuenta lo que hay en la gaveta, billete por billete. Después la app compara.' }),
-      cuerpo,
-      el('div', { style: 'border-top:2px solid var(--borde);padding-top:.6rem;margin-top:.6rem' }, [totales]),
+      el('p', {
+        style: 'color:var(--texto-suave);font-size:.9rem',
+        texto: 'Escribe cuánto hay en la gaveta de cada moneda. Lo que no cuentes, déjalo vacío: no se toma como cero.',
+      }),
+      el('div', { style: 'max-height:52vh;overflow:auto' }, [detalle]),
+      cambiar,
       el('div.campo', { style: 'margin-top:.75rem' }, [
         el('label', { texto: 'Nota (opcional)' }),
         el('input', { id: 'nota-cierre', placeholder: 'Ej: saqué 20$ para el flete' }),
@@ -216,8 +258,17 @@ async function montarCaja(nodo) {
       el('div.fila', {}, [
         el('button.btn.plano', { texto: 'Cancelar', onclick: () => d.close() }),
         el('button.btn.principal', { texto: 'Cerrar caja', onclick: async () => {
+          // Solo las monedas que de verdad se escribieron. Una vacía queda
+          // fuera y el cierre la reporta como "no contada".
           const contado = {};
-          for (const m of Object.values(MONEDAS)) contado[m.codigo] = sumarConteo(conteos[m.codigo]);
+          for (const m of Object.values(MONEDAS)) {
+            const texto = String(campos[m.codigo] ?? '').trim();
+            if (texto === '') continue;
+            contado[m.codigo] = aMenores(texto, m.codigo) || 0;
+          }
+          if (!Object.keys(contado).length) {
+            return avisarMal('Escribe al menos una moneda, o cancela.');
+          }
           try {
             const r = await cerrarTurno(turno, contado, { nota: $('#nota-cierre', d).value });
             d.close();
@@ -233,6 +284,13 @@ async function montarCaja(nodo) {
   function mostrarZ(r, turno) {
     const d = abrirDialogo('');
     const filas = Object.values(MONEDAS).map((m) => {
+      if ((r.noContadas || []).includes(m.codigo)) {
+        return el('tr', {
+          html: `<td>${esc(m.nombre)}</td>
+                 <td class="num">${formatear(r.esperado[m.codigo] || 0, m.codigo)}</td>
+                 <td class="num" colspan="2" style="color:var(--texto-suave)">no se contó</td>`,
+        });
+      }
       const dif = r.diferencia[m.codigo] || 0;
       if (!r.esperado[m.codigo] && !r.contado[m.codigo]) return null;
       return el('tr', {
