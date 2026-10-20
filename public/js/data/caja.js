@@ -102,9 +102,21 @@ export async function esperadoDelTurno(turno) {
     gastosEntre(desde, hasta).catch(() => []),
     import('./retiros.js').then((m) => m.retirosEntre(desde, hasta)).catch(() => []),
   ]);
-  const mias = ventas.filter((v) => v.uid === turno.uid);
-  const misGastos = gastos.filter((g) => g.uid === turno.uid);
-  const misRetiros = retiros.filter((r) => r.uid === turno.uid && (r.lugar || 'Caja') === 'Caja');
+  // Por HORA, no por día: una venta hecha a las 8 de la mañana no es de un
+  // turno que se abrió a las 10, aunque sea el mismo día. Contarla inflaba el
+  // esperado y el arqueo acusaba un sobrante que nadie podía explicar.
+  const desdeMs = turno.apertura?.toDate ? turno.apertura.toDate().getTime()
+    : turno.apertura ? new Date(turno.apertura).getTime() : 0;
+  const hastaMs = turno.cierre?.toDate ? turno.cierre.toDate().getTime() : Infinity;
+  const enElTurno = (x) => {
+    const t = x.ts?.toDate ? x.ts.toDate().getTime() : (x.ts ? new Date(x.ts).getTime() : null);
+    if (t === null) return true;    // sin hora (venta en cola, sin red): se cuenta
+    return t >= desdeMs && t <= hastaMs;
+  };
+
+  const mias = ventas.filter((v) => v.uid === turno.uid && enElTurno(v));
+  const misGastos = gastos.filter((g) => g.uid === turno.uid && enElTurno(g));
+  const misRetiros = retiros.filter((r) => r.uid === turno.uid && (r.lugar || 'Caja') === 'Caja' && enElTurno(r));
   const esperado = { ...turno.fondo };
   let totalUSD = 0;
   let gananciaUSD = 0;

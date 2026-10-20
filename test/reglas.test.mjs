@@ -209,4 +209,22 @@ describe('reglas de seguridad', { skip: hayEmulador ? false : 'el emulador de Fi
     assert.equal((await leer('fotos/prueba-reglas', como(empleado))).status, 200, 'verlas sí');
     assert.equal((await escribir('fotos/prueba-reglas', { datos: { stringValue: 'otra' } }, como(empleado))).status, 403, 'cambiarlas no');
   });
+  test('el empleado puede vender: descuenta stock, pero no toca precios ni ve costos', async () => {
+    // Al cobrar, la app graba la venta Y descuenta el stock en el MISMO lote.
+    // Con las reglas viejas el stock era solo del dueño, así que el lote entero
+    // se caía y la venta del empleado no se guardaba, en silencio.
+    const n = (v) => ({ integerValue: String(v) });
+    await escribir('productos/p-stock', { nombre: { stringValue: 'Lápiz' }, stock: n(10), precioUSD: n(100), costoUSD: n(70) }, comoAdmin);
+    await escribir('productos_venta/p-stock', { nombre: { stringValue: 'Lápiz' }, stock: n(10), precioUSD: n(100) }, comoAdmin);
+
+    assert.equal((await fusionar('productos/p-stock', { stock: n(9) }, como(empleado))).status, 200,
+      'el empleado tiene que poder descontar stock al vender');
+    assert.equal((await fusionar('productos_venta/p-stock', { stock: n(9) }, como(empleado))).status, 200,
+      'y también en el espejo público');
+    assert.equal((await fusionar('productos/p-stock', { precioUSD: n(1) }, como(empleado))).status, 403,
+      'pero NO puede cambiar el precio');
+    assert.notEqual((await leer('productos/p-stock', como(empleado))).status, 200,
+      'ni ver el costo');
+  });
+
 });

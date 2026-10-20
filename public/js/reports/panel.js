@@ -33,6 +33,7 @@ async function montarReportes(nodo) {
   nodo.innerHTML = `
     <div class="fila" id="rangos" style="margin-bottom:1rem"></div>
     <div id="aviso-turno"></div>
+    <div id="aviso-sin-turno"></div>
     <div id="cuerpo"><div class="cargando">Sacando las cuentas…</div></div>`;
 
   const barraRangos = $('#rangos', nodo);
@@ -74,6 +75,26 @@ async function montarReportes(nodo) {
     } catch { /* sin internet: el Panel no es el sitio para quejarse de eso */ }
   }
 
+  /** Ventas hechas sin caja abierta: plata que no está en ningún arqueo. */
+  function avisarVentasSinTurno(ventas) {
+    const caja = $('#aviso-sin-turno', nodo);
+    if (!caja) return;
+    caja.innerHTML = '';
+    const sueltas = (ventas || []).filter((v) => v.sinTurno);
+    if (!sueltas.length) return;
+    const totalUSD = sueltas.reduce((t, v) => t + (v.pagadoUSD || 0), 0);
+    caja.appendChild(el('div.tarjeta', {
+      style: 'background:var(--ambar-suave);border:1px solid var(--ambar);margin-bottom:1rem',
+    }, [
+      el('div', { style: 'font-weight:700;color:var(--ambar)', texto: sueltas.length === 1
+        ? '1 venta se hizo sin caja abierta'
+        : `${sueltas.length} ventas se hicieron sin caja abierta` }),
+      el('div', { style: 'font-size:.9rem;margin-top:.2rem', texto:
+        `${formatear(totalUSD)} que entraron a la gaveta y no están en ningún arqueo. `
+        + 'Al abrir la caja, cuenta ese dinero dentro del fondo.' }),
+    ]));
+  }
+
   async function cargar() {
     avisarTurnoViejo();
     const caja = $('#cuerpo', nodo);
@@ -84,6 +105,7 @@ async function montarReportes(nodo) {
     let ventas = [], gastos = [];
     try {
       [ventas, gastos] = await Promise.all([ventasEntre(desde, hasta), gastosEntre(desde, hasta)]);
+      avisarVentasSinTurno(ventas);
     } catch (e) {
       caja.innerHTML = '';
       return caja.appendChild(el('div.vacio', { texto: 'No se pudieron cargar los reportes (¿sin internet?).' }));

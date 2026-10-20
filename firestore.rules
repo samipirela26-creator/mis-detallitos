@@ -100,13 +100,35 @@ service cloud.firestore {
 
       // --- catálogo con costos: SOLO el dueño ---
       match /productos/{id} {
-        allow read, write: if esDueno();
+        allow read: if esDueno();
+        allow create, delete: if esDueno();
+
+        // El empleado puede mover SOLO el stock, y nada más.
+        //
+        // Al vender, la app descuenta el stock en el mismo lote que graba la
+        // venta. Con la regla vieja ("todo es del dueño") ese lote se caía
+        // entero y la venta del empleado NO se guardaba — en silencio, porque
+        // el commit no se espera. Abraham habría vendido todo un día creyendo
+        // que quedaba registrado.
+        //
+        // Precio, costo y nombre siguen siendo intocables para él: solo pasan
+        // los cambios que tocan el stock.
+        allow update: if esDueno()
+          || (esEmpleado()
+              && request.resource.data.diff(resource.data).affectedKeys()
+                   .hasOnly(['stock', 'actualizado']));
       }
 
       // --- espejo sin costos: lo ve el empleado y los clientes en el catálogo público ---
       match /productos_venta/{id} {
         allow read: if true;
-        allow create, update, delete: if esDueno();
+        allow create, delete: if esDueno();
+        // Igual que arriba: el espejo también lleva el stock, y se escribe en
+        // el mismo lote de la venta.
+        allow update: if esDueno()
+          || (esEmpleado()
+              && request.resource.data.diff(resource.data).affectedKeys()
+                   .hasOnly(['stock', 'actualizado']));
       }
 
       // --- fotos de productos ---

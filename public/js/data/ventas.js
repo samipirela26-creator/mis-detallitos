@@ -26,7 +26,7 @@ import { escribir, leer } from '../core/estado.js';
  *             autorizadoPor, esServicio }]
  * pagos  = [{ moneda, monto, tasa, montoUSD }]
  */
-export async function registrarVenta({ lineas, pagos, clienteId = null, fiado = false, nota = '' }) {
+export async function registrarVenta({ lineas, pagos, clienteId = null, fiado = false, nota = '', sinTurno = false }) {
   const u = usuarioActual();
   if (!lineas?.length) throw new Error('La venta no tiene productos.');
 
@@ -53,6 +53,9 @@ export async function registrarVenta({ lineas, pagos, clienteId = null, fiado = 
     pagadoUSD,
     saldoUSD: totales.totalUSD - pagadoUSD,   // > 0 = quedó debiendo
     fiado: !!fiado,
+    // Se vendió sin caja abierta: queda escrito en la venta para poder
+    // encontrarlas después. Sin esta marca son invisibles.
+    sinTurno: !!sinTurno,
     clienteId,
     nota,
     estado: 'ok',

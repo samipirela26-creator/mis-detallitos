@@ -21,6 +21,7 @@ import { pintarFoto } from '../data/fotos.js';
 import { cargarFavoritos, favoritos, contarUso } from '../data/favoritos.js';
 import { icono } from '../ui/iconos.js';
 import { registrarVenta } from '../data/ventas.js';
+import { turnoAbierto } from '../data/caja.js';
 import { listarClientes, guardarCliente } from '../data/clientes.js';
 import { leer, escribir, observar } from '../core/estado.js';
 import {
@@ -486,11 +487,19 @@ async function cobrar() {
 
   async function terminar() {
     try {
-      const { id, venta } = await registrarVenta({ lineas, pagos, clienteId, fiado });
+      // Vender sin turno abierto SE PERMITE: frenar un cobro con el cliente
+      // enfrente sería peor que el problema. Pero la plata entra a la gaveta y
+      // ningún arqueo la cuenta, así que la venta queda marcada y se avisa.
+      const turno = await turnoAbierto().catch(() => null);
+      const { id, venta } = await registrarVenta({ lineas, pagos, clienteId, fiado, sinTurno: !turno });
       d.close();
       vaciar();
       sonidoCobrar();
-      avisarOk('Venta registrada');
+      if (turno) {
+        avisarOk('Venta registrada');
+      } else {
+        avisar('Venta registrada SIN caja abierta: no va a entrar en ningún arqueo. Abre la caja para que cuadre.');
+      }
       recibo({ id, venta, tasas });
     } catch (e) {
       sonidoAlerta();
