@@ -116,7 +116,7 @@ service cloud.firestore {
         allow update: if esDueno()
           || (esEmpleado()
               && request.resource.data.diff(resource.data).affectedKeys()
-                   .hasOnly(['stock', 'actualizado']));
+                   .hasOnly(['stock', 'actualizado', 'tieneFoto', 'fotoPendiente']));
       }
 
       // --- espejo sin costos: lo ve el empleado y los clientes en el catálogo público ---
@@ -128,13 +128,15 @@ service cloud.firestore {
         allow update: if esDueno()
           || (esEmpleado()
               && request.resource.data.diff(resource.data).affectedKeys()
-                   .hasOnly(['stock', 'actualizado']));
+                   .hasOnly(['stock', 'actualizado', 'tieneFoto', 'fotoPendiente']));
       }
 
       // --- fotos de productos ---
       match /fotos/{productoId} {
         allow read: if true;
-        allow write: if esDueno();
+        // El empleado también toma fotos: es el que está en el mostrador con
+        // el producto en la mano. Una foto no revela nada del negocio.
+        allow write: if delEquipo();
       }
 
       // --- ledger de inventario: append-only, nunca se edita ni se borra ---

@@ -22,7 +22,9 @@ import { procesar, cargarAjustes, lista as iaLista } from '../data/estudio-ia.js
 import { normalizar } from '../core/texto.js';
 
 registrar('fotos', {
-  titulo: 'Fotos', icono: '📷', menu: true, soloDueno: true, orden: 40,
+  // El empleado entra: es quien está en el mostrador con el producto en la
+  // mano, y la pantalla no enseña ni costos ni ganancias.
+  titulo: 'Fotos', icono: '📷', menu: true, orden: 40,
   montar(nodo) {
     let pendientes = [];
     let i = 0;
