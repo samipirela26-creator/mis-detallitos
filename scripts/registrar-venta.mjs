@@ -75,7 +75,11 @@ const costoUSD = lineas.reduce((t, l) => t + l.costoUSD * l.cantidad, 0);
 // ya se nota (7.110 en vez de los 7.000 que el cliente pagó). Si algún producto
 // no tiene precio en pesos, se cae a la conversión para toda la venta.
 const todosConCOP = moneda === 'COP' && lineas.every((l) => l.precioCOP > 0);
-const enMoneda = moneda === 'USD' ? totalUSD
+// `montoPagado` manda sobre todo: es lo que el cliente puso en la mano. Sin
+// eso, convertir de vuelta desde el dólar deja cifras como 495,58 Bs donde se
+// cobraron 500 redondos.
+const enMoneda = pedido.montoPagado > 0 ? pedido.montoPagado
+  : moneda === 'USD' ? totalUSD
   : todosConCOP ? lineas.reduce((t, l) => t + l.precioCOP * l.cantidad, 0)
   : Math.round((totalUSD * tasa) / 100);
 const fmt = (c) => '$' + (c / 100).toFixed(2);
@@ -86,8 +90,15 @@ for (const l of lineas) {
     + (l.esServicio ? '  (servicio, no mueve stock)' : `  (stock ${l.stockAntes} → ${l.stockAntes - l.cantidad})`));
 }
 console.log(`   TOTAL: ${fmt(totalUSD)} · ganancia ${fmt(totalUSD - costoUSD)}`);
-console.log(`   cobrado en ${moneda}: ${enMoneda.toLocaleString('es-VE')}`
-  + (todosConCOP ? ' (suma de las etiquetas)' : ` (convertido a la tasa ${tasa})`));
+// En bolívares hay decimales: 50.000 unidades menores son 500,00 Bs, y verlo
+// crudo invita a confundir una cosa con la otra cuando es plata.
+const enTexto = (menores, mon) => {
+  const dec = mon === 'VES' ? 2 : 0;
+  return (menores / Math.pow(10, dec)).toLocaleString('es-VE', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+};
+console.log(`   cobrado: ${enTexto(enMoneda, moneda)} ${moneda}`
+  + (pedido.montoPagado > 0 ? ' (lo que puso el cliente)'
+     : todosConCOP ? ' (suma de las etiquetas)' : ` (convertido a la tasa ${tasa})`));
 
 if (!guardar) {
   console.log('\nNo se escribió nada. Para guardarla, agrega --guardar');
