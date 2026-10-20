@@ -6,6 +6,7 @@ import { iniciarRouter, registrar, pantallasDeMenu, ir } from './core/router.js'
 import { observar, leer } from './core/estado.js';
 import { montarEntrar, montarEnEspera } from './ui/pantalla-entrar.js';
 import { el, esc, diaISO, pegar } from './ui/html.js';
+import { avisar } from './ui/avisos.js';
 import { sincronizarCatalogo, parar as pararCatalogo, productos as catalogo } from './data/catalogo.js';
 import { cargarTasas, actualizarTasasAuto } from './data/tasas.js';
 import { ventasEntre } from './data/ventas.js';
@@ -327,6 +328,40 @@ if (puedeSW) {
     });
   });
 }
+
+/**
+ * Que el navegador no se trague las fotos que se arrastran.
+ *
+ * Por omisión, soltar un archivo sobre una página ABRE el archivo: el navegador
+ * se va de la app y muestra la imagen sola. Como las zonas donde sí se puede
+ * soltar (la fila de un producto, el cuadro del Estudio de Fotos) son chicas,
+ * casi cualquier intento terminaba así, y desde afuera parece que la app "no
+ * deja arrastrar".
+ *
+ * Esto corta esa salida en toda la app: si se suelta una imagen donde no toca,
+ * no pasa nada y se dice dónde va. Las zonas buenas siguen funcionando porque
+ * ellas llaman a stopPropagation antes de que esto se entere.
+ */
+function cuidarElArrastre() {
+  const esArchivo = (ev) => [...(ev.dataTransfer?.types || [])].includes('Files');
+
+  for (const evento of ['dragenter', 'dragover']) {
+    window.addEventListener(evento, (ev) => {
+      if (!esArchivo(ev)) return;
+      ev.preventDefault();                       // sin esto, el `drop` ni llega
+      ev.dataTransfer.dropEffect = 'copy';
+    });
+  }
+
+  window.addEventListener('drop', (ev) => {
+    if (!esArchivo(ev)) return;
+    ev.preventDefault();
+    const hayImagen = [...(ev.dataTransfer?.files || [])].some((f) => f.type.startsWith('image/'));
+    if (!hayImagen) return;
+    avisar('Suéltala justo encima del producto, en Inventario, o en el cuadro de Fotos.');
+  });
+}
+cuidarElArrastre();
 
 iniciarSesionVigilada().then((u) => {
   console.info('[app] sesión lista:', u ? `${u.nombre} (${u.rol})` : 'sin sesión');
