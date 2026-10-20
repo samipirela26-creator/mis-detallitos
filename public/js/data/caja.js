@@ -83,16 +83,28 @@ export async function abrirTurno(fondo) {
 }
 
 /**
- * Lo que DEBERÍA haber en la gaveta: el fondo más lo cobrado en efectivo,
- * menos los gastos de caja del turno, moneda por moneda.
+ * Lo que DEBERÍA haber en la gaveta: el fondo, más lo cobrado en efectivo,
+ * menos los gastos y menos lo que se sacó de la caja, moneda por moneda.
+ *
+ * Mira desde el día de apertura hasta HOY, no solo el día que se abrió: un
+ * turno que cruzó la medianoche dejaba fuera las ventas del día siguiente y el
+ * arqueo acusaba un faltante del tamaño de todo lo vendido ese día.
+ *
+ * Y cuenta los retiros: la plata que sale por "Mi dinero → Sacar" sale de la
+ * MISMA gaveta. Sin eso, sacar un dólar para la casa aparecía al cerrar como
+ * un dólar faltante, y un faltante inventado tapa los de verdad.
  */
 export async function esperadoDelTurno(turno) {
-  const [ventas, gastos] = await Promise.all([
-    ventasEntre(turno.dia, turno.dia),
-    gastosEntre(turno.dia, turno.dia).catch(() => []),
+  const hasta = hoyISO();
+  const desde = turno.dia <= hasta ? turno.dia : hasta;
+  const [ventas, gastos, retiros] = await Promise.all([
+    ventasEntre(desde, hasta),
+    gastosEntre(desde, hasta).catch(() => []),
+    import('./retiros.js').then((m) => m.retirosEntre(desde, hasta)).catch(() => []),
   ]);
   const mias = ventas.filter((v) => v.uid === turno.uid);
   const misGastos = gastos.filter((g) => g.uid === turno.uid);
+  const misRetiros = retiros.filter((r) => r.uid === turno.uid && (r.lugar || 'Caja') === 'Caja');
   const esperado = { ...turno.fondo };
   let totalUSD = 0;
   let gananciaUSD = 0;
@@ -110,7 +122,14 @@ export async function esperadoDelTurno(turno) {
       esperado[g.moneda] = (esperado[g.moneda] || 0) - (g.monto || 0);
     }
   }
-  return { esperado, totalUSD, gananciaUSD, gastosUSD, cantidad: mias.length, ventas: mias };
+  let retiradoUSD = 0;
+  for (const r of misRetiros) {
+    retiradoUSD += r.montoUSD || 0;
+    if (r.moneda) {
+      esperado[r.moneda] = (esperado[r.moneda] || 0) - (r.monto || 0);
+    }
+  }
+  return { esperado, totalUSD, gananciaUSD, gastosUSD, retiradoUSD, cantidad: mias.length, ventas: mias };
 }
 
 /** Reporte X: no cierra nada, solo muestra cómo va el turno. */
