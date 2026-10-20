@@ -84,7 +84,7 @@ registrar('buscar', {
                 }),
           ]),
           el('button.btn.plano', {
-            style: 'min-height:40px;padding:0 .8rem', texto: '',
+            style: 'min-height:44px;min-width:44px;padding:0 .8rem', texto: '+', 'aria-label': 'Agregar a la venta', title: 'Agregar',
             onclick: (ev) => {
               ev.stopPropagation();
               if (p.tipoPrecio === 'variable') return ir('vender');

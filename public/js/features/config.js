@@ -157,8 +157,8 @@ async function pintarSinonimos(caja) {
         el('div', { html: `¿<strong>"${esc(s.busqueda)}"</strong> es ${esc(s.nombreProducto)}?` }),
         el('div', { style: 'font-size:.78rem;color:var(--texto-suave)', texto: fecha(s.ts) }),
       ]),
-      el('button.btn.plano', { style: 'min-height:38px', texto: '', onclick: async () => { await descartar(s.id); fila.remove(); } }),
-      el('button.btn.principal', { style: 'min-height:38px', texto: '', onclick: async () => {
+      el('button.btn.plano', { style: 'min-height:38px', texto: 'No', 'aria-label': 'Descartar esta sugerencia', onclick: async () => { await descartar(s.id); fila.remove(); } }),
+      el('button.btn.principal', { style: 'min-height:38px', texto: 'Sí', 'aria-label': 'Aprobar esta sugerencia', onclick: async () => {
         const p = catalogo().find((x) => x.id === s.productoId);
         await aprobar(s, p?.alias || []);
         avisarOk(`"${s.busqueda}" ahora encuentra ${s.nombreProducto}`);
@@ -243,7 +243,7 @@ async function pintarSolicitudes(caja, alCambiar) {
         el('div', { style: 'font-weight:600', html: esc(u.nombre || '(sin nombre)') }),
         el('div', { style: 'font-size:.8rem;color:var(--texto-suave)', html: esc(u.email || u.id) }),
       ]),
-      el('button.btn.plano', { style: 'min-height:38px', texto: '', onclick: async () => {
+      el('button.btn.plano', { style: 'min-height:38px', texto: 'Rechazar', onclick: async () => {
         if (!await confirmar(`¿Rechazar a ${u.nombre}?`, {
           detalle: 'Se borra su solicitud. Puede volver a pedir acceso con el link.',
           aceptar: 'Rechazar', peligro: true,

@@ -79,13 +79,13 @@ registrar('fotos', {
         esComputadora ? zonaSoltar(p) : null,
 
         el('div.fila', { style: 'margin-top:1rem' }, [
-          el('button.btn.plano', { texto: '', style: 'flex:0 0 70px', disabled: i === 0 ? '' : null, onclick: () => { i--; pintar(); } }),
+          el('button.btn.plano', { texto: '←', 'aria-label': 'Producto anterior', title: 'Anterior', style: 'flex:0 0 70px;font-size:1.3rem', disabled: i === 0 ? '' : null, onclick: () => { i--; pintar(); } }),
           el('button.btn.acento.grande', {
             style: 'flex:3',
             texto: esComputadora ? 'Elegir la foto' : 'Tomar foto',
             onclick: () => $('#camara', nodo).click(),
           }),
-          el('button.btn.plano', { texto: '', style: 'flex:0 0 70px', onclick: saltar }),
+          el('button.btn.plano', { texto: '→', 'aria-label': 'Saltar al siguiente', title: 'Saltar', style: 'flex:0 0 70px;font-size:1.3rem', onclick: saltar }),
         ]),
         el('p', {
           style: 'color:var(--texto-suave);font-size:.85rem;margin-top:.75rem',

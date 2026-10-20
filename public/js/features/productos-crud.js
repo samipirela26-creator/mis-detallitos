@@ -274,7 +274,7 @@ export function formulario(p = null) {
     const fila = el('div.fila', { style: 'margin-bottom:.4rem' }, [
       el('input', { type: 'number', min: '1', placeholder: 'Desde cantidad', value: e.desdeCant || '', 'data-k': 'cant' }),
       el('input', { inputmode: 'numeric', placeholder: 'Precio c/u (pesos)', value: e.precioCOP ? aMayores(e.precioCOP, 'COP') : '', 'data-k': 'precio' }),
-      el('button.btn.plano', { type: 'button', texto: '', style: 'flex:0 0 52px', onclick: () => fila.remove() }),
+      el('button.btn.plano', { type: 'button', texto: '×', 'aria-label': 'Quitar este tramo', title: 'Quitar', style: 'flex:0 0 52px;font-size:1.2rem', onclick: () => fila.remove() }),
     ]);
     cajaEscalas.appendChild(fila);
   };
