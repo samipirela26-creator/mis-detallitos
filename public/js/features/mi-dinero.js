@@ -17,11 +17,12 @@ import { CATEGORIAS as CAT_RETIRO, registrarRetiro, retirosEntre, borrarRetiro }
 import { CATEGORIAS as CAT_INGRESO, registrarIngreso, ingresosEntre, borrarIngreso } from '../data/ingresos.js';
 import { registrarTraslado, trasladosEntre, borrarTraslado } from '../data/traslados.js';
 import { ventasEntre } from '../data/ventas.js';
+import { abonosEntre } from '../data/clientes.js';
 import { gastosEntre } from '../data/gastos.js';
 import { productos as catalogo } from '../data/catalogo.js';
 import { MONEDAS, LUGARES, aMenores, aUSD, formatear } from '../core/dinero.js';
 import { leer } from '../core/estado.js';
-import { resumen, resumenRetiros, disponible, dineroPorLugar } from '../reports/analisis.js';
+import { resumen, resumenRetiros, disponible, dineroPorLugar, efectivoPorLugar } from '../reports/analisis.js';
 import { icono } from '../ui/iconos.js';
 
 // La caja no se reinicia cada mes: para saber cuánta plata hay hay que sumar
@@ -56,17 +57,21 @@ async function montarMiDinero(nodo) {
     <div class="tarjeta" data-form="contar">
       <form id="f-contar">
         <p style="color:var(--texto-suave);font-size:.9rem;margin-top:0">
-          Contaste la plata y la vas a cargar. Escribe cuánto hay de cada moneda
-          en un sitio; lo que esté en cero se ignora. Cada moneda queda anotada
-          aparte, con la tasa de hoy.
+          Cuenta los billetes y escribe cuánto hay DE VERDAD en cada moneda. La app
+          te dice cuánto debería haber y anota <strong>solo la diferencia</strong>,
+          con su explicación. Así cuadrar no borra ni duplica nada.
         </p>
-        <div class="campo"><label>¿Dónde está ese dinero?</label>
+        <div class="campo"><label>¿Dónde contaste?</label>
           <select name="lugar">${opciones(LUGARES)}</select></div>
         <div id="contar-monedas"></div>
         <div id="contar-total" style="font-weight:700;margin:.2rem 0 .9rem"></div>
-        <div class="campo"><label>¿Qué es ese dinero?</label>
-          <input name="porque" required value="Conteo de la plata que hay"></div>
-        <button class="btn principal ancho" type="submit">Cargar lo que conté</button>
+        <div class="campo"><label>¿Qué pasó? (queda escrito en el ajuste)</label>
+          <input name="porque" required value="Cuadre: conté la plata que hay"></div>
+        <button class="btn principal ancho" type="submit">Cuadrar con lo que conté</button>
+        <p style="color:var(--texto-suave);font-size:.82rem;margin-bottom:0">
+          La moneda que dejes en blanco no se toca. Escribir 0 sí significa
+          "no hay nada de eso".
+        </p>
       </form>
     </div>
 
@@ -141,7 +146,7 @@ async function montarMiDinero(nodo) {
 
   // --- pestañas de los tres formularios ---
   const pestanas = $('#pestanas', nodo);
-  const FORMS = [['contar', 'Conté mi dinero'], ['meter', 'Meter'], ['sacar', 'Sacar'], ['mover', 'Mover de sitio']];
+  const FORMS = [['contar', 'Cuadrar lo contado'], ['meter', 'Meter'], ['sacar', 'Sacar'], ['mover', 'Mover de sitio']];
   let formActivo = 'contar';
   const marcarForm = () => {
     $$('[data-form]', nodo).forEach((c) => { c.style.display = c.dataset.form === formActivo ? '' : 'none'; });
@@ -187,21 +192,51 @@ async function montarMiDinero(nodo) {
     cajaMonedas.appendChild(el('div.campo', {}, [
       el('label', { for: `contar-${m.codigo}`, texto: `${m.nombre} (${m.simbolo})` }),
       el('input', { id: `contar-${m.codigo}`, 'data-moneda': m.codigo, inputmode: 'decimal', placeholder: '0' }),
+      // Lo que la app cree que hay, debajo del campo: sin este número el dueño
+      // no tiene contra qué comparar y vuelve a cargar el conteo completo.
+      el('small', { id: `esperado-${m.codigo}`, style: 'color:var(--texto-suave)' }),
     ]));
   }
 
-  /** Lo contado, moneda por moneda, con la tasa del día. */
+  // Lo que debería haber en el sitio elegido, moneda por moneda. Lo llena
+  // `cargar()` con el histórico completo.
+  let efectivo = {};
+  const esperadoDe = (moneda) => (efectivo[fContar.lugar.value] || {})[moneda] || 0;
+
+  function pintarEsperado() {
+    for (const m of Object.values(MONEDAS)) {
+      const nota = $(`#esperado-${m.codigo}`, cajaMonedas);
+      if (!nota) continue;
+      nota.textContent = `Debería haber ${formatear(esperadoDe(m.codigo), m.codigo)}`;
+    }
+    pintarTotalContado();
+  }
+  fContar.lugar.addEventListener('change', pintarEsperado);
+
+  /**
+   * Lo contado contra lo esperado, moneda por moneda.
+   *
+   * Un campo en blanco NO es un cero: es "esa moneda no la conté", y se deja
+   * quieta. Escribir 0 sí dice que no hay nada. Confundir las dos cosas es lo
+   * que hacía aparecer faltantes del tamaño de todos los bolívares del mes.
+   */
   function loContado() {
     const tasas = leer('tasas') || {};
     const partes = [];
     const sinTasa = [];
     for (const campo of $$('[data-moneda]', cajaMonedas)) {
       const moneda = campo.dataset.moneda;
-      const monto = aMenores(campo.value, moneda);
-      if (!monto || monto <= 0) continue;
+      const contado = aMenores(campo.value, moneda);
+      if (contado === null) continue;                 // no la contó
       if (moneda !== 'USD' && !tasas[moneda]) { sinTasa.push(MONEDAS[moneda].nombre); continue; }
       const tasa = moneda === 'USD' ? 100 : tasas[moneda];
-      partes.push({ moneda, monto, tasa, montoUSD: aUSD(monto, moneda, moneda === 'USD' ? null : tasa) });
+      const esperado = esperadoDe(moneda);
+      const diferencia = contado - esperado;
+      partes.push({
+        moneda, tasa, contado, esperado, diferencia,
+        monto: Math.abs(diferencia),
+        montoUSD: Math.abs(aUSD(Math.abs(diferencia), moneda, moneda === 'USD' ? null : tasa)),
+      });
     }
     return { partes, sinTasa };
   }
@@ -209,11 +244,28 @@ async function montarMiDinero(nodo) {
   const pintarTotalContado = () => {
     const { partes, sinTasa } = loContado();
     const caja = $('#contar-total', fContar);
-    const total = partes.reduce((t, x) => t + x.montoUSD, 0);
-    caja.style.color = sinTasa.length ? 'var(--ambar)' : 'var(--texto)';
-    caja.textContent = sinTasa.length
-      ? `Falta la tasa de hoy para ${sinTasa.join(' y ')}: ese monto no se puede cargar todavía.`
-      : total ? `En total son ${formatear(total)}` : '';
+    caja.innerHTML = '';
+    if (sinTasa.length) {
+      caja.style.color = 'var(--ambar)';
+      caja.textContent = `Falta la tasa de hoy para ${sinTasa.join(' y ')}: eso no se puede cuadrar todavía.`;
+      return;
+    }
+    const descuadres = partes.filter((x) => x.diferencia !== 0);
+    caja.style.color = '';
+    if (!partes.length) return;
+    if (!descuadres.length) {
+      caja.style.color = 'var(--verde)';
+      caja.textContent = 'Cuadra exacto. No hay nada que ajustar.';
+      return;
+    }
+    for (const x of descuadres) {
+      caja.appendChild(el('div', {
+        style: `font-weight:600;color:${x.diferencia > 0 ? 'var(--verde)' : 'var(--rojo)'}`,
+        texto: `${MONEDAS[x.moneda].nombre}: ${x.diferencia > 0 ? 'sobran' : 'faltan'} `
+             + `${formatear(x.monto, x.moneda)} (contaste ${formatear(x.contado, x.moneda)}, `
+             + `debería haber ${formatear(x.esperado, x.moneda)})`,
+      }));
+    }
   };
   cajaMonedas.addEventListener('input', pintarTotalContado);
 
@@ -223,28 +275,38 @@ async function montarMiDinero(nodo) {
     if (sinTasa.length) return avisarMal(`Falta la tasa de hoy para ${sinTasa.join(' y ')}.`);
     if (!partes.length) return avisarMal('Escribe cuánto hay de al menos una moneda.');
 
-    const total = partes.reduce((t, x) => t + x.montoUSD, 0);
-    const detalle = partes.map((x) => formatear(x.monto, x.moneda)).join(' + ');
-    // Cargar dos veces el mismo conteo duplica la plata del negocio, y eso no
-    // se ve a simple vista: por eso se confirma con el detalle delante.
-    const seguro = await confirmar(`¿Cargar ${formatear(total)}?`, {
-      detalle: `${detalle}, en ${fContar.lugar.value}. Si ya habías cargado este mismo dinero antes, se sumaría dos veces.`,
-      aceptar: 'Sí, cargarlo',
+    const descuadres = partes.filter((x) => x.diferencia !== 0);
+    if (!descuadres.length) return avisarOk('Ya cuadraba: no hay nada que ajustar.');
+
+    const lugar = fContar.lugar.value;
+    const detalle = descuadres
+      .map((x) => `${MONEDAS[x.moneda].nombre}: ${x.diferencia > 0 ? '+' : '−'}${formatear(x.monto, x.moneda)}`)
+      .join('   ·   ');
+    // Se confirma con el detalle delante porque esto SÍ mueve la plata del
+    // negocio: un sobrante entra y un faltante sale, y queda escrito para
+    // siempre con el motivo que se escriba arriba.
+    const seguro = await confirmar(`¿Anotar el ajuste en ${lugar}?`, {
+      detalle: `${detalle}. Solo se anota la diferencia, no el conteo completo. `
+             + 'Queda como "Ajuste de conteo" en los movimientos, con tu explicación.',
+      aceptar: 'Sí, cuadrar',
     });
     if (!seguro) return;
 
     try {
-      for (const parte of partes) {
-        await registrarIngreso({
-          ...parte,
-          categoria: 'Dinero inicial',
-          lugar: fContar.lugar.value,
+      for (const x of descuadres) {
+        const comun = {
+          moneda: x.moneda, monto: x.monto, tasa: x.tasa, montoUSD: x.montoUSD,
+          categoria: 'Ajuste de conteo',
+          lugar,
           porque: fContar.porque.value,
-        });
+          paraQue: `Conté ${formatear(x.contado, x.moneda)} y la app esperaba `
+                 + `${formatear(x.esperado, x.moneda)}`,
+        };
+        if (x.diferencia > 0) await registrarIngreso(comun);
+        else await registrarRetiro(comun);
       }
       for (const campo of $$('[data-moneda]', cajaMonedas)) campo.value = '';
-      pintarTotalContado();
-      avisarOk(`Cargado: ${formatear(total)}`);
+      avisarOk('Ajuste anotado: la cuenta quedó igual a lo que contaste.');
       cargar();
     } catch (e) {
       avisarMal('No se pudo guardar: ' + (e.message || e));
@@ -316,6 +378,9 @@ async function montarMiDinero(nodo) {
         Promise.all([
           ingresosEntre(INICIO, hoy), retirosEntre(INICIO, hoy), trasladosEntre(INICIO, hoy),
           ventasEntre(INICIO, hoy), gastosEntre(INICIO, hoy),
+          // Los fiados cobrados son plata que entró: sin ellos el total del
+          // negocio salía por debajo de lo que de verdad había en la gaveta.
+          abonosEntre(INICIO, hoy).catch(() => []),
         ]),
         Promise.all([
           ventasEntre(desde, hasta), gastosEntre(desde, hasta),
@@ -330,12 +395,20 @@ async function montarMiDinero(nodo) {
       return;
     }
 
-    const [ingTodo, retTodo, traTodo, venTodo, gasTodo] = todo;
+    const [ingTodo, retTodo, traTodo, venTodo, gasTodo, aboTodo] = todo;
     const [ventas, gastos, retiros, ingresos, traslados] = delPeriodo;
 
     // --- cuánta plata hay y dónde ---
+    // Lo que debería haber en billetes, para el cuadre de arriba.
+    efectivo = efectivoPorLugar({
+      ingresos: ingTodo, retiros: retTodo, traslados: traTodo, ventas: venTodo, gastos: gasTodo,
+      abonos: aboTodo,
+    });
+    pintarEsperado();
+
     const caja = dineroPorLugar({
       ingresos: ingTodo, retiros: retTodo, traslados: traTodo, ventas: venTodo, gastos: gasTodo,
+      abonos: aboTodo,
     });
     cajaNodo.innerHTML = '';
     cajaNodo.appendChild(el('div.seccion', {}, [el('h2', { texto: 'Dinero en el negocio' })]));

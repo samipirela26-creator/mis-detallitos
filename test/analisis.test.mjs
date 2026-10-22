@@ -160,6 +160,30 @@ test('dinero por lugar: un traslado no cambia el total', () => {
   assert.equal(con.saldos['Caja'], 600);
 });
 
+test('dinero por lugar: el fiado que te pagan SÍ entra en la caja', () => {
+  const base = { ventas: VENTAS };                    // 1400 vendidos, 200 fiados
+  const sin = a.dineroPorLugar(base);
+  const con = a.dineroPorLugar({ ...base, abonos: [{ montoUSD: 200 }] });
+  assert.equal(sin.saldos['Caja'], 1200);
+  assert.equal(con.saldos['Caja'], 1400);             // cobró el fiado: la plata está
+  assert.equal(con.totalUSD, 1400);
+});
+
+test('dinero por lugar: un abono cobrado en la caja fuerte no toca la gaveta', () => {
+  const d = a.dineroPorLugar({ abonos: [{ montoUSD: 500, lugar: 'Caja fuerte' }] });
+  assert.equal(d.saldos['Caja'], 0);
+  assert.equal(d.saldos['Caja fuerte'], 500);
+});
+
+test('dinero por lugar: un gasto pagado de la caja fuerte sale de ahí', () => {
+  const d = a.dineroPorLugar({
+    ingresos: [{ lugar: 'Caja fuerte', montoUSD: 1000 }],
+    gastos: [{ montoUSD: 300, lugar: 'Caja fuerte' }],
+  });
+  assert.equal(d.saldos['Caja fuerte'], 700);
+  assert.equal(d.saldos['Caja'], 0);
+});
+
 test('cobrado de ventas: lo fiado no entra en la caja', () => {
   assert.equal(a.cobradoDeVentas(VENTAS), 1200);
   assert.equal(a.cobradoDeVentas([]), 0);
@@ -169,4 +193,60 @@ test('sin movimientos no hay plata, pero los sitios existen', () => {
   const d = a.dineroPorLugar();
   assert.equal(d.totalUSD, 0);
   assert.deepEqual(d.porLugar.map((l) => l.lugar), ['Caja', 'Caja fuerte']);
+});
+
+// --- efectivo de verdad, moneda por moneda -----------------------------------
+// Esta es la cuenta que se compara contando billetes, y la que explicaba los
+// faltantes: el vuelto que salió de la gaveta no estaba restado en ninguna parte.
+
+test('vuelto: una venta vieja sin el vuelto escrito se reconstruye con su tasa', () => {
+  const v = {
+    totalUSD: 79, pagadoUSD: 159,
+    pagos: [{ moneda: 'COP', monto: 5000, tasa: 3154, montoUSD: 159 }],
+  };
+  const x = a.vueltoDeVenta(v);
+  assert.equal(x.moneda, 'COP');
+  assert.equal(x.montoUSD, 80);
+  assert.equal(x.monto, 2523);          // 80 centavos a 3154 pesos por dólar
+  assert.equal(x.reconstruido, true);
+});
+
+test('vuelto: si la venta lo trae escrito, se respeta tal cual', () => {
+  const v = {
+    totalUSD: 79, pagadoUSD: 159,
+    pagos: [{ moneda: 'COP', monto: 5000, tasa: 3154, montoUSD: 159 }],
+    vuelto: { moneda: 'VES', monto: 7945, montoUSD: 80 },
+  };
+  assert.deepEqual(a.vueltoDeVenta(v), { moneda: 'VES', monto: 7945, montoUSD: 80 });
+});
+
+test('vuelto: sin sobrante no hay vuelto', () => {
+  assert.equal(a.vueltoDeVenta({ totalUSD: 100, pagadoUSD: 100, pagos: [{ moneda: 'USD', monto: 100 }] }), null);
+  assert.equal(a.vueltoDeVenta({ totalUSD: 100, pagadoUSD: 0, pagos: [] }), null);   // fiada
+});
+
+test('efectivo por lugar: el vuelto se resta de la gaveta', () => {
+  const e = a.efectivoPorLugar({
+    ventas: [{
+      totalUSD: 79, pagadoUSD: 159,
+      pagos: [{ moneda: 'COP', monto: 5000, tasa: 3154, montoUSD: 159 }],
+    }],
+  });
+  assert.equal(e['Caja'].COP, 5000 - 2523);
+});
+
+test('efectivo por lugar: cada moneda se cuadra con su moneda', () => {
+  const e = a.efectivoPorLugar({
+    ingresos: [{ lugar: 'Caja', moneda: 'COP', monto: 59000 }, { lugar: 'Caja fuerte', moneda: 'VES', monto: 712900 }],
+    ventas: [{ totalUSD: 224, pagadoUSD: 224, pagos: [{ moneda: 'COP', monto: 7000, montoUSD: 224 }] }],
+    abonos: [{ pagos: [{ moneda: 'USD', monto: 500 }] }],
+    gastos: [{ moneda: 'COP', monto: 5000 }],
+    retiros: [{ moneda: 'USD', monto: 100, lugar: 'Caja' }],
+    traslados: [{ desde: 'Caja', hacia: 'Caja fuerte', moneda: 'COP', monto: 10000 }],
+  });
+  assert.equal(e['Caja'].COP, 59000 + 7000 - 5000 - 10000);
+  assert.equal(e['Caja'].USD, 500 - 100);
+  assert.equal(e['Caja'].VES, 0);
+  assert.equal(e['Caja fuerte'].COP, 10000);
+  assert.equal(e['Caja fuerte'].VES, 712900);
 });

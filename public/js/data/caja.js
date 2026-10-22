@@ -10,7 +10,7 @@ import {
   runTransaction,
 } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js';
 import { usuarioActual } from '../core/sesion.js';
-import { MONEDAS, desdeUSD } from '../core/dinero.js';
+import { MONEDAS, desdeUSD, LUGAR_VENTAS } from '../core/dinero.js';
 import { ventasEntre, hoyISO } from './ventas.js';
 import { gastosEntre } from './gastos.js';
 import { anotar } from './auditoria.js';
@@ -83,24 +83,42 @@ export async function abrirTurno(fondo) {
 }
 
 /**
- * Lo que DEBERÍA haber en la gaveta: el fondo, más lo cobrado en efectivo,
- * menos los gastos y menos lo que se sacó de la caja, moneda por moneda.
+ * Lo que DEBERÍA haber en la gaveta, moneda por moneda: el fondo con que se
+ * abrió, más TODO lo que entró y menos TODO lo que salió de ella.
  *
- * Mira desde el día de apertura hasta HOY, no solo el día que se abrió: un
- * turno que cruzó la medianoche dejaba fuera las ventas del día siguiente y el
- * arqueo acusaba un faltante del tamaño de todo lo vendido ese día.
+ * La regla es una sola y es física: si el billete pasó por la gaveta, va aquí.
  *
- * Y cuenta los retiros: la plata que sale por "Mi dinero → Sacar" sale de la
- * MISMA gaveta. Sin eso, sacar un dólar para la casa aparecía al cerrar como
- * un dólar faltante, y un faltante inventado tapa los de verdad.
+ *   entra:  lo cobrado en las ventas  +  los abonos de fiados que pagaron
+ *         + el dinero que se metió (ingresos)  + lo que llegó de otro sitio
+ *   sale:   el VUELTO que se dio  +  los gastos  +  los retiros
+ *         + lo que se llevaron a la caja fuerte
+ *
+ * Cada cosa de esa lista faltó alguna vez, y cada una inventó un descuadre:
+ *
+ *  - El vuelto. Una venta de $0,79 pagada con 5.000 pesos dejaba esperando los
+ *    5.000 completos: faltante del tamaño del cambio. Fue el del 21/10.
+ *  - Los abonos. Un fiado que te pagan es plata que entra y no estaba contada:
+ *    sobrante sin explicación.
+ *  - Los ingresos y los traslados. Meter plata a la gaveta, o llevarse algo a
+ *    la caja fuerte en medio del turno, descuadraba para los dos lados.
+ *  - Mira desde el día de apertura hasta HOY, no solo el día que se abrió: un
+ *    turno que cruzó la medianoche dejaba fuera las ventas del día siguiente.
+ *
+ * Y nada se filtra por quién lo hizo: LA GAVETA ES UNA SOLA. Si el dueño saca
+ * un dólar mientras el empleado tiene el turno abierto, ese dólar no está, sin
+ * importar quién lo anotó. (Al empleado las reglas de Firestore le devuelven
+ * solo lo suyo, así que para él no cambia nada.)
  */
 export async function esperadoDelTurno(turno) {
   const hasta = hoyISO();
   const desde = turno.dia <= hasta ? turno.dia : hasta;
-  const [ventas, gastos, retiros] = await Promise.all([
+  const [ventas, gastos, retiros, ingresos, traslados, abonos] = await Promise.all([
     ventasEntre(desde, hasta),
     gastosEntre(desde, hasta).catch(() => []),
     import('./retiros.js').then((m) => m.retirosEntre(desde, hasta)).catch(() => []),
+    import('./ingresos.js').then((m) => m.ingresosEntre(desde, hasta)).catch(() => []),
+    import('./traslados.js').then((m) => m.trasladosEntre(desde, hasta)).catch(() => []),
+    import('./clientes.js').then((m) => m.abonosEntre(desde, hasta)).catch(() => []),
   ]);
   // Por HORA, no por día: una venta hecha a las 8 de la mañana no es de un
   // turno que se abrió a las 10, aunque sea el mismo día. Contarla inflaba el
@@ -114,34 +132,78 @@ export async function esperadoDelTurno(turno) {
     return t >= desdeMs && t <= hastaMs;
   };
 
-  const mias = ventas.filter((v) => v.uid === turno.uid && enElTurno(v));
-  const misGastos = gastos.filter((g) => g.uid === turno.uid && enElTurno(g));
-  const misRetiros = retiros.filter((r) => r.uid === turno.uid && (r.lugar || 'Caja') === 'Caja' && enElTurno(r));
+  const deLaGaveta = (x) => (x.lugar || LUGAR_VENTAS) === LUGAR_VENTAS;
+  const delTurno = (lista) => lista.filter(enElTurno);
+
+  const mias = delTurno(ventas);
+  const misGastos = delTurno(gastos).filter(deLaGaveta);
+  const misRetiros = delTurno(retiros).filter(deLaGaveta);
+  const misIngresos = delTurno(ingresos).filter(deLaGaveta);
+  const misAbonos = delTurno(abonos).filter(deLaGaveta);
+  const misTraslados = delTurno(traslados).filter((t) => t.desde === LUGAR_VENTAS || t.hacia === LUGAR_VENTAS);
+
   const esperado = { ...turno.fondo };
+  const mover = (moneda, monto) => {
+    if (!moneda || !monto) return;
+    esperado[moneda] = (esperado[moneda] || 0) + monto;
+  };
+
   let totalUSD = 0;
   let gananciaUSD = 0;
-  let gastosUSD = 0;
+  let vueltoUSD = 0;
+  // Vendido y COBRADO no son lo mismo: una venta fiada se vendió y no entró
+  // ningún billete. El arqueo se compara contra lo cobrado.
+  let cobradoUSD = 0;
   for (const v of mias) {
     totalUSD += v.totalUSD;
     gananciaUSD += v.gananciaUSD || 0;
     for (const p of v.pagos || []) {
-      esperado[p.moneda] = (esperado[p.moneda] || 0) + p.monto;
+      cobradoUSD += p.montoUSD || 0;
+      mover(p.moneda, p.monto);
+    }
+    if (v.vuelto) {
+      vueltoUSD += v.vuelto.montoUSD || 0;
+      cobradoUSD -= v.vuelto.montoUSD || 0;
+      mover(v.vuelto.moneda, -(v.vuelto.monto || 0));
     }
   }
+
+  let gastosUSD = 0;
   for (const g of misGastos) {
     gastosUSD += g.montoUSD || 0;
-    if (g.moneda) {
-      esperado[g.moneda] = (esperado[g.moneda] || 0) - (g.monto || 0);
-    }
+    mover(g.moneda, -(g.monto || 0));
   }
+
   let retiradoUSD = 0;
   for (const r of misRetiros) {
     retiradoUSD += r.montoUSD || 0;
-    if (r.moneda) {
-      esperado[r.moneda] = (esperado[r.moneda] || 0) - (r.monto || 0);
-    }
+    mover(r.moneda, -(r.monto || 0));
   }
-  return { esperado, totalUSD, gananciaUSD, gastosUSD, retiradoUSD, cantidad: mias.length, ventas: mias };
+
+  let ingresadoUSD = 0;
+  for (const i of misIngresos) {
+    ingresadoUSD += i.montoUSD || 0;
+    mover(i.moneda, i.monto || 0);
+  }
+
+  let abonadoUSD = 0;
+  for (const a of misAbonos) {
+    abonadoUSD += a.montoUSD || 0;
+    for (const p of a.pagos || []) mover(p.moneda, p.monto);
+  }
+
+  let trasladadoUSD = 0;
+  for (const t of misTraslados) {
+    const signo = t.hacia === LUGAR_VENTAS ? 1 : -1;
+    trasladadoUSD += signo * (t.montoUSD || 0);
+    mover(t.moneda, signo * (t.monto || 0));
+  }
+
+  return {
+    esperado, totalUSD, cobradoUSD, gananciaUSD, gastosUSD, retiradoUSD,
+    vueltoUSD, ingresadoUSD, abonadoUSD, trasladadoUSD,
+    cantidad: mias.length, ventas: mias,
+  };
 }
 
 /** Reporte X: no cierra nada, solo muestra cómo va el turno. */

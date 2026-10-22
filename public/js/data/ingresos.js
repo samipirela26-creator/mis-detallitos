@@ -13,7 +13,9 @@ import { usuarioActual } from '../core/sesion.js';
 import { LUGARES } from '../core/dinero.js';
 import { anotar } from './auditoria.js';
 
-export const CATEGORIAS = ['Dinero inicial', 'Aporte del dueño', 'Préstamo', 'Otro ingreso'];
+// 'Ajuste de conteo' lo escribe el cuadre: se contó la plata y sobraba. Es la
+// única forma honesta de dejar un sobrante anotado sin disfrazarlo de aporte.
+export const CATEGORIAS = ['Dinero inicial', 'Aporte del dueño', 'Préstamo', 'Otro ingreso', 'Ajuste de conteo'];
 
 export async function registrarIngreso({ categoria, lugar, montoUSD, moneda, monto, tasa, porque, paraQue = '' }) {
   if (!CATEGORIAS.includes(categoria)) throw new Error(`Categoría no permitida: ${categoria}`);

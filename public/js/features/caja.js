@@ -86,7 +86,9 @@ async function montarCaja(nodo) {
   if (datos) {
     nodo.appendChild(el('div.kpis', { style: 'margin:1rem 0' }, [
       kpi('Ventas del turno', String(datos.cantidad)),
-      kpi('Cobrado', formatear(datos.totalUSD)),
+      // Cobrado, no vendido: lo fiado no dejó ningún billete en la gaveta y el
+      // vuelto salió de ella. Con "vendido" aquí, la gaveta nunca cuadraba.
+      kpi('Cobrado', formatear(datos.cobradoUSD ?? datos.totalUSD)),
       ...(datos.gastosUSD ? [kpi('Gastos del turno', formatear(datos.gastosUSD), 'malo')] : []),
       ...(esDueno() ? [kpi('Ganancia', formatear(datos.gananciaUSD), 'bueno')] : []),
     ]));
@@ -101,6 +103,33 @@ async function montarCaja(nodo) {
         el('strong.cifra', { texto: formatear(monto, moneda) }),
       ]));
     }
+    // De dónde sale ese número. Sin esto, cuando la gaveta no cuadra no hay
+    // manera de saber qué entró y qué salió, y la discusión termina en quién
+    // tiene la culpa en vez de en qué movimiento falta.
+    // En dólares y sin el fondo: el fondo se cuenta moneda por moneda arriba, y
+    // sumarlo aquí a una tasa de hoy sería un número que no significa nada.
+    const partes = [
+      ['Cobrado en ventas', datos.cobradoUSD ?? 0, 'mas'],
+      ['Abonos de fiados', datos.abonadoUSD ?? 0, 'mas'],
+      ['Dinero que metiste', datos.ingresadoUSD ?? 0, 'mas'],
+      ['Llegó de otro sitio', Math.max(0, datos.trasladadoUSD ?? 0), 'mas'],
+      ['Vuelto que diste', datos.vueltoUSD ?? 0, 'menos'],
+      ['Gastos', datos.gastosUSD ?? 0, 'menos'],
+      ['Retiros', datos.retiradoUSD ?? 0, 'menos'],
+      ['Se llevó a otro sitio', Math.max(0, -(datos.trasladadoUSD ?? 0)), 'menos'],
+    ].filter(([, v]) => v);
+    const desglose = el('details', { style: 'margin-top:.75rem' }, [
+      el('summary', { style: 'cursor:pointer;color:var(--texto-suave);font-size:.85rem', texto: 'Qué entró y qué salió del turno' }),
+    ]);
+    for (const [rotulo, monto, clase] of partes) {
+      desglose.appendChild(el('div', {
+        style: 'display:flex;justify-content:space-between;font-size:.88rem;padding:.3rem 0',
+      }, [
+        el('span', { style: 'color:var(--texto-suave)', texto: rotulo }),
+        el('span.cifra', { texto: `${clase === 'menos' ? '−' : clase === 'mas' ? '+' : ''} ${formatear(monto)}` }),
+      ]));
+    }
+    tarjeta.appendChild(desglose);
     tarjeta.appendChild(el('p', {
       style: 'color:var(--texto-suave);font-size:.85rem;margin-top:.75rem',
       texto: 'Incluye el fondo con el que abriste. Esto es el reporte X: míralo las veces que quieras, no cierra nada.',

@@ -3,7 +3,7 @@ import { col, refNuevo, ref } from '../core/firebase.js';
 import {
   setDoc, getDocs, query, where, orderBy, serverTimestamp, deleteDoc, Timestamp,
 } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js';
-import { usuarioActual } from '../core/sesion.js';
+import { usuarioActual, esDueno } from '../core/sesion.js';
 import { anotar } from './auditoria.js';
 
 export const CATEGORIAS = [
@@ -23,10 +23,15 @@ export async function registrarGasto({ categoria, montoUSD, moneda, monto, tasa,
   return documento.id;
 }
 
+/** Igual que las ventas: el empleado solo puede pedir los suyos, o la consulta
+ *  se rechaza entera y el arqueo de su turno se cae sin decir por qué. */
 export async function gastosEntre(desde, hasta) {
   const d = Timestamp.fromDate(new Date(`${desde}T00:00:00`));
   const h = Timestamp.fromDate(new Date(`${hasta}T23:59:59.999`));
-  const snap = await getDocs(query(col('gastos'), where('ts', '>=', d), where('ts', '<=', h), orderBy('ts', 'desc')));
+  const u = usuarioActual();
+  const soloMios = !esDueno() && u?.uid ? [where('uid', '==', u.uid)] : [];
+  const snap = await getDocs(query(
+    col('gastos'), ...soloMios, where('ts', '>=', d), where('ts', '<=', h), orderBy('ts', 'desc')));
   return snap.docs.map((x) => ({ id: x.id, ...x.data() }));
 }
 

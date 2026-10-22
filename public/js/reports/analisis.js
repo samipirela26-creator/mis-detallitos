@@ -8,7 +8,7 @@
 // venía sin costo. La línea manda si lo trae: así una venta vieja conserva el
 // costo que tenía ese día aunque el proveedor haya subido el precio después.
 
-import { margenPct, LUGARES, LUGAR_VENTAS } from '../core/dinero.js';
+import { margenPct, LUGARES, LUGAR_VENTAS, MONEDAS } from '../core/dinero.js';
 
 /** Costo de una línea: el que guardó la venta, o el del catálogo si faltaba. */
 export function costoLinea(l, costos = {}) {
@@ -178,6 +178,7 @@ export function disponible(resumenPeriodo, retiros = []) {
 //
 //   entra:  los ingresos (el dinero inicial, aportes, préstamos)
 //         + lo COBRADO de las ventas (lo fiado no está en la caja)
+//         + los abonos de los fiados (la deuda que te pagaron sí está)
 //   sale:   los gastos del negocio + los retiros
 //   y los traslados no cambian el total: mueven de un sitio al otro.
 //
@@ -189,10 +190,72 @@ export const cobradoDeVentas = (ventas = []) =>
   ventas.reduce((t, v) => t + ((v.totalUSD || 0) - Math.max(0, v.saldoUSD || 0)), 0);
 
 /**
+ * El vuelto de una venta, en la moneda en que salió de la gaveta.
+ *
+ * Las ventas nuevas lo traen escrito. Las viejas no, y ahí se reconstruye: si
+ * pagaron más que el total, la diferencia se devolvió, y se devolvió en la
+ * moneda con que pagaron. Sin esto, una venta de $0,79 pagada con un billete
+ * de 5.000 pesos deja esperando los 5.000 completos en la gaveta y el arqueo
+ * acusa un faltante que nunca existió.
+ */
+export function vueltoDeVenta(venta) {
+  if (venta?.vuelto?.moneda) return venta.vuelto;
+  const sobra = (venta?.pagadoUSD || 0) - (venta?.totalUSD || 0);
+  const pagos = venta?.pagos || [];
+  if (sobra <= 0 || !pagos.length) return null;
+  const mayor = [...pagos].sort((a, b) => (b.montoUSD || 0) - (a.montoUSD || 0))[0];
+  const tasa = mayor.tasa || 100;
+  return {
+    moneda: mayor.moneda,
+    monto: mayor.moneda === 'USD' ? sobra : Math.round((sobra * tasa) / 100),
+    montoUSD: sobra,
+    reconstruido: true,
+  };
+}
+
+/**
+ * EFECTIVO DE VERDAD: cuántos billetes de cada moneda debería haber en cada
+ * sitio. Es la cuenta que se compara con la mano contando.
+ *
+ * Va aparte de `dineroPorLugar` (que da el valor en dólares) porque son dos
+ * preguntas distintas y confundirlas es lo que impide cuadrar: el total en
+ * dólares usa la tasa del día en que entró cada billete, así que no se puede
+ * comparar contra un montón de pesos sobre el mostrador. Los pesos se cuadran
+ * con pesos.
+ */
+export function efectivoPorLugar({ ingresos = [], retiros = [], traslados = [], ventas = [], gastos = [], abonos = [] } = {}) {
+  const vacio = () => Object.fromEntries(Object.keys(MONEDAS).map((m) => [m, 0]));
+  const saldos = Object.fromEntries(LUGARES.map((l) => [l, vacio()]));
+  const mover = (lugar, moneda, monto) => {
+    if (!moneda || !monto) return;
+    const l = saldos[lugar] ? lugar : LUGAR_VENTAS;
+    saldos[l][moneda] = (saldos[l][moneda] || 0) + monto;
+  };
+
+  for (const i of ingresos) mover(i.lugar || LUGAR_VENTAS, i.moneda, i.monto || 0);
+  for (const r of retiros) mover(r.lugar || LUGAR_VENTAS, r.moneda, -(r.monto || 0));
+  for (const g of gastos) mover(g.lugar || LUGAR_VENTAS, g.moneda, -(g.monto || 0));
+  for (const a of abonos) {
+    for (const p of a.pagos || []) mover(a.lugar || LUGAR_VENTAS, p.moneda, p.monto || 0);
+  }
+  for (const t of traslados) {
+    mover(t.desde, t.moneda, -(t.monto || 0));
+    mover(t.hacia, t.moneda, t.monto || 0);
+  }
+  for (const v of ventas) {
+    for (const p of v.pagos || []) mover(LUGAR_VENTAS, p.moneda, p.monto || 0);
+    const vuelto = vueltoDeVenta(v);
+    if (vuelto) mover(LUGAR_VENTAS, vuelto.moneda, -(vuelto.monto || 0));
+  }
+
+  return saldos;
+}
+
+/**
  * Cuánta plata hay y en qué sitio. Son totales HISTÓRICOS: una caja no se
  * reinicia cada mes.
  */
-export function dineroPorLugar({ ingresos = [], retiros = [], traslados = [], ventas = [], gastos = [] } = {}) {
+export function dineroPorLugar({ ingresos = [], retiros = [], traslados = [], ventas = [], gastos = [], abonos = [] } = {}) {
   const saldos = Object.fromEntries(LUGARES.map((l) => [l, 0]));
   const sumar = (lugar, monto) => {
     if (saldos[lugar] === undefined) saldos[lugar] = 0;
@@ -206,7 +269,11 @@ export function dineroPorLugar({ ingresos = [], retiros = [], traslados = [], ve
     sumar(t.hacia, t.montoUSD || 0);
   }
   sumar(LUGAR_VENTAS, cobradoDeVentas(ventas));
-  for (const g of gastos) sumar(LUGAR_VENTAS, -(g.montoUSD || 0));
+  // Los abonos de los fiados son PLATA QUE ENTRA. Faltaban: una deuda cobrada
+  // no aparecía en ninguna parte y el total del negocio salía por debajo de lo
+  // que había en la gaveta (el clásico "sobra y no sé de dónde salió").
+  for (const a of abonos) sumar(a.lugar || LUGAR_VENTAS, a.montoUSD || 0);
+  for (const g of gastos) sumar(g.lugar || LUGAR_VENTAS, -(g.montoUSD || 0));
 
   const totalUSD = Object.values(saldos).reduce((t, x) => t + x, 0);
   return {

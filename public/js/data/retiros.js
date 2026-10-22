@@ -18,7 +18,10 @@ import { anotar } from './auditoria.js';
 // "Personal / familia" existe porque en un negocio familiar la plata sale así y
 // hay que poder anotarlo sin disfrazarlo de otra cosa: si se mete como "compra
 // de insumos", el reporte de gastos miente y nadie sabe cuánto se llevó la casa.
-export const CATEGORIAS = ['Pago de trabajador', 'Compra de insumos', 'Personal / familia', 'Diezmo'];
+// 'Ajuste de conteo' es el otro lado del cuadre: se contó y faltaba. No se
+// esconde como gasto ni como retiro personal, porque no se sabe a dónde fue:
+// se anota como lo que es, un faltante con su fecha y su explicación.
+export const CATEGORIAS = ['Pago de trabajador', 'Compra de insumos', 'Personal / familia', 'Diezmo', 'Ajuste de conteo'];
 
 /**
  * `porque` es el motivo (qué pasó) y `paraQue` el destino (a qué va a parar).
