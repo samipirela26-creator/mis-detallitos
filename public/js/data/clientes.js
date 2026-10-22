@@ -1,11 +1,23 @@
-// clientes.js — los fiados. Saldo en USD, abonos en cualquier moneda.
+// clientes.js — los fiados.
+//
+// LA DEUDA SE FIJA EN PESOS, igual que los precios (ver `precioCOP` en
+// productos.js). El dólar se deriva con la tasa del día.
+//
+// Por qué: una deuda se contrae en la moneda de la etiqueta. Si se guarda solo
+// en dólares, cuando el peso se mueve la deuda se mueve con él: Yenifer debía
+// 20.000 pesos y con el dólar a 4.000 le tocaría pagar 25.200. Nadie acepta
+// eso, y con razón. El peso guardado es el número que las dos personas
+// acordaron; el dólar es solo para los reportes del dueño.
+//
+// `saldoUSD` se sigue escribiendo para los clientes de antes de este cambio y
+// para poder ordenar sin tener la tasa a mano, pero el que manda es `saldoCOP`.
 import { db, col, ref, refNuevo } from '../core/firebase.js';
 import {
   writeBatch, setDoc, getDocs, query, orderBy, serverTimestamp, increment, where, Timestamp,
 } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js';
 import { usuarioActual } from '../core/sesion.js';
 import { normalizar } from '../core/texto.js';
-import { LUGAR_VENTAS } from '../core/dinero.js';
+import { LUGAR_VENTAS, debe } from '../core/dinero.js';
 import { anotar } from './auditoria.js';
 
 export async function guardarCliente({ nombre, telefono = '', nota = '' }, id = null) {
@@ -25,23 +37,19 @@ export async function listarClientes() {
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 }
 
-export const conDeuda = (clientes) => clientes.filter((c) => (c.saldoUSD || 0) > 0);
+// `deudaDe` y `debe` viven en core/dinero.js: son aritmética pura y aquí
+// quedaban detrás del SDK de Firebase, que no se puede cargar en los tests. Se
+// reexportan para que quien piensa en clientes las encuentre donde las busca.
+export { deudaDe, debe } from '../core/dinero.js';
 
-/**
- * Las ventas que este cliente se llevó fiadas.
- *
- * Sin esto, la ficha del deudor solo mostraba un número: "debe $12" y nada
- * más. Lo primero que se pregunta cuando alguien discute una deuda es QUÉ se
- * llevó y CUÁNDO, y eso estaba en la base pero no se veía en ninguna pantalla.
- */
-export async function ventasFiadasDe(clienteId) {
-  const snap = await getDocs(query(col('ventas'), where('clienteId', '==', clienteId), orderBy('ts', 'desc')));
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((v) => v.estado !== 'anulada');
-}
+export const conDeuda = (clientes) => clientes.filter(debe);
 
 /** Suma a la deuda del cliente (lo llama la venta fiada). */
-export function sumarDeuda(lote, clienteId, montoUSD) {
-  lote.set(ref('clientes', clienteId), { saldoUSD: increment(montoUSD) }, { merge: true });
+export function sumarDeuda(lote, clienteId, { montoUSD = 0, montoCOP = 0 } = {}) {
+  lote.set(ref('clientes', clienteId), {
+    saldoCOP: increment(montoCOP),
+    saldoUSD: increment(montoUSD),
+  }, { merge: true });
 }
 
 /**
@@ -52,17 +60,24 @@ export function sumarDeuda(lote, clienteId, montoUSD) {
  * y sin el lugar no se sabe a qué gaveta entró. Un fiado cobrado y no contado
  * es un sobrante que nadie puede explicar al cerrar la caja.
  */
-export async function registrarAbono({ clienteId, montoUSD, pagos, nota = '', lugar = LUGAR_VENTAS }) {
+export async function registrarAbono({
+  clienteId, montoUSD, montoCOP = 0, pagos, nota = '', lugar = LUGAR_VENTAS,
+}) {
   const u = usuarioActual();
   const lote = writeBatch(db);
   lote.set(refNuevo('abonos'), {
-    clienteId, montoUSD, pagos, nota, lugar,
+    clienteId, montoUSD, montoCOP, pagos, nota, lugar,
     uid: u.uid, nombreUsuario: u.nombre, ts: serverTimestamp(),
     dia: new Date().toISOString().slice(0, 10),
   });
-  lote.set(ref('clientes', clienteId), { saldoUSD: increment(-montoUSD) }, { merge: true });
+  // Baja en las dos monedas: el peso es el que manda, el dólar queda para los
+  // reportes y para los clientes viejos.
+  lote.set(ref('clientes', clienteId), {
+    saldoCOP: increment(-montoCOP),
+    saldoUSD: increment(-montoUSD),
+  }, { merge: true });
   await lote.commit();
-  anotar('abono', { clienteId, montoUSD });
+  anotar('abono', { clienteId, montoUSD, montoCOP });
 }
 
 /** Abonos de un rango de días, para el arqueo y las cuentas del dueño. */

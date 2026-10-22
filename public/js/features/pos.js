@@ -22,7 +22,7 @@ import { cargarFavoritos, favoritos, contarUso } from '../data/favoritos.js';
 import { icono } from '../ui/iconos.js';
 import { registrarVenta } from '../data/ventas.js';
 import { turnoAbierto } from '../data/caja.js';
-import { listarClientes, guardarCliente } from '../data/clientes.js';
+import { listarClientes, guardarCliente, deudaDe } from '../data/clientes.js';
 import { leer, escribir, observar } from '../core/estado.js';
 import {
   MONEDAS, formatear, desdeUSD, crearPago, totalPagadoUSD, saldoPago,
@@ -50,6 +50,11 @@ function agregar(producto, { cantidad = 1, precioUSD = null } = {}) {
       nombre: producto.nombre,
       cantidad,
       precioUSD: base,
+      // El precio en PESOS viaja con la línea: es el de la etiqueta y el que
+      // hace falta si la venta queda fiada, porque la deuda se fija en pesos.
+      // Derivarlo después con la tasa deja la deuda a 19.996 cuando la etiqueta
+      // decía 20.000, y eso es justo lo que se discute.
+      precioCOP: producto.precioCOP || 0,
       precioOriginalUSD: producto.precioUSD || base,
       costoUSD: producto.costoUSD || 0,
       tipoPrecio: producto.tipoPrecio,
@@ -688,7 +693,12 @@ function elegirCliente() {
           onclick: () => { d.close(); resolver(c); },
         }, [
           el('span', { html: esc(c.nombre) }),
-          el('span', { style: 'color:var(--texto-suave)', texto: c.saldoUSD ? formatear(c.saldoUSD) : '' }),
+          // Lo que ya debe, en pesos: es el dato que decide si se le fía otra vez.
+          el('span', { style: 'color:var(--texto-suave)', texto: (() => {
+            const d = deudaDe(c, leer('tasas') || {});
+            if (!d.USD) return '';
+            return `debe ${d.COP ? formatear(d.COP, 'COP') : formatear(d.USD)}`;
+          })() }),
         ]));
       }
     };
@@ -704,7 +714,7 @@ function elegirCliente() {
           if (!nombre) return;
           const id = await guardarCliente({ nombre });
           d.close();
-          resolver({ id, nombre, saldoUSD: 0 });
+          resolver({ id, nombre, saldoUSD: 0, saldoCOP: 0 });
         } }),
       ])
     );

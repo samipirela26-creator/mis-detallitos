@@ -120,6 +120,21 @@ abierto, su cierre va a marcar un faltante de ese tamaño. Dos salidas, cuando m
 avisarle que lo escriba en la nota del cierre, o mover el retiro a después de cerrar.
 Tu pantalla de Mi dinero sí lo cuenta todo bien.
 
+## Hecho el 22/10/2026 — cuarta ronda
+
+- **Las deudas se fijan en PESOS**, como los precios. Antes vivían solo en dólares, así que
+  mover el dólar movía lo que la gente debe: los 20.000 de Yenifer se habrían vuelto 25.200
+  a cobrar con el dólar a 4.000. Ahora `saldoCOP` es el que manda y el dólar se deriva con
+  la tasa del día. Las dos deudas que había quedaron fijadas con el **precio de la etiqueta**
+  (`scripts/deudas-en-pesos.mjs`, en seco por defecto): Yenifer $20.000, Mamá $1.000 —
+  exacto, no la conversión de 19.996 que habría salido de los dólares.
+- La línea del carrito y la venta se llevan ahora el `precioCOP`, para que la deuda de un
+  fiado sea el número de la etiqueta y no una conversión.
+- **Anular una venta fiada ya borra la deuda.** No lo hacía: el cliente quedaba debiendo
+  una mercancía que había devuelto.
+- `deudaDe()` y `debe()` viven en `core/dinero.js` y no en `data/clientes.js`: ahí quedaban
+  detrás del SDK de Firebase y no se podían probar. 6 tests nuevos en `test/deudas.test.mjs`.
+
 ## Hecho el 22/10/2026 — tercera ronda
 
 - **Los bolívares nunca pasan por la gaveta** (`public/js/core/sitios.js`). Lo dijo Samuel:

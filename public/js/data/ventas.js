@@ -41,6 +41,9 @@ export async function registrarVenta({ lineas, pagos, vuelto = null, clienteId =
       nombre: l.nombre,
       cantidad: Number(l.cantidad),
       precioUSD: Math.round(l.precioUSD),
+      // El precio de la etiqueta, en pesos. Sirve para la deuda del fiado y
+      // para poder releer la venta sin depender de la tasa de hoy.
+      precioCOP: Math.round(l.precioCOP || 0),
       costoUSD: Math.round(l.costoUSD || 0),
       precioEditado: !!l.precioEditado,
       precioOriginalUSD: Math.round(l.precioOriginalUSD || l.precioUSD),
@@ -95,8 +98,14 @@ export async function registrarVenta({ lineas, pagos, vuelto = null, clienteId =
   }
 
   // Fiado: lo que quedó debiendo se suma al saldo del cliente, en el mismo lote.
+  //
+  // En PESOS, que es como se fija una deuda (ver clientes.js). El peso sale de
+  // los precios de la etiqueta que traen las líneas; lo que no tenga precio en
+  // pesos —una venta libre, un precio acordado a mano— se convierte con la
+  // tasa de hoy, que es la que se usó para cobrar.
   if (fiado && clienteId && venta.saldoUSD > 0) {
     lote.set(ref('clientes', clienteId), {
+      saldoCOP: increment(deudaEnPesos(venta)),
       saldoUSD: increment(venta.saldoUSD),
       ultimaCompra: serverTimestamp(),
     }, { merge: true });
@@ -121,6 +130,25 @@ export async function registrarVenta({ lineas, pagos, vuelto = null, clienteId =
   return { id: documento.id, venta, subida };
 }
 
+/**
+ * Lo que quedó debiendo, en pesos.
+ *
+ * Se suman los precios de etiqueta de las líneas; si la venta se pagó en parte,
+ * se cobra la misma proporción que en dólares. Una línea sin precio en pesos se
+ * convierte con la tasa del día.
+ */
+function deudaEnPesos(venta) {
+  const tasaCOP = (leer('tasas') || {}).COP || 0;
+  let pesos = 0;
+  for (const l of venta.lineas) {
+    if (l.precioCOP > 0) pesos += Math.round(l.cantidad * l.precioCOP);
+    else if (tasaCOP) pesos += Math.round((l.cantidad * l.precioUSD * tasaCOP) / 100);
+  }
+  if (!pesos) return 0;
+  if (venta.saldoUSD >= venta.totalUSD) return pesos;        // nada pagado
+  return Math.round((pesos * venta.saldoUSD) / venta.totalUSD);
+}
+
 /** Anular: el dueño lo hace directo; el empleado solo puede pedirlo. */
 export async function anularVenta(ventaId, motivo, venta) {
   const u = usuarioActual();
@@ -131,6 +159,15 @@ export async function anularVenta(ventaId, motivo, venta) {
     anuladaPor: u.nombre,
     anuladaTs: serverTimestamp(),
   }, { merge: true });
+
+  // Si era fiada, la deuda se va con ella. Sin esto, anular una venta fiada
+  // dejaba al cliente debiendo una mercancía que devolvió.
+  if (venta?.fiado && venta?.clienteId && (venta?.saldoUSD || 0) > 0) {
+    lote.set(ref('clientes', venta.clienteId), {
+      saldoCOP: increment(-deudaEnPesos(venta)),
+      saldoUSD: increment(-venta.saldoUSD),
+    }, { merge: true });
+  }
 
   // Devolver al inventario lo que se había descontado.
   const conStock = (venta?.lineas || []).filter((l) => l.productoId);

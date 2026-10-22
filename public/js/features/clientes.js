@@ -11,11 +11,14 @@
 //    alguien discute una deuda, eso es lo único que la sostiene.
 //  - "Cobrarle todo" llena el abono con el saldo completo: lo normal es que
 //    paguen la deuda entera, y escribirla a mano se equivoca.
+//  - LA CIFRA GRANDE ES EL PESO. Es el número que las dos personas acordaron y
+//    el que la persona espera oír. El dólar va debajo, en chico, porque sirve
+//    para los reportes del dueño y para nada más.
 import { registrar } from '../core/router.js';
 import { el, esc, $, fecha, abrirDialogo, pegar } from '../ui/html.js';
 import { avisarOk, avisarMal } from '../ui/avisos.js';
 import {
-  listarClientes, guardarCliente, registrarAbono, abonosDe, ventasFiadasDe,
+  listarClientes, guardarCliente, registrarAbono, abonosDe, ventasFiadasDe, deudaDe, debe,
 } from '../data/clientes.js';
 import { MONEDAS, formatear, crearPago, totalPagadoUSD, aMenores } from '../core/dinero.js';
 import { leer } from '../core/estado.js';
@@ -46,11 +49,16 @@ registrar('clientes', {
     try { clientes = await listarClientes(); }
     catch { nodo.innerHTML = ''; return nodo.appendChild(el('div.vacio', { texto: 'No se pudo cargar (¿sin internet?).' })); }
 
+    const tasas = () => leer('tasas') || {};
+    const deuda = (c) => deudaDe(c, tasas());
+
     const pintar = () => {
-      const deben = [...clientes].filter((c) => (c.saldoUSD || 0) > 0)
-        .sort((a, b) => b.saldoUSD - a.saldoUSD);
-      const alDia = clientes.filter((c) => (c.saldoUSD || 0) <= 0);
-      const total = deben.reduce((t, c) => t + c.saldoUSD, 0);
+      const deben = [...clientes].filter(debe)
+        .sort((a, b) => deuda(b).USD - deuda(a).USD);
+      const alDia = clientes.filter((c) => !debe(c));
+      const totalCOP = deben.reduce((t, c) => t + (deuda(c).COP || 0), 0);
+      const total = deben.reduce((t, c) => t + deuda(c).USD, 0);
+      const sinPesos = deben.some((c) => !deuda(c).enPesos);
       const viejas = deben.filter((c) => (diasDesde(c.ultimaCompra) ?? 0) >= 30);
 
       nodo.innerHTML = '';
@@ -58,7 +66,8 @@ registrar('clientes', {
         el('div.kpis', { style: 'margin-bottom:1rem' }, [
           el('div.kpi.acento', {}, [
             el('div.rotulo', { texto: 'TE DEBEN' }),
-            el('div.valor', { texto: formatear(total) }),
+            el('div.valor', { texto: totalCOP ? formatear(totalCOP, 'COP') : formatear(total) }),
+            totalCOP ? el('div', { style: 'font-size:.78rem;opacity:.75', texto: formatear(total) }) : null,
           ]),
           el('div.kpi', {}, [
             el('div.rotulo', { texto: 'Personas' }),
@@ -72,9 +81,17 @@ registrar('clientes', {
         el('p', {
           style: 'color:var(--texto-suave);font-size:.85rem;margin:-.3rem 0 1rem',
           texto: total
-            ? 'Esta plata NO está en la caja: está en la calle. Aparece aquí hasta que te la paguen.'
+            ? 'La deuda está en pesos, como la etiqueta: no se mueve cuando se mueve el dólar. '
+              + 'Y esta plata NO está en la caja: está en la calle.'
             : 'Nadie te debe nada ahora mismo.',
         }),
+        sinPesos ? el('div.tarjeta.amarilla', { style: 'margin-bottom:1rem' }, [
+          el('p', {
+            style: 'font-size:.9rem;margin:0',
+            texto: 'Hay deudas de antes que solo existen en dólares: el peso que se ve es una '
+                 + 'conversión de hoy, no lo que se acordó. Corre scripts/deudas-en-pesos.mjs para fijarlas.',
+          }),
+        ]) : null,
         el('button.btn.principal.ancho', { style: 'margin-bottom:1rem', texto: 'Cliente nuevo', onclick: () => formulario() })
       );
 
@@ -116,8 +133,13 @@ registrar('clientes', {
           el('div', { style: 'text-align:right' }, [
             el('div.cifra', {
               style: `font-weight:700;color:${debiendo ? 'var(--rojo)' : 'var(--verde)'}`,
-              texto: debiendo ? formatear(c.saldoUSD) : 'al día',
+              texto: debiendo
+                ? (deuda(c).COP ? formatear(deuda(c).COP, 'COP') : formatear(deuda(c).USD))
+                : 'al día',
             }),
+            debiendo && deuda(c).COP
+              ? el('div', { style: 'font-size:.75rem;color:var(--texto-suave)', texto: formatear(deuda(c).USD) })
+              : null,
             debiendo && a.texto
               ? el('div', { style: `font-size:.78rem;color:${a.color}`, texto: a.texto })
               : null,
@@ -154,25 +176,32 @@ registrar('clientes', {
 
     /** La ficha del deudor: cuánto debe, qué se llevó y qué ha abonado. */
     async function detalle(c) {
-      const debe = c.saldoUSD || 0;
+      const d0 = deuda(c);
+      const debeUSD = d0.USD;
       const a = antiguedad(diasDesde(c.ultimaCompra));
       const d = abrirDialogo('');
       pegar(d,
         el('h2', { html: esc(c.nombre) }),
         c.telefono ? el('p', { style: 'margin-top:-.5rem;color:var(--texto-suave)', html: esc(c.telefono) }) : null,
         el('div.cifra-gigante', {
-          style: `text-align:center;color:${debe > 0 ? 'var(--rojo)' : 'var(--verde)'}`,
-          texto: formatear(debe),
+          style: `text-align:center;color:${debeUSD > 0 ? 'var(--rojo)' : 'var(--verde)'}`,
+          texto: d0.COP ? formatear(d0.COP, 'COP') : formatear(debeUSD),
         }),
         el('p', {
           style: 'text-align:center;color:var(--texto-suave);margin-top:-.4rem',
-          texto: debe > 0 ? `debe · última compra ${a.texto}` : 'está al día',
+          texto: debeUSD > 0
+            ? `debe${d0.COP ? ` · ${formatear(debeUSD)} de hoy` : ''} · última compra ${a.texto}`
+            : 'está al día',
         }),
         el('div.fila', { style: 'margin:1rem 0' }, [
-          el('button.btn.plano', { texto: 'Editar', onclick: () => { d.close(); formulario(c); } }),
-          debe > 0 ? el('button.btn.principal', { style: 'flex:2', texto: `Cobrarle ${formatear(debe)}`, onclick: () => { d.close(); abonar(c, debe); } }) : null,
+          el('button.btn.callado', { texto: 'Editar', onclick: () => { d.close(); formulario(c); } }),
+          debeUSD > 0 ? el('button.btn.principal', {
+            style: 'flex:2',
+            texto: `Cobrarle ${d0.COP ? formatear(d0.COP, 'COP') : formatear(debeUSD)}`,
+            onclick: () => { d.close(); abonar(c, debeUSD); },
+          }) : null,
         ]),
-        debe > 0 ? el('button.btn.plano.ancho', { style: 'margin-bottom:1rem', texto: 'Abonar otra cantidad', onclick: () => { d.close(); abonar(c, 0); } }) : null,
+        debeUSD > 0 ? el('button.btn.plano.ancho', { style: 'margin-bottom:1rem', texto: 'Abonar otra cantidad', onclick: () => { d.close(); abonar(c, 0); } }) : null,
         el('div', { id: 'movimientos', class: 'cargando', texto: 'Buscando lo que se llevó…' }),
         el('button.btn.plano.ancho', { style: 'margin-top:1rem', texto: 'Cerrar', onclick: () => d.close() })
       );
@@ -236,7 +265,7 @@ registrar('clientes', {
       const resumen = el('div');
       const pintarResumen = () => {
         const pagado = totalPagadoUSD(pagos);
-        const queda = (c.saldoUSD || 0) - pagado;
+        const queda = deuda(c).USD - pagado;
         resumen.innerHTML = '';
         pegar(resumen,
           el('div', { style: 'text-align:center;margin:.5rem 0' }, [
@@ -289,8 +318,18 @@ registrar('clientes', {
           el('button.btn.principal', { texto: 'Registrar abono', onclick: async () => {
             const montoUSD = totalPagadoUSD(pagos);
             if (!montoUSD) return avisarMal('Escribe cuánto está abonando.');
+            // Lo que abona también baja la deuda en PESOS. Si pagó en pesos, se
+            // descuentan esos pesos exactos; si pagó en otra moneda, se pasa a
+            // pesos con la tasa de hoy. Y si paga todo, se cierra la deuda en
+            // cero en vez de dejar 3 pesos colgando por el redondeo.
+            const d0 = deuda(c);
+            const enPesos = pagos.filter((p) => p.moneda === 'COP').reduce((t, p) => t + p.monto, 0);
+            const resto = pagos.filter((p) => p.moneda !== 'COP').reduce((t, p) => t + p.montoUSD, 0);
+            const tasaCOP = tasas().COP || 0;
+            let montoCOP = enPesos + (tasaCOP ? Math.round((resto * tasaCOP) / 100) : 0);
+            if (montoUSD >= d0.USD && d0.COP) montoCOP = d0.COP;
             try {
-              await registrarAbono({ clienteId: c.id, montoUSD, pagos });
+              await registrarAbono({ clienteId: c.id, montoUSD, montoCOP, pagos });
               d.close();
               avisarOk('Abono registrado: esa plata ya entró a la caja.');
               recargar();

@@ -12,7 +12,7 @@ import { cargarTasas, actualizarTasasAuto } from './data/tasas.js';
 import { ventasEntre } from './data/ventas.js';
 import { gastosEntre } from './data/gastos.js';
 import { bajoMinimo } from './data/inventario.js';
-import { listarClientes } from './data/clientes.js';
+import { listarClientes, deudaDe, debe } from './data/clientes.js';
 import { resumen } from './reports/analisis.js';
 import { formatear, MONEDAS } from './core/dinero.js';
 import { invalidarIndice } from './data/busqueda.js';
@@ -104,11 +104,16 @@ registrar('panel', {
     // que más fácil se pierde, porque no duele hasta que pasan los meses.
     listarClientes()
       .then((clientes) => {
-        const deben = clientes.filter((c) => (c.saldoUSD || 0) > 0);
+        const tasas = leer('tasas') || {};
+        const deben = clientes.filter(debe);
         if (!deben.length) return;
-        const total = deben.reduce((t, c) => t + c.saldoUSD, 0);
-        avisos.appendChild(tarjetaAccion('', `${deben.length} ${deben.length === 1 ? 'persona te debe' : 'personas te deben'} ${formatear(total)}`,
-          deben.slice(0, 4).map((c) => `${c.nombre} ${formatear(c.saldoUSD)}`).join(' · ')
+        // En pesos, que es como se fijó la deuda y como la va a decir la gente.
+        const d = (c) => deudaDe(c, tasas);
+        const totalCOP = deben.reduce((t, c) => t + (d(c).COP || 0), 0);
+        const total = deben.reduce((t, c) => t + d(c).USD, 0);
+        const monto = (c) => (d(c).COP ? formatear(d(c).COP, 'COP') : formatear(d(c).USD));
+        avisos.appendChild(tarjetaAccion('', `${deben.length} ${deben.length === 1 ? 'persona te debe' : 'personas te deben'} ${totalCOP ? formatear(totalCOP, 'COP') : formatear(total)}`,
+          deben.slice(0, 4).map((c) => `${c.nombre} ${monto(c)}`).join(' · ')
             + (deben.length > 4 ? '…' : ''),
           'Ver deudores', 'clientes'));
         seccionPendiente.style.display = '';

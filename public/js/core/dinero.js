@@ -161,6 +161,33 @@ export function vueltoEnMonedas(vueltoUSD, tasas = {}) {
   return salida;
 }
 
+// --- Deudas ------------------------------------------------------------------
+// LA DEUDA SE FIJA EN PESOS, igual que los precios. Una deuda se contrae en la
+// moneda de la etiqueta: si se guarda solo en dólares, cuando el peso se mueve
+// la deuda se mueve con él —20.000 pesos con el dólar a 4.000 se vuelven 25.200
+// a cobrar— y eso nadie lo acepta, con razón. El peso guardado es el número que
+// las dos personas acordaron; el dólar se deriva para los reportes del dueño.
+
+/** ¿Este cliente debe algo? El peso si lo tiene; el dólar en los de antes. */
+export const debe = (c) =>
+  (c?.saldoCOP === undefined || c?.saldoCOP === null ? (c?.saldoUSD || 0) : c.saldoCOP) > 0;
+
+/**
+ * Cuánto debe, en las dos monedas.
+ *
+ * `enPesos: false` avisa que ese cliente es de antes del cambio y su deuda solo
+ * existe en dólares: el peso que se muestre es una conversión de HOY, no lo que
+ * se acordó. Se arregla con `scripts/deudas-en-pesos.mjs`.
+ */
+export function deudaDe(cliente, tasas = {}) {
+  const usd = cliente?.saldoUSD || 0;
+  const cop = cliente?.saldoCOP;
+  if (cop === undefined || cop === null) {
+    return { USD: usd, COP: tasas.COP ? desdeUSD(usd, 'COP', tasas.COP) : null, enPesos: false };
+  }
+  return { COP: cop, USD: tasas.COP ? aUSD(cop, 'COP', tasas.COP) : usd, enPesos: true };
+}
+
 // --- Precios -----------------------------------------------------------------
 
 /**
