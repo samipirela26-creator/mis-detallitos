@@ -26,12 +26,16 @@ import { escribir, leer } from '../core/estado.js';
  *             autorizadoPor, esServicio }]
  * pagos  = [{ moneda, monto, tasa, montoUSD }]
  */
-export async function registrarVenta({ lineas, pagos, vuelto = null, clienteId = null, fiado = false, nota = '', sinTurno = false }) {
+export async function registrarVenta({
+  lineas, pagos, vuelto = null, ajusteUSD = 0, ajustadoPor = null, totalCOP = null,
+  clienteId = null, fiado = false, nota = '', sinTurno = false,
+}) {
   const u = usuarioActual();
   if (!lineas?.length) throw new Error('La venta no tiene productos.');
 
   const documento = refNuevo('ventas');           // id estable ANTES de escribir
   const totales = totalesVenta(lineas);
+  const ajuste = Math.round(ajusteUSD || 0);
   const pagadoUSD = totalPagadoUSD(pagos);
 
   const venta = {
@@ -55,9 +59,18 @@ export async function registrarVenta({ lineas, pagos, vuelto = null, clienteId =
       fueraDeCatalogo: !!l.fueraDeCatalogo,
       gananciaEstimada: !!l.fueraDeCatalogo,
     })),
-    totalUSD: totales.totalUSD,
+    // El total puede venir AJUSTADO: los precios caen en números que no se
+    // pueden dar con monedas ($ 1.520) y se redondean al cobrar. El ajuste se
+    // guarda aparte en vez de tocar los precios de las líneas, porque el
+    // producto no cambió de precio: se redondeó esta venta. Así el reporte por
+    // producto sigue diciendo la verdad y se puede ver cuánto se fue en
+    // redondeos y quién los autorizó.
+    totalUSD: totales.totalUSD + ajuste,
+    totalCOP: totalCOP || 0,
+    ajusteUSD: ajuste,
+    ajustadoPor: ajuste ? ajustadoPor : null,
     costoTotalUSD: totales.costoUSD,
-    gananciaUSD: totales.gananciaUSD,
+    gananciaUSD: totales.gananciaUSD + ajuste,
     pagos,
     pagadoUSD,
     // El cambio que se le dio al cliente, con la moneda en que salió. SALE de
@@ -65,7 +78,7 @@ export async function registrarVenta({ lineas, pagos, vuelto = null, clienteId =
     // pagaron y el faltante era del tamaño del vuelto.
     vuelto: vuelto ? { moneda: vuelto.moneda, monto: vuelto.monto, montoUSD: vuelto.montoUSD } : null,
     vueltoUSD: vuelto?.montoUSD || 0,
-    saldoUSD: totales.totalUSD - pagadoUSD,   // > 0 = quedó debiendo
+    saldoUSD: totales.totalUSD + ajuste - pagadoUSD,   // > 0 = quedó debiendo
     fiado: !!fiado,
     // Se vendió sin caja abierta: queda escrito en la venta para poder
     // encontrarlas después. Sin esta marca son invisibles.
@@ -117,6 +130,14 @@ export async function registrarVenta({ lineas, pagos, vuelto = null, clienteId =
     .catch((e) => console.warn('[ventas] quedó en cola:', e?.code || e));
   escribir('pendientes', (leer('pendientes') || 0) + 1);
 
+  if (ajuste) {
+    anotar('total-ajustado-en-venta', {
+      ventaId: documento.id,
+      antes: totales.totalUSD, despues: venta.totalUSD,
+      ajusteUSD: ajuste, autorizadoPor: ajustadoPor,
+    });
+  }
+
   for (const l of venta.lineas) {
     if (l.precioEditado) {
       anotar('precio-editado-en-venta', {
@@ -139,6 +160,12 @@ export async function registrarVenta({ lineas, pagos, vuelto = null, clienteId =
  */
 function deudaEnPesos(venta) {
   const tasaCOP = (leer('tasas') || {}).COP || 0;
+  // Si la venta se cobró en pesos, ese es el número que se acordó —ya
+  // redondeado— y no hay nada que recalcular.
+  if (venta.totalCOP > 0) {
+    if (venta.saldoUSD >= venta.totalUSD) return venta.totalCOP;
+    return Math.round((venta.totalCOP * venta.saldoUSD) / (venta.totalUSD || 1));
+  }
   let pesos = 0;
   for (const l of venta.lineas) {
     if (l.precioCOP > 0) pesos += Math.round(l.cantidad * l.precioCOP);

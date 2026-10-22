@@ -120,6 +120,30 @@ abierto, su cierre va a marcar un faltante de ese tamaño. Dos salidas, cuando m
 avisarle que lo escriba en la nota del cierre, o mover el retiro a después de cerrar.
 Tu pantalla de Mi dinero sí lo cuenta todo bien.
 
+## Hecho el 22/10/2026 — quinta ronda
+
+- **Cobrar dejó de calcular vueltos.** Se probó al revés —pedir cuánto entregó el cliente y
+  que la app restara— y era un estorbo: una pantalla más y un número que escribir con el
+  cliente enfrente, para algo que quien atiende hace de cabeza mientras cuenta los billetes.
+  Ahora se ve el total, se toca con qué pagó y listo. La gaveta sigue cuadrando: lo que
+  queda dentro al final es el total, se haya pagado con el billete que se haya pagado.
+- **Ajustar el monto, con el código.** Los precios caen en números que no se pueden dar con
+  monedas ($ 1.520) y hay que cobrar 1.500. Antes eso obligaba a cambiarle el precio a un
+  producto, que es mentira —el producto no cambió de precio, se redondeó la venta—. Ahora se
+  ajusta el total: se guarda aparte (`ajusteUSD`), queda en auditoría con quién lo autorizó,
+  y al empleado se le pide el PIN. El reporte por producto sigue mostrando el precio de
+  etiqueta y el de ventas muestra lo que de verdad se cobró.
+- El recibo muestra el total **en pesos** cuando así se cobró, y ya no repite "Pagó: $X"
+  debajo de un total idéntico.
+
+## OJO con el PIN
+
+Mientras no haya PIN puesto, `pedirAutorizacion()` deja pasar a cualquiera —está escrito
+así a propósito para no trancar el mostrador en un negocio que todavía no lo configuró—.
+Eso significa que **hoy Abraham puede ajustar un total sin que nadie lo apruebe**. Queda
+registrado en auditoría con su nombre, pero no se le pide permiso a nadie. Ponerlo es un
+minuto en Configuración.
+
 ## Hecho el 22/10/2026 — cuarta ronda
 
 - **Las deudas se fijan en PESOS**, como los precios. Antes vivían solo en dólares, así que

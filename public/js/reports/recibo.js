@@ -14,7 +14,11 @@ export function textoRecibo({ id, venta, tasas = {} }) {
   const otras = Object.keys(MONEDAS)
     .filter((m) => m !== 'USD' && tasas[m])
     .map((m) => `${formatear(desdeUSD(venta.totalUSD, m, tasas[m]), m)}`);
-  const pagos = (venta.pagos || []).map((p) => `  ${formatear(p.monto, p.moneda)}`);
+  // "Pagó: $ 6.000" debajo de un total de $ 6.000 no le dice nada a nadie: se
+  // pone solo cuando aporta algo, que es cuando quedó debiendo.
+  const pagos = venta.saldoUSD > 0
+    ? (venta.pagos || []).map((p) => `  ${formatear(p.monto, p.moneda)}`)
+    : [];
 
   return [
     `*${NEGOCIO}*`,
@@ -23,8 +27,13 @@ export function textoRecibo({ id, venta, tasas = {} }) {
     '',
     ...lineas,
     '',
-    `*TOTAL: ${formatear(venta.totalUSD)}*`,
-    otras.length ? `(${otras.join(' / ')})` : '',
+    // El total en PESOS cuando así se cobró: es el número que la persona
+    // acaba de pagar y el que va a reconocer.
+    venta.totalCOP
+      ? `*TOTAL: ${formatear(venta.totalCOP, 'COP')}*`
+      : `*TOTAL: ${formatear(venta.totalUSD)}*`,
+    venta.totalCOP ? `(${formatear(venta.totalUSD)})` : (otras.length ? `(${otras.join(' / ')})` : ''),
+    venta.ajusteUSD < 0 ? 'Se le redondeó a favor.' : '',
     pagos.length ? `Pagó:\n${pagos.join('\n')}` : '',
     venta.saldoUSD > 0 ? `*Queda debiendo: ${formatear(venta.saldoUSD)}*` : '',
     '',
@@ -37,7 +46,10 @@ export function recibo({ id, venta, tasas = {}, alCerrar = null }) {
   const d = abrirDialogo('');
   pegar(d, 
     el('h2', { texto: 'Venta registrada' }),
-    el('div.cifra-gigante', { style: 'text-align:center;margin:.5rem 0', texto: formatear(venta.totalUSD) }),
+    el('div.cifra-gigante', {
+      style: 'text-align:center;margin:.5rem 0',
+      texto: venta.totalCOP ? formatear(venta.totalCOP, 'COP') : formatear(venta.totalUSD),
+    }),
     venta.saldoUSD > 0
       ? el('p', { style: 'text-align:center;color:var(--rojo);font-weight:700', texto: `Queda debiendo ${formatear(venta.saldoUSD)}` })
       : null,

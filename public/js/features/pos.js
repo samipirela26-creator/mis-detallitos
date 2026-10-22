@@ -7,7 +7,11 @@
 //  - Las escalas por cantidad recalculan el precio al cambiar la cantidad
 //    (200 fotocopias salen más baratas sin que nadie tenga que acordarse).
 //  - Si el precio queda por debajo del mínimo, la línea se marca y pide PIN.
-//  - Se puede cobrar en dólares, pesos y bolívares, mezclados.
+//  - Se cobra en dólares, pesos o bolívares: se toca con cuál pagó y ya.
+//  - NO se calcula vuelto. Quien atiende lo hace de cabeza mientras cuenta los
+//    billetes; pedirle que lo escriba era una pantalla de más con el cliente
+//    esperando. Lo que sí se puede es ajustar el total cuando cae en un número
+//    que no se puede dar con monedas ($ 1.520 → $ 1.500), y eso pide el código.
 
 import { registrar, ir } from '../core/router.js';
 import { el, esc, $, abrirDialogo, pegar } from '../ui/html.js';
@@ -25,8 +29,8 @@ import { turnoAbierto } from '../data/caja.js';
 import { listarClientes, guardarCliente, deudaDe } from '../data/clientes.js';
 import { leer, escribir, observar } from '../core/estado.js';
 import {
-  MONEDAS, formatear, desdeUSD, crearPago, totalPagadoUSD, saldoPago,
-  precioPorCantidad, totalesVenta, requiereAutorizacion, vueltoEnMonedas,
+  MONEDAS, formatear, desdeUSD, aUSD, crearPago,
+  precioPorCantidad, totalesVenta, requiereAutorizacion,
 } from '../core/dinero.js';
 import { recibo } from '../reports/recibo.js';
 import { sonidoBeep, sonidoCobrar, sonidoAlerta } from '../ui/sonido.js';
@@ -530,132 +534,134 @@ function pedirVentaLibre(nombreSugerido = '') {
 }
 
 // --- cobrar ------------------------------------------------------------------
+//
+// Lo más corto posible, porque es lo que se hace cien veces al día: se ve el
+// total, se toca con qué pagó, y se acabó.
+//
+// AQUÍ NO SE CALCULA VUELTO, a propósito. Se probó al revés —pedir cuánto
+// entregó el cliente y que la app restara— y era un estorbo: una pantalla más,
+// un número que escribir con el cliente esperando, y para algo que quien
+// atiende hace de cabeza mientras cuenta los billetes. La app no tiene por qué
+// opinar de eso.
+//
+// Lo que sí hace falta es AJUSTAR EL MONTO. Los precios caen en números que no
+// existen en monedas: $ 1.520 no se puede cobrar porque no hay con qué dar los
+// 20. Se le quitan y se cobra 1.500. Eso antes había que hacerlo línea por
+// línea, cambiando el precio de un producto, que es mentira: el producto no
+// cambió de precio, se redondeó la venta. Ahora se ajusta el total, queda
+// escrito quién lo hizo y cuánto, y al empleado se le pide el código.
+//
+// Y la gaveta sigue cuadrando: lo que entra es el total: si pagan con un
+// billete grande, el vuelto sale de la gaveta y la diferencia es el total
+// igual. Por eso no hace falta anotar el billete.
 async function cobrar() {
   const lineas = carrito();
   if (!lineas.length) return;
   const t = totalesVenta(lineas);
   const tasas = leer('tasas') || {};
-  let pagos = [];
-  let clienteId = null;
-  let fiado = false;
-  // En qué moneda se le da el cambio. Arranca en la moneda con que pagó, que es
-  // lo que pasa en el mostrador: pagan con un billete de pesos y el vuelto sale
-  // en pesos. Importa que quede escrito: el vuelto SALE de la gaveta, y sin
-  // anotarlo el arqueo espera el billete completo y acusa un faltante del
-  // tamaño del cambio. Fue el faltante del 21/10.
-  let monedaVuelto = 'USD';
+
+  // El monto se piensa y se ajusta en PESOS, que es la moneda de la etiqueta.
+  // Si no hay tasa cargada, se trabaja en dólares y el ajuste también.
+  const monedaMonto = tasas.COP ? 'COP' : 'USD';
+  const enMoneda = (usd) => (monedaMonto === 'USD' ? usd : desdeUSD(usd, monedaMonto, tasas[monedaMonto]));
+  const aDolares = (monto) => (monedaMonto === 'USD' ? monto : aUSD(monto, monedaMonto, tasas[monedaMonto]));
+
+  let montoCobrado = enMoneda(t.totalUSD);      // en `monedaMonto`
+  let ajustadoPor = null;
+  const totalUSD = () => aDolares(montoCobrado);
+  const ajusteUSD = () => totalUSD() - t.totalUSD;
 
   const d = abrirDialogo('');
   const resumen = el('div');
-  const botonesMoneda = el('div.fila', { style: 'margin:.75rem 0' });
-  const listaPagos = el('div');
-  const acciones = el('div.fila', { style: 'margin-top:1rem' });
-
-  for (const codigo of Object.keys(MONEDAS)) {
-    if (codigo !== 'USD' && !tasas[codigo]) continue;
-    botonesMoneda.appendChild(el('button.btn.plano', {
-      texto: `${MONEDAS[codigo].simbolo} ${MONEDAS[codigo].nombre}`,
-      onclick: async () => {
-        const falta = Math.max(0, -saldoPago(t.totalUSD, pagos));
-        const sugerido = codigo === 'USD' ? falta : desdeUSD(falta, codigo, tasas[codigo]);
-        // "Recibido en Pesos" no dice nada: parecía el nombre de una casilla de
-        // formulario. La pregunta de verdad es cuánto te entregó el cliente, y
-        // el monto que falta viene ya escrito para que lo normal —paga justo—
-        // sea un solo toque.
-        const monto = await pedirMonto({
-          titulo: `¿Cuánto te dio en ${MONEDAS[codigo].nombre.toLowerCase()}?`,
-          nota: falta
-            ? `Faltan ${formatear(falta)} de ${formatear(t.totalUSD)}. Si te dio más, el vuelto se calcula solo.`
-            : `Ya está cubierto el total de ${formatear(t.totalUSD)}.`,
-          moneda: codigo, inicial: sugerido, aceptar: 'Agregar',
-        });
-        if (!monto) return;
-        pagos = [...pagos, crearPago(codigo, monto, tasas)];
-        monedaVuelto = [...pagos].sort((a, b) => b.montoUSD - a.montoUSD)[0].moneda;
-        pintar();
-      },
-    }));
-  }
+  const botonesMoneda = el('div.fila', { style: 'margin:.75rem 0;flex-wrap:wrap' });
 
   function pintar() {
-    const saldo = saldoPago(t.totalUSD, pagos);
     resumen.innerHTML = '';
-    pegar(resumen, 
+    const ajuste = ajusteUSD();
+    pegar(resumen,
       el('div', { style: 'text-align:center' }, [
         el('div', { style: 'color:var(--texto-suave);font-size:.85rem', texto: 'TOTAL A COBRAR' }),
-        el('div.cifra-gigante', { texto: formatear(t.totalUSD) }),
+        el('div.cifra-gigante', { texto: formatear(montoCobrado, monedaMonto) }),
+        // Las otras monedas, debajo y en chico: sirven para decir el precio,
+        // no para cobrar en dos monedas a la vez.
+        el('div', {
+          style: 'color:var(--texto-suave);font-size:.9rem',
+          texto: Object.keys(MONEDAS)
+            .filter((m) => m !== monedaMonto && (m === 'USD' || tasas[m]))
+            .map((m) => formatear(m === 'USD' ? totalUSD() : desdeUSD(totalUSD(), m, tasas[m]), m))
+            .join('   ·   '),
+        }),
+        ajuste ? el('div', {
+          style: `font-size:.85rem;font-weight:600;color:${ajuste < 0 ? 'var(--ambar)' : 'var(--verde)'}`,
+          texto: `${ajuste < 0 ? 'Rebajado' : 'Subido'} ${formatear(Math.abs(enMoneda(t.totalUSD) - montoCobrado), monedaMonto)}`
+               + (ajustadoPor ? ` · autorizó ${ajustadoPor}` : ''),
+        }) : null,
       ])
     );
 
-    listaPagos.innerHTML = '';
-    for (const [i, p] of pagos.entries()) {
-      listaPagos.appendChild(el('div', {
-        style: 'display:flex;justify-content:space-between;align-items:center;padding:.4rem 0;border-bottom:1px solid var(--borde)',
+    botonesMoneda.innerHTML = '';
+    for (const codigo of Object.keys(MONEDAS)) {
+      if (codigo !== 'USD' && !tasas[codigo]) continue;
+      // En la moneda del monto se cobra el monto EXACTO que se ve arriba. Si se
+      // recalculara desde el dólar, un ajuste a 1.500 podía cobrarse en 1.501:
+      // el dólar no tiene suficientes decimales para volver al peso sin error.
+      const enEsa = codigo === monedaMonto ? montoCobrado
+        : codigo === 'USD' ? totalUSD()
+        : desdeUSD(totalUSD(), codigo, tasas[codigo]);
+      botonesMoneda.appendChild(el('button.btn.plano', {
+        style: 'flex:1 1 44%;min-height:60px;flex-direction:column;gap:.1rem',
+        onclick: () => terminar(codigo, enEsa),
       }, [
-        el('span', { texto: `${formatear(p.monto, p.moneda)}` }),
-        el('span', { style: 'color:var(--texto-suave);font-size:.85rem', texto: `= ${formatear(p.montoUSD)}` }),
-        el('button.btn.plano', {
-          type: 'button', 'aria-label': 'Quitar este pago', title: 'Quitar',
-          style: 'min-height:38px;min-width:44px;padding:0', html: icono('trash'),
-          onclick: () => { pagos = pagos.filter((_, j) => j !== i); pintar(); },
-        }),
+        el('span', { style: 'font-weight:700', texto: MONEDAS[codigo].nombre }),
+        el('span', { style: 'font-size:.85rem;color:var(--texto-suave)', texto: formatear(enEsa, codigo) }),
       ]));
     }
-
-    if (pagos.length) {
-      const vuelto = vueltoEnMonedas(Math.max(0, saldo), tasas);
-      listaPagos.appendChild(el('div', { style: 'padding-top:.6rem' }, [
-        el('div', {
-          style: `font-weight:700;color:${saldo < 0 ? 'var(--rojo)' : 'var(--verde)'}`,
-          texto: saldo < 0 ? `Faltan ${formatear(-saldo)}` : saldo > 0 ? `Vuelto ${formatear(saldo)}` : 'Justo, sin vuelto',
-        }),
-        // El vuelto se da en UNA moneda y hay que decir en cuál: eso es lo que
-        // sale de la gaveta. Antes solo se mostraban las equivalencias "o Bs…,
-        // o $…" y no quedaba registrado nada.
-        saldo > 0 ? el('div', { style: 'display:flex;gap:.4rem;align-items:center;flex-wrap:wrap;margin-top:.4rem' }, [
-          el('span', { style: 'color:var(--texto-suave);font-size:.85rem', texto: 'El vuelto sale en' }),
-          ...Object.keys(vuelto).map((m) => el('button.chip', {
-            type: 'button', 'aria-pressed': m === monedaVuelto ? 'true' : 'false',
-            texto: formatear(vuelto[m], m),
-            onclick: () => { monedaVuelto = m; pintar(); },
-          })),
-        ]) : null,
-      ]));
-    }
-
-    acciones.innerHTML = '';
-    pegar(acciones, 
-      el('button.btn.callado', { texto: 'Cancelar', onclick: () => d.close() }),
-      el('button.btn.principal.grande', {
-        style: 'flex:2',
-        texto: saldo < 0 && !fiado ? 'Falta plata' : 'Cobrar',
-        disabled: saldo < 0 && !fiado ? '' : null,
-        onclick: terminar,
-      })
-    );
   }
 
-  async function terminar() {
+  /** Ajustar el total: quitarle los 20 que no se pueden dar. */
+  async function ajustar() {
+    const nuevo = await pedirMonto({
+      titulo: 'Ajustar el monto',
+      nota: `El total es ${formatear(enMoneda(t.totalUSD), monedaMonto)}. `
+          + 'Déjalo en lo que de verdad vas a cobrar.',
+      moneda: monedaMonto, inicial: montoCobrado, aceptar: 'Dejarlo en',
+    });
+    if (nuevo === null || nuevo === montoCobrado) return;
+    // Subirlo o bajarlo lo decide el dueño, o el código. Sin esto, cualquiera
+    // podría rebajar una venta y nadie se enteraría.
+    const quien = await pedirAutorizacion(
+      `Cambiar el total de ${formatear(enMoneda(t.totalUSD), monedaMonto)} `
+      + `a ${formatear(nuevo, monedaMonto)}.`);
+    if (!quien) return avisarMal('Sin autorización no se puede cambiar el total.');
+    ajustadoPor = quien;
+    montoCobrado = nuevo;
+    pintar();
+  }
+
+  async function terminar(moneda, monto, { fiadoA = null } = {}) {
     try {
-      // Vender sin turno abierto SE PERMITE: frenar un cobro con el cliente
-      // enfrente sería peor que el problema. Pero la plata entra a la gaveta y
-      // ningún arqueo la cuenta, así que la venta queda marcada y se avisa.
       const turno = await turnoAbierto().catch(() => null);
-      const saldo = saldoPago(t.totalUSD, pagos);
-      const vuelto = saldo > 0
-        ? { moneda: monedaVuelto, monto: vueltoEnMonedas(saldo, tasas)[monedaVuelto] ?? saldo, montoUSD: saldo }
-        : null;
-      const { id, venta } = await registrarVenta({ lineas, pagos, vuelto, clienteId, fiado, sinTurno: !turno });
+      // Pagó justo: se cobra el total en la moneda que se tocó. No se anota
+      // ningún billete ni ningún vuelto, porque lo que queda en la gaveta al
+      // final del día es el total igual.
+      const pagos = fiadoA ? [] : [crearPago(moneda, monto, tasas)];
+      const { id, venta } = await registrarVenta({
+        lineas, pagos,
+        ajusteUSD: ajusteUSD(),
+        ajustadoPor,
+        // El monto en pesos se guarda siempre que se haya pensado en pesos,
+        // aunque pague en otra moneda: es el precio que se acordó.
+        totalCOP: monedaMonto === 'COP' ? montoCobrado : null,
+        clienteId: fiadoA?.id || null,
+        fiado: !!fiadoA,
+        sinTurno: !turno,
+      });
       d.close();
       vaciar();
       sonidoCobrar();
-      if (turno) {
-        avisarOk('Venta registrada');
-      } else {
-        avisar('Venta registrada SIN caja abierta: no va a entrar en ningún arqueo. Abre la caja para que cuadre.');
-      }
-      // Al cerrar el recibo, el foco vuelve al buscador: la venta siguiente
-      // empieza escribiendo. En la laptop esto es no tocar el ratón nunca.
+      if (fiadoA) avisarOk(`Queda fiado a ${fiadoA.nombre}`);
+      else if (turno) avisarOk('Venta registrada');
+      else avisar('Venta registrada SIN caja abierta: no va a entrar en ningún arqueo. Abre la caja para que cuadre.');
       recibo({ id, venta, tasas, alCerrar: () => $('#q')?.focus() });
     } catch (e) {
       sonidoAlerta();
@@ -663,24 +669,23 @@ async function cobrar() {
     }
   }
 
-  pegar(d, 
+  pegar(d,
     el('h2', { texto: 'Cobrar' }),
     resumen,
-    el('p', { style: 'color:var(--texto-suave);font-size:.85rem;margin-top:1rem', texto: '¿Con qué te está pagando?' }),
+    el('button.btn.callado.ancho', {
+      style: 'margin-top:.5rem', texto: 'Ajustar el monto', onclick: ajustar,
+    }),
+    el('p', { style: 'color:var(--texto-suave);font-size:.85rem;margin-top:1rem', texto: '¿Con qué te pagó?' }),
     botonesMoneda,
-    listaPagos,
     el('button.btn.plano.ancho', {
-      style: 'margin-top:.75rem', texto: 'Dejarlo fiado',
+      style: 'margin-top:.25rem', texto: 'Dejarlo fiado',
       onclick: async () => {
         const elegido = await elegirCliente();
         if (!elegido) return;
-        clienteId = elegido.id;
-        fiado = true;
-        avisar(`Queda fiado a ${elegido.nombre}`);
-        pintar();
+        terminar(null, 0, { fiadoA: elegido });
       },
     }),
-    acciones
+    el('button.btn.callado.ancho', { style: 'margin-top:.5rem', texto: 'Cancelar', onclick: () => d.close() })
   );
   pintar();
 }

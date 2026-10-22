@@ -288,3 +288,32 @@ test('dinero por lugar: una venta sin detalle de pagos se le carga a la caja', (
   const d = a.dineroPorLugar({ ventas: [{ totalUSD: 400, saldoUSD: 200 }] });
   assert.equal(d.saldos['Caja'], 200);   // lo fiado no está
 });
+
+// --- el redondeo al cobrar ---------------------------------------------------
+// Los precios caen en números que no se pueden dar con monedas ($ 1.520) y se
+// redondean al cobrar. El ajuste va en la VENTA, no en el precio del producto:
+// el producto no cambió de precio, se redondeó esa venta.
+
+const VENTA_REDONDEADA = {
+  id: 'v9', dia: '2026-10-22', uid: 'u1', nombreUsuario: 'Abraham',
+  totalUSD: 472, ajusteUSD: -6, gananciaUSD: 266, saldoUSD: 0,
+  lineas: [{ productoId: 'p1', nombre: 'Cuaderno', cantidad: 1, precioUSD: 478, costoUSD: 200 }],
+};
+
+test('reportes: lo vendido es lo que se cobró, ya redondeado', () => {
+  const r = a.resumen([VENTA_REDONDEADA]);
+  assert.equal(r.vendidoUSD, 472);        // no los 478 de la etiqueta
+  assert.equal(r.costoUSD, 200);
+  assert.equal(r.gananciaBrutaUSD, 272);  // el redondeo sale de la ganancia
+});
+
+test('reportes: el producto conserva su precio de etiqueta', () => {
+  const [p] = a.porProducto([VENTA_REDONDEADA]);
+  assert.equal(p.nombre, 'Cuaderno');
+  assert.equal(p.vendidoUSD, 478);        // el redondeo no se le carga al producto
+  assert.equal(p.unidades, 1);
+});
+
+test('reportes: una venta redondeada no deja vuelto que reconstruir', () => {
+  assert.equal(a.vueltoDeVenta({ ...VENTA_REDONDEADA, pagadoUSD: 472, pagos: [{ moneda: 'COP', monto: 1500, montoUSD: 472 }] }), null);
+});
