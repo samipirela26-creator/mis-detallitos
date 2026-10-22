@@ -88,9 +88,6 @@ quitan. Los tres primeros atacan el **registro parcial**, que es como mueren
 estas apps: nadie las abandona, se dejan de registrar ventas y los reportes
 empiezan a mentir.
 
-- [ ] **Venta rápida de producto suelto.** Nombre libre y monto libre, sin tocar
-      inventario, marcado "fuera de catálogo" en reportes. Sin esto, lo que no
-      está en el catálogo se cobra por fuera de la app y los números se arruinan.
 - [ ] **"Qué pudo pasar" en el cierre con descuadre.** Anulaciones, precios
       bajados a mano, descuentos con su autor y retiros del turno, en la misma
       pantalla del faltante. Los datos ya están en `auditoria`.
@@ -108,6 +105,85 @@ empiezan a mentir.
 
 (El PIN ya está arriba, en "Esperan tu respuesta": sin él, la causa "el empleado
 hace lo que quiera" sigue abierta.)
+
+## Esperan tu respuesta — del reconteo del dinero (22/10/2026)
+
+- [ ] **¿Hay bolívares?** El conteo del 22/10 no los mencionó, así que quedaron en CERO
+      en los dos sitios. Si hay bolívares guardados, se agregan al `CONTEO` de
+      `scripts/rehacer-cuentas.mjs` y se vuelve a correr, o se cargan desde la app con
+      Mi dinero → "Cuadrar lo contado".
+
+- [ ] **Abre la caja antes de vender.** 8 de las 12 ventas se cobraron sin turno abierto
+      (21 y 22/10): esa plata entró a la gaveta y ningún arqueo la cuenta.
+
+## Límite conocido del arqueo del empleado
+
+Cuando Abraham cierra su turno, su app NO puede leer los retiros, los ingresos ni los
+traslados: son del dueño y las reglas de Firestore no se lo permiten (y está bien, de ahí
+se deduce la ganancia). Entonces, si sacas plata de la gaveta mientras él tiene el turno
+abierto, su cierre va a marcar un faltante de ese tamaño. Dos salidas, cuando moleste:
+avisarle que lo escriba en la nota del cierre, o mover el retiro a después de cerrar.
+Tu pantalla de Mi dinero sí lo cuenta todo bien.
+
+## Hecho el 22/10/2026 — segunda ronda
+
+- **Las cuentas de dinero se rehicieron desde el conteo a mano** de Samuel
+  (`scripts/rehacer-cuentas.mjs`, en seco por defecto, `--aplicar` para hacerlo). Se
+  borraron los 5 ingresos y el retiro viejos (respaldo en `respaldo-cuentas-2026-10-22.json`,
+  y la operación quedó en `auditoria`). **Las 13 ventas, los gastos y los clientes no se
+  tocaron.** Quedó así:
+
+  | | Dólares | Pesos |
+  |---|---|---|
+  | **Caja** | $ 5,00 | $ 38.000 (15.000 en monedas + 23.000 en billetes) |
+  | **Caja fuerte** | $ 11,00 | $ 398.500 (16.500 en monedas + 382.000 en billetes) |
+
+  El conteo entró como "Dinero inicial" y, al lado, un "Ajuste de conteo" por moneda que
+  neutraliza lo registrado ANTES del conteo (si no, la app le sumaba encima el efectivo de
+  las ventas viejas y el total salía de más). Todo con su explicación escrita.
+
+- **Deudores, claro.** La pantalla se llamaba "Deudas" y era una lista plana con un número.
+  Ahora: los que deben van arriba y aparte de los que están al día, cada uno dice **hace
+  cuánto** debe (ámbar al mes, rojo a los dos), y la ficha muestra **qué se llevó fiado y
+  qué ha abonado**, con fechas y productos. "Cobrarle todo" llena el abono con el saldo
+  completo. Y el panel avisa quién te debe y cuánto, que es la plata que más fácil se
+  pierde. (Índice nuevo: `ventas` por `clienteId + ts`.)
+
+## Hecho el 22/10/2026
+
+- **El empleado ya puede ver su reporte X y cerrar su turno.** Sus consultas de ventas y
+  gastos pedían la colección completa y las reglas las rechazaban ENTERAS, así que el
+  arqueo se caía en silencio y se quedaba sin el "debería haber". Ahora se filtran por su
+  uid (el índice `uid + ts` ya existía para ventas; se agregó el de gastos).
+
+- **Reconteo completo del dinero** (`node scripts/contar-dinero.mjs`, solo lee, `--detalle`
+  lista movimiento por movimiento). Rehace la cuenta desde cero, moneda por moneda y sitio
+  por sitio, y dice qué no cuadra y por qué.
+- **El vuelto se registra.** Era la causa de los faltantes: una venta de $0,79 pagada con un
+  billete de 5.000 pesos dejaba al arqueo esperando los 5.000 completos. Ahora el cobro
+  pregunta en qué moneda sale el cambio, la venta lo guarda (`vuelto`) y el arqueo lo resta.
+  Las ventas viejas se reconstruyen con la tasa que ellas mismas dejaron congelada.
+- **El arqueo dejó de perder movimientos.** `esperadoDelTurno` ahora cuenta también los
+  abonos de fiados, el dinero que se mete y los traslados a la caja fuerte, y ya no filtra
+  por quién lo anotó: la gaveta es una sola. El reporte X muestra el desglose de qué entró
+  y qué salió, y "Cobrado" es cobrado de verdad (sin lo fiado y menos el vuelto).
+- **Los fiados cobrados cuentan como plata.** `dineroPorLugar` ignoraba los abonos: una
+  deuda que te pagaban no aparecía en ninguna parte y el total salía por debajo de lo que
+  había en la gaveta. Los abonos guardan ahora `dia` y `lugar`.
+- **"Conté mi dinero" pasó a ser "Cuadrar lo contado".** Antes cargaba el conteo completo
+  como un ingreso nuevo: cargarlo dos veces duplicaba la plata. Ahora muestra cuánto
+  debería haber de cada moneda y anota solo la diferencia, como "Ajuste de conteo".
+
+- **Venta libre** en el punto de venta: nombre libre, monto libre y **ganancia estimada**
+  aparte. No toca inventario y la línea queda marcada `fueraDeCatalogo` y
+  `gananciaEstimada` en la venta, para poder separarlas en los reportes. El atajo va
+  **primero** en la barra: antes quedaba al final de una barra que se desborda con la
+  barra de scroll escondida, así que no se veía y no había manera de hacer una.
+- **Cambiar la foto de un producto que ya tiene.** Tocar la miniatura en Inventario (o
+  "Cambiar foto" en la ficha) abre ver / cambiar / quitar. Antes el único camino era
+  arrastrar el archivo desde una computadora: en el teléfono no había ninguno, porque el
+  Estudio de Fotos solo lista los productos SIN foto. Guardar la ficha ya no pisa el
+  `tieneFoto` nuevo, y un error al guardar la foto ahora se avisa en pantalla.
 
 ## Hecho en la ronda de la auditoría (18/10/2026)
 
