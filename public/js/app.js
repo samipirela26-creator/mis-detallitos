@@ -12,6 +12,7 @@ import { cargarTasas, actualizarTasasAuto } from './data/tasas.js';
 import { ventasEntre } from './data/ventas.js';
 import { gastosEntre } from './data/gastos.js';
 import { bajoMinimo } from './data/inventario.js';
+import { listarClientes } from './data/clientes.js';
 import { resumen } from './reports/analisis.js';
 import { formatear, MONEDAS } from './core/dinero.js';
 import { invalidarIndice } from './data/busqueda.js';
@@ -99,6 +100,22 @@ registrar('panel', {
         bajos.slice(0, 4).map((p) => p.nombre).join(', ') + (bajos.length > 4 ? '…' : ''),
         'Ver inventario', 'inventario'));
     }
+    // Los deudores, en el panel. Una deuda que no se ve no se cobra: es la plata
+    // que más fácil se pierde, porque no duele hasta que pasan los meses.
+    listarClientes()
+      .then((clientes) => {
+        const deben = clientes.filter((c) => (c.saldoUSD || 0) > 0);
+        if (!deben.length) return;
+        const total = deben.reduce((t, c) => t + c.saldoUSD, 0);
+        avisos.appendChild(tarjetaAccion('', `${deben.length} ${deben.length === 1 ? 'persona te debe' : 'personas te deben'} ${formatear(total)}`,
+          deben.slice(0, 4).map((c) => `${c.nombre} ${formatear(c.saldoUSD)}`).join(' · ')
+            + (deben.length > 4 ? '…' : ''),
+          'Ver deudores', 'clientes'));
+        seccionPendiente.style.display = '';
+        avisos.style.display = '';
+      })
+      .catch(() => {});
+
     const seccionPendiente = el('div.seccion', {}, [el('h2', { texto: 'Pendiente' })]);
     nodo.appendChild(seccionPendiente);
     nodo.appendChild(avisos);
@@ -116,7 +133,7 @@ registrar('panel', {
     nodo.appendChild(el('div.seccion', {}, [el('h2', { texto: 'Atajos' })]));
     nodo.appendChild(el('div.atajos-grid', {}, [
       atajo('chart', 'Reportes', 'Ganancia por producto y margen flojo.', 'reportes'),
-      atajo('handshake', 'Deudas', 'Cuentas pendientes por cobrar.', 'clientes'),
+      atajo('handshake', 'Deudores', 'Quién te debe, cuánto y desde cuándo.', 'clientes'),
       atajo('wallet', 'Mi dinero', 'Cuánto gané y cuánto puedo sacar.', 'mi-dinero'),
       atajo('expense', 'Gastos', 'Salidas de caja por categoría.', 'gastos-dueno'),
       atajo('cash', 'Caja', 'Abrir turno, reporte X y cierre Z.', 'caja-dueno'),

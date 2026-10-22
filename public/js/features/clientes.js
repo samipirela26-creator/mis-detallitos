@@ -1,57 +1,131 @@
-// clientes.js — los fiados. Quién debe, cuánto, y los abonos.
+// clientes.js — DEUDORES. Quién te debe, cuánto, desde cuándo y qué se llevó.
+//
+// La pantalla está armada para la pregunta que se hace de verdad: "¿quién me
+// debe y desde cuándo?". Por eso:
+//
+//  - Los que DEBEN van arriba, separados de los que están al día. Mezclados,
+//    con veinte clientes, el que debe se pierde entre los que no.
+//  - Cada uno dice hace cuántos días debe. Una deuda de tres días y una de
+//    cuatro meses no son lo mismo y no se pueden ver iguales.
+//  - La ficha muestra QUÉ se llevó fiado y QUÉ ha abonado, con fechas. Cuando
+//    alguien discute una deuda, eso es lo único que la sostiene.
+//  - "Cobrarle todo" llena el abono con el saldo completo: lo normal es que
+//    paguen la deuda entera, y escribirla a mano se equivoca.
 import { registrar } from '../core/router.js';
 import { el, esc, $, fecha, abrirDialogo, pegar } from '../ui/html.js';
 import { avisarOk, avisarMal } from '../ui/avisos.js';
-import { listarClientes, guardarCliente, registrarAbono, abonosDe } from '../data/clientes.js';
+import {
+  listarClientes, guardarCliente, registrarAbono, abonosDe, ventasFiadasDe,
+} from '../data/clientes.js';
 import { MONEDAS, formatear, crearPago, totalPagadoUSD, aMenores } from '../core/dinero.js';
 import { leer } from '../core/estado.js';
 
+/** Hace cuántos días es esa fecha. Null si no hay fecha. */
+function diasDesde(ts) {
+  const d = ts?.toDate ? ts.toDate() : ts ? new Date(ts) : null;
+  if (!d || Number.isNaN(d.getTime())) return null;
+  return Math.floor((Date.now() - d.getTime()) / 86400000);
+}
+
+/** Cómo se dice el tiempo de una deuda, y de qué color se ve. */
+function antiguedad(dias) {
+  if (dias === null) return { texto: '', color: 'var(--texto-suave)' };
+  if (dias <= 0) return { texto: 'de hoy', color: 'var(--texto-suave)' };
+  if (dias === 1) return { texto: 'de ayer', color: 'var(--texto-suave)' };
+  if (dias < 30) return { texto: `hace ${dias} días`, color: 'var(--texto-suave)' };
+  if (dias < 60) return { texto: `hace ${dias} días`, color: 'var(--ambar)' };
+  const meses = Math.floor(dias / 30);
+  return { texto: `hace ${meses} ${meses === 1 ? 'mes' : 'meses'}`, color: 'var(--rojo)' };
+}
+
 registrar('clientes', {
-  titulo: 'Deudas', icono: '🤝', soloDueno: true,
+  titulo: 'Deudores', icono: '🤝', soloDueno: true,
   async montar(nodo) {
-    nodo.innerHTML = '<div class="cargando">Cargando clientes…</div>';
+    nodo.innerHTML = '<div class="cargando">Cargando deudores…</div>';
     let clientes = [];
     try { clientes = await listarClientes(); }
     catch { nodo.innerHTML = ''; return nodo.appendChild(el('div.vacio', { texto: 'No se pudo cargar (¿sin internet?).' })); }
 
     const pintar = () => {
-      const deben = clientes.filter((c) => (c.saldoUSD || 0) > 0);
+      const deben = [...clientes].filter((c) => (c.saldoUSD || 0) > 0)
+        .sort((a, b) => b.saldoUSD - a.saldoUSD);
+      const alDia = clientes.filter((c) => (c.saldoUSD || 0) <= 0);
       const total = deben.reduce((t, c) => t + c.saldoUSD, 0);
+      const viejas = deben.filter((c) => (diasDesde(c.ultimaCompra) ?? 0) >= 30);
+
       nodo.innerHTML = '';
-      pegar(nodo, 
+      pegar(nodo,
         el('div.kpis', { style: 'margin-bottom:1rem' }, [
           el('div.kpi.acento', {}, [
-            el('div.rotulo', { texto: 'Te deben' }),
+            el('div.rotulo', { texto: 'TE DEBEN' }),
             el('div.valor', { texto: formatear(total) }),
           ]),
           el('div.kpi', {}, [
-            el('div.rotulo', { texto: 'Clientes con deuda' }),
+            el('div.rotulo', { texto: 'Personas' }),
             el('div.valor', { texto: String(deben.length) }),
           ]),
+          ...(viejas.length ? [el('div.kpi.malo', {}, [
+            el('div.rotulo', { texto: 'De más de un mes' }),
+            el('div.valor', { texto: String(viejas.length) }),
+          ])] : []),
         ]),
+        el('p', {
+          style: 'color:var(--texto-suave);font-size:.85rem;margin:-.3rem 0 1rem',
+          texto: total
+            ? 'Esta plata NO está en la caja: está en la calle. Aparece aquí hasta que te la paguen.'
+            : 'Nadie te debe nada ahora mismo.',
+        }),
         el('button.btn.principal.ancho', { style: 'margin-bottom:1rem', texto: 'Cliente nuevo', onclick: () => formulario() })
       );
 
-      if (!clientes.length) return nodo.appendChild(el('div.vacio', { texto: 'Todavía no hay clientes.' }));
+      if (!clientes.length) {
+        return nodo.appendChild(el('div.vacio', {}, [
+          el('p', { texto: 'Todavía no hay clientes.' }),
+          el('p', {
+            style: 'font-size:.9rem;color:var(--texto-suave)',
+            texto: 'Se crean solos cuando dejas una venta fiada, o con el botón de arriba.',
+          }),
+        ]));
+      }
 
+      if (deben.length) {
+        nodo.appendChild(el('div.seccion', {}, [el('h2', { texto: 'Te deben' })]));
+        nodo.appendChild(listaDe(deben, true));
+      }
+      if (alDia.length) {
+        nodo.appendChild(el('div.seccion', {}, [el('h2', { texto: 'Al día' })]));
+        nodo.appendChild(listaDe(alDia, false));
+      }
+    };
+
+    function listaDe(lista, debiendo) {
       const tarjeta = el('div.tarjeta', { style: 'padding:.5rem' });
-      for (const c of [...clientes].sort((a, b) => (b.saldoUSD || 0) - (a.saldoUSD || 0))) {
+      for (const c of lista) {
+        const dias = diasDesde(c.ultimaCompra);
+        const a = antiguedad(dias);
         tarjeta.appendChild(el('div', {
           style: 'display:flex;gap:.6rem;align-items:center;padding:.6rem;border-bottom:1px solid var(--borde);cursor:pointer',
           onclick: () => detalle(c),
         }, [
           el('div', { style: 'flex:1;min-width:0' }, [
             el('div', { style: 'font-weight:600', html: esc(c.nombre) }),
-            el('div', { style: 'font-size:.8rem;color:var(--texto-suave)', html: esc(c.telefono || '') }),
+            el('div', { style: 'font-size:.8rem;color:var(--texto-suave)' }, [
+              el('span', { html: esc(c.telefono || (debiendo ? '' : 'sin deuda')) }),
+            ]),
           ]),
-          el('div', {
-            style: `font-weight:700;color:${(c.saldoUSD || 0) > 0 ? 'var(--rojo)' : 'var(--verde)'}`,
-            texto: (c.saldoUSD || 0) > 0 ? formatear(c.saldoUSD) : 'al día',
-          }),
+          el('div', { style: 'text-align:right' }, [
+            el('div.cifra', {
+              style: `font-weight:700;color:${debiendo ? 'var(--rojo)' : 'var(--verde)'}`,
+              texto: debiendo ? formatear(c.saldoUSD) : 'al día',
+            }),
+            debiendo && a.texto
+              ? el('div', { style: `font-size:.78rem;color:${a.color}`, texto: a.texto })
+              : null,
+          ]),
         ]));
       }
-      nodo.appendChild(tarjeta);
-    };
+      return tarjeta;
+    }
 
     const recargar = async () => { clientes = await listarClientes(); pintar(); };
 
@@ -78,73 +152,138 @@ registrar('clientes', {
       });
     }
 
+    /** La ficha del deudor: cuánto debe, qué se llevó y qué ha abonado. */
     async function detalle(c) {
+      const debe = c.saldoUSD || 0;
+      const a = antiguedad(diasDesde(c.ultimaCompra));
       const d = abrirDialogo('');
-      pegar(d, 
+      pegar(d,
         el('h2', { html: esc(c.nombre) }),
+        c.telefono ? el('p', { style: 'margin-top:-.5rem;color:var(--texto-suave)', html: esc(c.telefono) }) : null,
         el('div.cifra-gigante', {
-          style: `text-align:center;color:${(c.saldoUSD || 0) > 0 ? 'var(--rojo)' : 'var(--verde)'}`,
-          texto: formatear(c.saldoUSD || 0),
+          style: `text-align:center;color:${debe > 0 ? 'var(--rojo)' : 'var(--verde)'}`,
+          texto: formatear(debe),
         }),
-        el('p', { style: 'text-align:center;color:var(--texto-suave)', texto: (c.saldoUSD || 0) > 0 ? 'debe' : 'está al día' }),
+        el('p', {
+          style: 'text-align:center;color:var(--texto-suave);margin-top:-.4rem',
+          texto: debe > 0 ? `debe · última compra ${a.texto}` : 'está al día',
+        }),
         el('div.fila', { style: 'margin:1rem 0' }, [
           el('button.btn.plano', { texto: 'Editar', onclick: () => { d.close(); formulario(c); } }),
-          (c.saldoUSD || 0) > 0 ? el('button.btn.principal', { texto: 'Abonar', onclick: () => { d.close(); abonar(c); } }) : null,
+          debe > 0 ? el('button.btn.principal', { style: 'flex:2', texto: `Cobrarle ${formatear(debe)}`, onclick: () => { d.close(); abonar(c, debe); } }) : null,
         ]),
-        el('div', { id: 'abonos', class: 'cargando', texto: 'Cargando abonos…' }),
-        el('button.btn.plano.ancho', { texto: 'Cerrar', onclick: () => d.close() })
+        debe > 0 ? el('button.btn.plano.ancho', { style: 'margin-bottom:1rem', texto: 'Abonar otra cantidad', onclick: () => { d.close(); abonar(c, 0); } }) : null,
+        el('div', { id: 'movimientos', class: 'cargando', texto: 'Buscando lo que se llevó…' }),
+        el('button.btn.plano.ancho', { style: 'margin-top:1rem', texto: 'Cerrar', onclick: () => d.close() })
       );
-      const lista = await abonosDe(c.id).catch(() => []);
-      const caja = $('#abonos', d);
+
+      const [fiadas, abonos] = await Promise.all([
+        ventasFiadasDe(c.id).catch(() => []),
+        abonosDe(c.id).catch(() => []),
+      ]);
+      const caja = $('#movimientos', d);
       caja.className = '';
       caja.innerHTML = '';
-      if (!lista.length) caja.appendChild(el('p', { style: 'color:var(--texto-suave);font-size:.9rem', texto: 'Sin abonos todavía.' }));
-      for (const a of lista) {
-        caja.appendChild(el('div', {
-          style: 'display:flex;justify-content:space-between;padding:.35rem 0;border-bottom:1px solid var(--borde);font-size:.9rem',
-        }, [
-          el('span', { texto: fecha(a.ts) }),
-          el('strong', { texto: formatear(a.montoUSD) }),
-        ]));
+
+      const fila = (izq, der, nota, color) => el('div', {
+        style: 'display:flex;justify-content:space-between;gap:.5rem;padding:.4rem 0;border-bottom:1px solid var(--borde);font-size:.9rem',
+      }, [
+        el('div', { style: 'min-width:0' }, [
+          el('div', { texto: izq }),
+          nota ? el('div', { style: 'font-size:.78rem;color:var(--texto-suave)', html: nota }) : null,
+        ]),
+        el('strong.cifra', { style: color ? `color:${color}` : '', texto: der }),
+      ]);
+
+      caja.appendChild(el('h3', { style: 'font-size:1rem;margin:.5rem 0 .2rem', texto: 'Lo que se llevó fiado' }));
+      if (!fiadas.length) {
+        caja.appendChild(el('p', { style: 'color:var(--texto-suave);font-size:.88rem', texto: 'Nada fiado todavía.' }));
+      }
+      for (const v of fiadas) {
+        caja.appendChild(fila(
+          fecha(v.ts),
+          formatear(v.totalUSD || 0),
+          (v.lineas || []).map((l) => `${l.cantidad} ${esc(l.nombre)}`).join(' · '),
+        ));
+      }
+
+      caja.appendChild(el('h3', { style: 'font-size:1rem;margin:1rem 0 .2rem', texto: 'Lo que ha abonado' }));
+      if (!abonos.length) {
+        caja.appendChild(el('p', { style: 'color:var(--texto-suave);font-size:.88rem', texto: 'Sin abonos todavía.' }));
+      }
+      for (const x of abonos) {
+        caja.appendChild(fila(
+          fecha(x.ts),
+          formatear(x.montoUSD || 0),
+          (x.pagos || []).map((p) => formatear(p.monto, p.moneda)).join(' + '),
+          'var(--verde)',
+        ));
+      }
+      if (abonos.length) {
+        const sumado = abonos.reduce((t, x) => t + (x.montoUSD || 0), 0);
+        caja.appendChild(el('p', {
+          style: 'text-align:right;font-weight:700;margin:.4rem 0 0',
+          texto: `Abonado en total: ${formatear(sumado)}`,
+        }));
       }
     }
 
-    function abonar(c) {
+    /** `inicial` llena los campos con el saldo completo: lo normal es pagar todo. */
+    function abonar(c, inicial = 0) {
       const tasas = leer('tasas') || {};
       let pagos = [];
       const d = abrirDialogo('');
       const resumen = el('div');
       const pintarResumen = () => {
         const pagado = totalPagadoUSD(pagos);
+        const queda = (c.saldoUSD || 0) - pagado;
         resumen.innerHTML = '';
-        pegar(resumen, 
+        pegar(resumen,
           el('div', { style: 'text-align:center;margin:.5rem 0' }, [
             el('div', { style: 'color:var(--texto-suave);font-size:.85rem', texto: 'ABONA' }),
             el('div.cifra-gigante', { texto: formatear(pagado) }),
-            el('div', { style: 'color:var(--texto-suave)', texto: `Quedaría debiendo ${formatear(Math.max(0, (c.saldoUSD || 0) - pagado))}` }),
+            el('div', {
+              style: `color:${queda > 0 ? 'var(--texto-suave)' : 'var(--verde)'}`,
+              texto: queda > 0
+                ? `Quedaría debiendo ${formatear(queda)}`
+                : queda < 0 ? `Paga de más: ${formatear(-queda)}` : 'Queda al día',
+            }),
           ])
         );
       };
+
+      const campos = Object.values(MONEDAS)
+        .filter((m) => m.codigo === 'USD' || tasas[m.codigo])
+        .map((m) => {
+          const entrada = el('input', {
+            inputmode: 'decimal', placeholder: '0',
+            oninput: (ev) => {
+              const monto = aMenores(ev.target.value, m.codigo) || 0;
+              pagos = pagos.filter((p) => p.moneda !== m.codigo);
+              if (monto) pagos.push(crearPago(m.codigo, monto, tasas));
+              pintarResumen();
+            },
+          });
+          return { moneda: m, entrada, nodo: el('div.campo', { style: 'margin:0' }, [el('label', { texto: m.nombre }), entrada]) };
+        });
+
+      // Si vino de "Cobrarle todo", el saldo entra ya escrito en dólares (o en
+      // la primera moneda con tasa, que es con la que se paga en el mostrador).
+      if (inicial > 0) {
+        const campo = campos.find((x) => x.moneda.codigo === 'USD') || campos[0];
+        if (campo) {
+          const m = campo.moneda.codigo;
+          const monto = m === 'USD' ? inicial : Math.round((inicial * tasas[m]) / 100);
+          campo.entrada.value = String(monto / Math.pow(10, campo.moneda.decimales)).replace('.', ',');
+          pagos = [crearPago(m, monto, tasas)];
+        }
+      }
       pintarResumen();
 
-      pegar(d, 
+      pegar(d,
         el('h2', { html: `Abono de ${esc(c.nombre)}` }),
         resumen,
-        el('div.fila', { style: 'margin:.75rem 0' },
-          Object.values(MONEDAS)
-            .filter((m) => m.codigo === 'USD' || tasas[m.codigo])
-            .map((m) => el('div.campo', { style: 'margin:0' }, [
-              el('label', { texto: m.nombre }),
-              el('input', {
-                inputmode: 'decimal', placeholder: '0',
-                oninput: (ev) => {
-                  const monto = aMenores(ev.target.value, m.codigo) || 0;
-                  pagos = pagos.filter((p) => p.moneda !== m.codigo);
-                  if (monto) pagos.push(crearPago(m.codigo, monto, tasas));
-                  pintarResumen();
-                },
-              }),
-            ]))),
+        el('div.fila', { style: 'margin:.75rem 0' }, campos.map((x) => x.nodo)),
         el('div.fila', {}, [
           el('button.btn.plano', { texto: 'Cancelar', onclick: () => d.close() }),
           el('button.btn.principal', { texto: 'Registrar abono', onclick: async () => {
@@ -153,7 +292,7 @@ registrar('clientes', {
             try {
               await registrarAbono({ clienteId: c.id, montoUSD, pagos });
               d.close();
-              avisarOk('Abono registrado');
+              avisarOk('Abono registrado: esa plata ya entró a la caja.');
               recargar();
             } catch (e) {
               avisarMal('No se pudo registrar: ' + (e.message || e));
