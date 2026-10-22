@@ -307,15 +307,22 @@ export async function verFoto(producto) {
     type: 'file', accept: 'image/*', capture: 'environment', hidden: '',
     onchange: async (ev) => {
       if (!ev.target.files[0]) return;
-      const recorte = await pedirRecorte(ev.target.files[0], { titulo: producto.nombre });
-      if (!recorte) { ev.target.value = ''; return; }
-      const ajustes = await cargarAjustes();
-      if (iaLista(ajustes)) avisar('Quitando el fondo con IA…');
-      const { datos, aviso } = await procesar(recorte.blob, { ajustes, encajar: recorte.recortada });
-      await guardarFoto(producto.id, datos);
-      d.close();
-      if (aviso) avisar(`${aviso} Se guardó con su fondo original.`);
-      else avisarOk('Foto actualizada');
+      try {
+        const recorte = await pedirRecorte(ev.target.files[0], { titulo: producto.nombre });
+        if (!recorte) { ev.target.value = ''; return; }
+        const ajustes = await cargarAjustes();
+        if (iaLista(ajustes)) avisar('Quitando el fondo con IA…');
+        const { datos, aviso } = await procesar(recorte.blob, { ajustes, encajar: recorte.recortada });
+        await guardarFoto(producto.id, datos);
+        d.close();
+        if (aviso) avisar(`${aviso} Se guardó con su fondo original.`);
+        else avisarOk('Foto actualizada');
+      } catch (e) {
+        // Sin esto el error se perdía en la consola y la pantalla se quedaba
+        // igual: parecía que cambiar la foto simplemente no hacía nada.
+        ev.target.value = '';
+        avisarMal(e.message || 'No se pudo guardar la foto');
+      }
     },
   });
   pegar(d, 
@@ -327,7 +334,7 @@ export async function verFoto(producto) {
     el('div.fila', { style: 'margin-top:1rem' }, [
       el('button.btn.plano', { texto: 'Cerrar', onclick: () => d.close() }),
       datos ? el('button.btn.plano', { texto: 'Quitar', onclick: async () => { await borrarFoto(producto.id); d.close(); } }) : null,
-      el('button.btn.principal', { texto: 'Nueva foto', onclick: () => entrada.click() }),
+      el('button.btn.principal', { texto: datos ? 'Cambiar foto' : 'Poner foto', onclick: () => entrada.click() }),
     ])
   );
 }

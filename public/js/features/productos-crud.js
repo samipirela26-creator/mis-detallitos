@@ -31,7 +31,8 @@ registrar('inventario', {
         </div>
         <p id="cuenta" class="pista-busqueda" aria-live="polite"></p>
         <p style="color:var(--texto-suave);font-size:.85rem;margin:.3rem 0 0">
-          Desde la computadora puedes arrastrar una foto encima de cualquier producto de la lista y queda puesta.
+          Toca la foto de un producto para verla, cambiarla o quitarla. Desde la computadora también
+          puedes arrastrar una foto encima de su fila y queda puesta.
         </p>
       </div>
       <div class="fila" style="margin-bottom:.75rem">
@@ -104,7 +105,16 @@ registrar('inventario', {
       for (const p of lista) {
         const m = p.precioUSD ? margenPct(p.precioUSD, p.costoUSD) : null;
         const colorMargen = m === null ? 'var(--texto-suave)' : m < 0 ? 'var(--rojo)' : m < MARGEN_FLOJO ? 'var(--ambar)' : 'var(--verde)';
-        const img = el('img.miniatura', { alt: '', src: 'data:image/gif;base64,R0lGODlhAQABAAAAACw=' });
+        // Tocar la miniatura abre la foto para verla, cambiarla o quitarla.
+        // Antes el único camino para CAMBIAR una foto ya puesta era arrastrar
+        // el archivo encima desde una computadora: en el teléfono no había
+        // ninguno (el Estudio de Fotos solo lista los que NO tienen).
+        const img = el('img.miniatura', {
+          alt: '', src: 'data:image/gif;base64,R0lGODlhAQABAAAAACw=',
+          style: 'cursor:pointer',
+          title: p.tieneFoto ? `Ver o cambiar la foto de ${p.nombre}` : `Ponerle foto a ${p.nombre}`,
+          onclick: (ev) => { ev.stopPropagation(); abrirFoto(p); },
+        });
         if (p.tieneFoto) pintarFoto(img, p.id);
 
         const fila = el('div', {
@@ -177,6 +187,16 @@ function soltarFotoEn(fila, producto) {
       avisarMal(e.message || 'No se pudo guardar la foto');
     }
   });
+}
+
+/** Ver, cambiar o quitar la foto de un producto. El único camino en el teléfono. */
+export async function abrirFoto(producto) {
+  try {
+    const { verFoto } = await import('./estudio-fotos.js');
+    await verFoto(producto);
+  } catch (e) {
+    avisarMal(e.message || 'No se pudo abrir la foto');
+  }
 }
 
 function tarjetaKpi(rotulo, valor, clase = '') {
@@ -257,6 +277,7 @@ export function formulario(p = null) {
 
       <div class="fila">
         <button type="button" class="btn plano" id="cancelar">Cancelar</button>
+        ${esNuevo ? '' : `<button type="button" class="btn plano" id="foto">${p.tieneFoto ? 'Cambiar foto' : 'Ponerle foto'}</button>`}
         ${esNuevo ? '' : '<button type="button" class="btn plano" id="ajustar">Ajustar stock</button>'}
         <button type="submit" class="btn principal">Guardar</button>
       </div>
@@ -329,6 +350,9 @@ export function formulario(p = null) {
       avisarOk('Producto desactivado');
     };
     $('#ajustar', d).onclick = () => { d.close(); ajustarStock(p); };
+    // La ficha se cierra: la foto se guarda sola, y dejar el formulario abierto
+    // detrás haría que al darle "Guardar" se escribiera el `tieneFoto` viejo.
+    $('#foto', d).onclick = () => { d.close(); abrirFoto(p); };
   }
 
   f.addEventListener('submit', async (ev) => {
@@ -370,7 +394,9 @@ export function formulario(p = null) {
         codigoBarras: f.codigoBarras.value,
         sku: f.sku.value,
         escalas,
-        tieneFoto: p?.tieneFoto || false,
+        // Del catálogo de AHORA, no del `p` con que se abrió la ficha: si se le
+        // puso foto con la ficha abierta, guardar la dejaba otra vez "sin foto".
+        tieneFoto: (p ? catalogo().find((x) => x.id === p.id)?.tieneFoto ?? p.tieneFoto : false) || false,
         activo: true,
       }, p?.id || null);
       d.close();
