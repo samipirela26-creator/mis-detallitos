@@ -26,7 +26,7 @@ export function confirmar(titulo, { detalle = '', aceptar = 'Sí', cancelar = 'N
       <h2></h2>
       <p class="detalle"></p>
       <div class="fila" style="margin-top:1rem">
-        <button class="btn" value="no"></button>
+        <button class="btn callado" value="no"></button>
         <button class="btn ${peligro ? 'peligro' : 'principal'}" value="si"></button>
       </div>`;
     d.querySelector('h2').textContent = titulo;

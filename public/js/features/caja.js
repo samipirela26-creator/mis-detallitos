@@ -285,7 +285,7 @@ async function montarCaja(nodo) {
         el('input', { id: 'nota-cierre', placeholder: 'Ej: saqué 20$ para el flete' }),
       ]),
       el('div.fila', {}, [
-        el('button.btn.plano', { texto: 'Cancelar', onclick: () => d.close() }),
+        el('button.btn.callado', { texto: 'Cancelar', onclick: () => d.close() }),
         el('button.btn.principal', { texto: 'Cerrar caja', onclick: async () => {
           // Solo las monedas que de verdad se escribieron. Una vacía queda
           // fuera y el cierre la reporta como "no contada".

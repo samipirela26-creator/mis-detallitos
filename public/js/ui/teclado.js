@@ -47,7 +47,7 @@ export function pedirMonto({ titulo, moneda = 'USD', inicial = 0, nota = '', ace
       }),
       rejilla,
       el('div.fila', {}, [
-        el('button.btn.plano', { type: 'button', texto: 'Cancelar', onclick: () => { d.close(); resolver(null); } }),
+        el('button.btn.callado', { type: 'button', texto: 'Cancelar', onclick: () => { d.close(); resolver(null); } }),
         el('button.btn.principal', { type: 'button', texto: aceptar, onclick: () => { d.close(); resolver(menores); } }),
       ])
     );
@@ -71,7 +71,7 @@ export function pedirCantidad({ titulo = 'Cantidad', inicial = 1, unidad = '' } 
         [1, 5, 10, 50, 100].map((n) =>
           el('button.btn.plano', { type: 'button', texto: `+${n}`, onclick: () => sumar(n) }))),
       el('div.fila', {}, [
-        el('button.btn.plano', { type: 'button', texto: 'Cancelar', onclick: () => { d.close(); resolver(null); } }),
+        el('button.btn.callado', { type: 'button', texto: 'Cancelar', onclick: () => { d.close(); resolver(null); } }),
         el('button.btn.principal', { type: 'button', texto: 'Listo', onclick: () => { d.close(); resolver(Number(entrada.value) || 0); } }),
       ])
     );

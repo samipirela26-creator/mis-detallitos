@@ -63,6 +63,12 @@
 .btn.peligro { background: var(--rojo); color: var(--sobre-tinta); border-color: transparent; }
 .btn.plano { background: transparent; border-color: var(--borde); color: var(--texto); }
 .btn.plano:hover { background: var(--superficie); }
+/* Tercer nivel: lo que cierra, cancela o deja para después. Sin borde y sin
+   fondo a propósito. El contorno de `.plano` es para alternativas de verdad;
+   si "Cancelar" lo lleva también, compite con ellas y el ojo tiene que leer
+   los tres botones para decidir cuál es el que quería. */
+.btn.callado { background: transparent; border-color: transparent; color: var(--texto-suave); }
+.btn.callado:hover { background: var(--superficie-2); color: var(--texto); }
 .btn.ancho { width: 100%; }
 .btn.grande { min-height: 54px; font-size: 1rem; }
 

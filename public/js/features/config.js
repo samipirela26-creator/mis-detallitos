@@ -11,7 +11,7 @@ import { cargarTasas, guardarTasas, sugerirTasas, hoyISO, baseBs, guardarBaseBs,
 import { pendientes, aprobar, descartar } from '../data/sinonimos.js';
 import { productos as catalogo } from '../data/catalogo.js';
 import { hashPin, olvidarHash, salNueva, VUELTAS } from '../ui/pin.js';
-import { MONEDAS, aMenores, formatear, aMayores } from '../core/dinero.js';
+import { MONEDAS, aMenores, tasaAMenores, formatear, aMayores } from '../core/dinero.js';
 import { leer } from '../core/estado.js';
 import {
   cargarAjustes, guardarAjustes, probar, lista as iaLista,
@@ -151,7 +151,14 @@ async function pintarTasas(caja) {
     el('button.btn.principal', { texto: 'Guardar tasas', onclick: async () => {
       const datos = { fuente: 'manual' };
       for (const [codigo, entrada] of Object.entries(entradas)) {
-        datos[codigo] = aMenores(entrada.value, codigo) || 0;
+        // `tasaAMenores` y no `aMenores`: una tasa en 0 no se puede usar para
+        // convertir, así que vale más rechazarla que guardarla y descubrirlo
+        // en mitad de un cobro.
+        const tasa = tasaAMenores(entrada.value, codigo);
+        if (entrada.value.trim() && !tasa) {
+          return avisarMal(`La tasa de ${MONEDAS[codigo].nombre} no se entiende: "${entrada.value}"`);
+        }
+        datos[codigo] = tasa || 0;
       }
       try {
         await guardarTasas(datos);

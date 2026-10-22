@@ -65,9 +65,16 @@ export function aMenores(entrada, moneda = MONEDA_BASE) {
     s = s.split(mil).join('').replace(dec, '.');
   } else if (ultimaComa > -1) {
     // "1,234" puede ser mil o decimal: si deja 3 dígitos exactos, es millar.
-    s = s.length - ultimaComa === 4 ? s.replace(',', '') : s.replace(',', '.');
+    // Y si hay DOS o más, no puede ser decimal: son todas de millar. Ojo con
+    // `replace`, que cambia solo la primera: "1,500,000" quedaba en "1500,000"
+    // y de ahí en 1.500. Un alquiler entraba mil veces más barato sin avisar.
+    s = s.split(',').length > 2 || s.length - ultimaComa === 4
+      ? s.split(',').join('')
+      : s.replace(',', '.');
   } else if (ultimoPunto > -1) {
-    s = s.length - ultimoPunto === 4 ? s.replace('.', '') : s;
+    s = s.split('.').length > 2 || s.length - ultimoPunto === 4
+      ? s.split('.').join('')
+      : s;
   }
   const n = Number(s);
   if (!Number.isFinite(n)) return null;

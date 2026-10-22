@@ -157,3 +157,42 @@ test('el costo no se deja engañar por lo que el dueño escribe mal', () => {
   assert.deepEqual(millar.paquete, { unidades: 1000, totalUSD: 1250 });
   assert.equal(d.parsearCosto('500 por 2,00').paquete.unidades, 500);
 });
+
+test('los montos de millón para arriba no se dividen entre mil', () => {
+  // `replace` cambia solo la PRIMERA coincidencia: con dos puntos de millar,
+  // el segundo se quedaba y el resto se leía como decimal. Un alquiler de
+  // 1.500.000 pesos entraba como 1.500 y nada lo delataba.
+  assert.equal(d.aMenores('1.500.000', 'COP'), 1500000);
+  assert.equal(d.aMenores('1.234.567', 'COP'), 1234567);
+  assert.equal(d.aMenores('12.345.678', 'COP'), 12345678);
+  assert.equal(d.aMenores('1.234.567', 'VES'), 123456700);
+  assert.equal(d.aMenores('1.234.567,89', 'VES'), 123456789);
+
+  // Un solo separador ya funcionaba: que siga funcionando.
+  assert.equal(d.aMenores('150.000', 'COP'), 150000);
+  assert.equal(d.aMenores('1.000', 'COP'), 1000);
+
+  // A la gringa, con comas de millar.
+  assert.equal(d.aMenores('1,234,567', 'COP'), 1234567);
+  assert.equal(d.aMenores('1,500,000', 'COP'), 1500000);
+
+  // Pegado y con decimales seguían bien.
+  assert.equal(d.aMenores('1234567', 'COP'), 1234567);
+});
+
+test('el millar ambiguo no cambia de significado', () => {
+  // Estos dos son la razón de la heurística y NO se tocan: "1.234" es mil
+  // doscientos treinta y cuatro, "1,5" es uno coma cinco.
+  assert.equal(d.aMenores('1.234', 'COP'), 1234);
+  assert.equal(d.aMenores('1,234', 'COP'), 1234);
+  assert.equal(d.aMenores('1,5'), 150);
+  assert.equal(d.aMenores('1.5'), 150);
+});
+
+test('un monto grande da la vuelta completa sin perder un centavo', () => {
+  for (const [texto, moneda] of [['1.500.000', 'COP'], ['98.765.432,10', 'VES'], ['1.234.567,89', 'USD']]) {
+    const menores = d.aMenores(texto, moneda);
+    const vuelta = d.aMenores(d.formatear(menores, moneda, { simbolo: false }), moneda);
+    assert.equal(vuelta, menores, `${texto} (${moneda}) no sobrevivió la ida y vuelta`);
+  }
+});

@@ -285,7 +285,7 @@ registrar('clientes', {
         resumen,
         el('div.fila', { style: 'margin:.75rem 0' }, campos.map((x) => x.nodo)),
         el('div.fila', {}, [
-          el('button.btn.plano', { texto: 'Cancelar', onclick: () => d.close() }),
+          el('button.btn.callado', { texto: 'Cancelar', onclick: () => d.close() }),
           el('button.btn.principal', { texto: 'Registrar abono', onclick: async () => {
             const montoUSD = totalPagadoUSD(pagos);
             if (!montoUSD) return avisarMal('Escribe cuánto está abonando.');

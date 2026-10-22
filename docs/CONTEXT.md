@@ -43,6 +43,39 @@ verdad a cada cosa?"*.
 
 El plan completo está en `~/.claude/plans/mira-quiero-una-app-sharded-hearth.md`.
 
+## Jerarquía de acciones (las tres reglas de los botones)
+
+Se escribieron en octubre de 2026 porque el reparto se había descuadrado: 71
+botones de contorno contra 33 llenos, y en el recibo el turquesa lo llevaba
+"Listo" —que solo cierra— mientras "Compartir" quedaba en gris. Cuando casi todo
+es contorno, nada resalta y hay que leer los tres botones para decidir.
+
+Hay **tres niveles**, y los tres ya existen en `3-componentes.css`:
+
+| Nivel | Clase | Para qué |
+|---|---|---|
+| Principal | `.btn.principal` | La acción que vino a hacer. **Una sola por pantalla o diálogo.** |
+| Secundario | `.btn.plano` | Alternativas de verdad: otro camino válido. |
+| Terciario | `.btn.callado` | Cerrar, cancelar, dejar para después. Sin borde ni fondo. |
+
+Las reglas:
+
+1. **Un solo `.principal` por pantalla o diálogo.** Si hay dos, ninguno resalta.
+2. **El `.principal` es la acción siguiente, nunca el que cierra.** Si el botón
+   más fuerte de la pantalla no hace nada, está mal puesto. Por eso en el recibo
+   el turquesa es "Siguiente venta" (que además devuelve el foco al buscador) y
+   no "Listo".
+3. **Cancelar y cerrar van en `.callado`** cuando comparten fila con una acción
+   real. Si son el único botón —el "Listo" del cierre Z, el "Ver inventario" de
+   la pantalla de fotos— pueden ser `.principal`: no compiten con nada.
+4. **Lo destructivo va en rojo, aparte, y con `confirmar()`** de
+   `ui/avisos.js`, que ya pinta el botón con `peligro: true`. Esto estaba bien
+   hecho desde el principio y no se toca.
+
+Y una consecuencia: **la navegación no es una acción.** La píldora de abajo dice
+dónde estás; los botones hacen algo. Un botón que solo navega no lleva
+`.principal` si en esa pantalla hay algo que hacer.
+
 ## Decisiones técnicas y por qué
 
 - **Módulos ES sin bundler.** No hay paso de compilación que se pueda romper.

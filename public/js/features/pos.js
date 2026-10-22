@@ -515,7 +515,7 @@ function pedirVentaLibre(nombreSugerido = '') {
              + 'como ganancia una plata que ya te había costado.',
       }),
       el('div.fila', { style: 'margin-top:1rem' }, [
-        el('button.btn.plano', { type: 'button', texto: 'Cancelar', onclick: () => { d.close(); resolver(null); } }),
+        el('button.btn.callado', { type: 'button', texto: 'Cancelar', onclick: () => { d.close(); resolver(null); } }),
         aceptar,
       ])
     );
@@ -613,7 +613,7 @@ async function cobrar() {
 
     acciones.innerHTML = '';
     pegar(acciones, 
-      el('button.btn.plano', { texto: 'Cancelar', onclick: () => d.close() }),
+      el('button.btn.callado', { texto: 'Cancelar', onclick: () => d.close() }),
       el('button.btn.principal.grande', {
         style: 'flex:2',
         texto: saldo < 0 && !fiado ? 'Falta plata' : 'Cobrar',
@@ -642,7 +642,9 @@ async function cobrar() {
       } else {
         avisar('Venta registrada SIN caja abierta: no va a entrar en ningún arqueo. Abre la caja para que cuadre.');
       }
-      recibo({ id, venta, tasas });
+      // Al cerrar el recibo, el foco vuelve al buscador: la venta siguiente
+      // empieza escribiendo. En la laptop esto es no tocar el ratón nunca.
+      recibo({ id, venta, tasas, alCerrar: () => $('#q')?.focus() });
     } catch (e) {
       sonidoAlerta();
       avisarMal(e.message || 'No se pudo registrar la venta.');
@@ -696,7 +698,7 @@ function elegirCliente() {
       el('h2', { texto: 'Fiado — ¿a quién?' }),
       entrada, lista,
       el('div.fila', {}, [
-        el('button.btn.plano', { texto: 'Cancelar', onclick: () => { d.close(); resolver(null); } }),
+        el('button.btn.callado', { texto: 'Cancelar', onclick: () => { d.close(); resolver(null); } }),
         el('button.btn.principal', { texto: 'Crear cliente', onclick: async () => {
           const nombre = entrada.value.trim();
           if (!nombre) return;

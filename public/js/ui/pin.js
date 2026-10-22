@@ -74,7 +74,7 @@ export async function pedirAutorizacion(motivo = '') {
       el('p', { texto: motivo, style: 'color:var(--texto-suave)' }),
       entrada, error,
       el('div.fila', {}, [
-        el('button.btn.plano', { type: 'button', texto: 'Cancelar', onclick: () => { d.close(); resolver(null); } }),
+        el('button.btn.callado', { type: 'button', texto: 'Cancelar', onclick: () => { d.close(); resolver(null); } }),
         el('button.btn.principal', { type: 'button', texto: 'Autorizar', onclick: probar }),
       ])
     );

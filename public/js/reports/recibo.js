@@ -32,7 +32,7 @@ export function textoRecibo({ id, venta, tasas = {} }) {
   ].filter(Boolean).join('\n');
 }
 
-export function recibo({ id, venta, tasas = {} }) {
+export function recibo({ id, venta, tasas = {}, alCerrar = null }) {
   const texto = textoRecibo({ id, venta, tasas });
   const d = abrirDialogo('');
   pegar(d, 
@@ -45,14 +45,21 @@ export function recibo({ id, venta, tasas = {} }) {
       style: 'background:var(--superficie-2);border-radius:var(--r-chico);padding:.75rem;font-size:.8rem;white-space:pre-wrap;max-height:30vh;overflow:auto',
       texto: texto.replace(/\*/g, ''),
     }),
+    // El principal es lo que vas a hacer DESPUÉS, no el que cierra. Antes el
+    // turquesa lo llevaba "Listo", que no hace nada, y "Compartir" quedaba en
+    // gris al lado de "Imprimir", que aquí no se usa nunca. El recibo se da
+    // solo si lo piden: queda a mano, pero callado.
     el('div.fila', { style: 'margin-top:1rem' }, [
+      el('button.btn.callado', { texto: 'Imprimir', onclick: () => imprimir(texto) }),
       el('button.btn.plano', { texto: 'Compartir', onclick: () => compartir(texto) }),
-      el('button.btn.plano', { texto: 'Imprimir', onclick: () => imprimir(texto) }),
-      el('button.btn.principal', { texto: 'Listo', onclick: () => d.close() }),
+      el('button.btn.principal', { texto: 'Siguiente venta', onclick: () => d.close() }),
     ])
   );
-  // Que se pueda cerrar con Enter para seguir vendiendo rápido.
+  // Enter cierra para seguir vendiendo rápido, y al cerrar —por el botón, por
+  // Enter o con Escape— el foco vuelve al buscador: la próxima venta empieza
+  // escribiendo, sin tocar la pantalla.
   d.addEventListener('keydown', (e) => { if (e.key === 'Enter') d.close(); });
+  if (alCerrar) d.addEventListener('close', alCerrar, { once: true });
 }
 
 export async function compartir(texto) {
