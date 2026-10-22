@@ -118,6 +118,16 @@ registrar('vender', {
         atajos.push(p);
       }
 
+      // Primero de todos, SIEMPRE visible: la barra de atajos se desborda a lo
+      // ancho y la barra de scroll está escondida, así que lo que quedaba al
+      // final (esto) no se veía ni se sabía que estaba. Y es justo lo que se
+      // necesita cuando el cliente trae algo que no está en el catálogo: un
+      // pago, una deuda vieja, algo suelto.
+      barra.appendChild(el('button.chip', {
+        type: 'button', texto: '+ Venta libre', style: 'border-color:var(--marca);color:var(--marca);font-weight:700',
+        onclick: () => ventaLibre(),
+      }));
+
       for (const p of atajos) {
         barra.appendChild(el('button.chip', {
           type: 'button',
@@ -130,10 +140,6 @@ registrar('vender', {
           onclick: () => elegir(p),
         }));
       }
-
-      barra.appendChild(el('button.chip', {
-        type: 'button', texto: 'Producto suelto', onclick: () => productoSuelto(),
-      }));
     }
 
     /** Deja el nombre corto SIN perder lo que lo distingue de otro parecido. */
@@ -173,9 +179,9 @@ registrar('vender', {
           el('p', { texto: `No encontré nada con "${texto}".` }),
           el('p', {
             style: 'font-size:.9rem;color:var(--texto-suave)',
-            texto: 'Prueba con otra palabra, o véndelo como producto suelto.',
+            texto: 'Prueba con otra palabra, o cóbralo como venta libre.',
           }),
-          el('button.btn.acento', { texto: 'Vender producto suelto', onclick: () => productoSuelto(texto) }),
+          el('button.btn.acento', { texto: 'Cobrarlo como venta libre', onclick: () => ventaLibre(texto) }),
         ]));
         return;
       }
@@ -250,16 +256,25 @@ registrar('vender', {
       q.focus();
     }
 
-    async function productoSuelto(nombreSugerido) {
-      const monto = await pedirMonto({ titulo: nombreSugerido || 'Producto suelto', aceptar: 'Agregar' });
-      if (!monto) return;
-      const lineas = [...carrito(), {
-        productoId: null, nombre: nombreSugerido || 'Producto suelto', cantidad: 1,
-        precioUSD: monto, precioOriginalUSD: monto, costoUSD: 0,
-        tipoPrecio: 'variable', escalas: [], esServicio: true, precioEditado: true,
-        autorizadoPor: null,
-      }];
-      ponerCarrito(lineas);
+    /**
+     * VENTA LIBRE: cobrar algo que no está en el catálogo.
+     *
+     * No es solo "producto suelto". Lo que de verdad pasa en el mostrador es
+     * que entra plata que no es una venta de estante: una deuda vieja que
+     * pagaron, un trabajo que se hizo a mano, algo que se vendió y no estaba
+     * cargado. Si eso no se puede registrar, se cobra por fuera de la app y
+     * los reportes del mes mienten.
+     *
+     * Lleva ganancia aparte porque sin eso la app asume que TODO es ganancia
+     * (costo 0): $5 de una deuda de mercancía que costó $4 entrarían como $5
+     * de ganancia y el margen del mes se infla solo. La ganancia estimada se
+     * guarda como costo (monto − ganancia), que es lo que ya entienden los
+     * reportes, y la línea queda marcada como estimada.
+     */
+    async function ventaLibre(nombreSugerido = '') {
+      const linea = await pedirVentaLibre(nombreSugerido);
+      if (!linea) return;
+      ponerCarrito([...carrito(), linea]);
       q.value = '';
       cajaResultados.innerHTML = '';
       q.focus();
@@ -306,6 +321,7 @@ registrar('vender', {
             el('div', { style: 'font-size:.82rem;color:var(--texto-suave)' }, [
               el('span', { texto: formatear(l.precioUSD) + ' c/u' }),
               l.precioEditado ? el('span.etiqueta.alerta', { style: 'margin-left:.4rem', texto: 'precio cambiado' }) : null,
+              l.fueraDeCatalogo ? el('span.etiqueta.info', { style: 'margin-left:.4rem', texto: 'venta libre' }) : null,
             ]),
           ]),
           botonCantidad('−', -1, `Quitar uno de ${l.nombre}`),
@@ -398,6 +414,116 @@ registrar('vender', {
   },
 });
 
+/**
+ * El formulario de la venta libre: qué fue, cuánto entró y cuánto de eso es
+ * ganancia. Devuelve la línea lista para el carrito, o null si cancelan.
+ *
+ * La ganancia arranca igual al monto (lo normal en una papelería: un trabajo
+ * hecho a mano es casi todo ganancia) y se puede bajar de un toque. Nunca
+ * puede ser mayor que el monto: eso sería ganar más de lo que entró.
+ */
+function pedirVentaLibre(nombreSugerido = '') {
+  return new Promise((resolver) => {
+    let monto = 0;
+    let ganancia = 0;
+    let gananciaTocada = false;
+
+    const d = abrirDialogo('');
+    const nombre = el('input', {
+      placeholder: 'Ej: deuda vieja de Pedro, trabajo a mano…',
+      value: nombreSugerido || '',
+    });
+    const botonMonto = el('button.btn.plano.ancho', { type: 'button' });
+    const botonGanancia = el('button.btn.plano.ancho', { type: 'button', style: 'margin-top:.4rem' });
+    const aceptar = el('button.btn.principal', { type: 'button', style: 'flex:2', texto: 'Agregar' });
+
+    const pintar = () => {
+      botonMonto.textContent = monto ? `Monto: ${formatear(monto)}` : 'Pon el monto que entró';
+      botonGanancia.textContent = !monto
+        ? 'Ganancia: se pone después del monto'
+        : ganancia >= monto
+          ? `Ganancia estimada: todo (${formatear(monto)})`
+          : `Ganancia estimada: ${formatear(ganancia)} de ${formatear(monto)}`;
+      botonGanancia.disabled = monto ? null : true;
+      aceptar.disabled = monto ? null : true;
+      aceptar.style.opacity = monto ? '' : '.5';
+    };
+
+    botonMonto.addEventListener('click', async () => {
+      const m = await pedirMonto({
+        titulo: nombre.value.trim() || 'Venta libre',
+        nota: 'Lo que entró a la caja', inicial: monto, aceptar: 'Listo',
+      });
+      if (m === null) return;
+      monto = m;
+      // Mientras no la toquen, la ganancia sigue al monto. Si ya la fijaron, se
+      // respeta, pero nunca por encima de lo que entró.
+      if (!gananciaTocada) ganancia = monto;
+      else ganancia = Math.min(ganancia, monto);
+      pintar();
+    });
+
+    botonGanancia.addEventListener('click', async () => {
+      const g = await pedirMonto({
+        titulo: '¿Cuánto de eso es ganancia?',
+        nota: `Entraron ${formatear(monto)}. Si no te costó nada, déjalo completo.`,
+        inicial: ganancia, aceptar: 'Listo',
+      });
+      if (g === null) return;
+      ganancia = Math.min(g, monto);
+      gananciaTocada = true;
+      pintar();
+    });
+
+    aceptar.addEventListener('click', () => {
+      if (!monto) return;
+      d.close();
+      resolver({
+        productoId: null,
+        nombre: nombre.value.trim() || 'Venta libre',
+        cantidad: 1,
+        precioUSD: monto,
+        precioOriginalUSD: monto,
+        // La ganancia estimada se guarda como costo: así los reportes, el
+        // margen y el cierre de caja la cuentan sin tocar nada más.
+        costoUSD: Math.max(0, monto - ganancia),
+        gananciaEstimadaUSD: ganancia,
+        tipoPrecio: 'variable',
+        escalas: [],
+        esServicio: true,
+        fueraDeCatalogo: true,
+        // No se marca "precio cambiado": no hay precio de catálogo que cambiar,
+        // y la etiqueta roja en cada venta libre solo asusta al dueño.
+        precioEditado: false,
+        autorizadoPor: null,
+      });
+    });
+
+    pegar(d,
+      el('h2', { texto: 'Venta libre' }),
+      el('p', {
+        style: 'color:var(--texto-suave);font-size:.9rem',
+        texto: 'Para lo que no está en el catálogo: una deuda vieja que te pagaron, '
+             + 'un trabajo hecho a mano, algo suelto. No toca el inventario.',
+      }),
+      el('div.campo', {}, [el('label', { texto: '¿Qué fue?' }), nombre]),
+      botonMonto,
+      botonGanancia,
+      el('p', {
+        style: 'color:var(--texto-suave);font-size:.8rem;margin:.4rem 0 0',
+        texto: 'La ganancia es estimada: sirve para que el reporte del mes no cuente '
+             + 'como ganancia una plata que ya te había costado.',
+      }),
+      el('div.fila', { style: 'margin-top:1rem' }, [
+        el('button.btn.plano', { type: 'button', texto: 'Cancelar', onclick: () => { d.close(); resolver(null); } }),
+        aceptar,
+      ])
+    );
+    pintar();
+    nombre.focus();
+  });
+}
+
 // --- cobrar ------------------------------------------------------------------
 async function cobrar() {
   const lineas = carrito();
@@ -407,6 +533,12 @@ async function cobrar() {
   let pagos = [];
   let clienteId = null;
   let fiado = false;
+  // En qué moneda se le da el cambio. Arranca en la moneda con que pagó, que es
+  // lo que pasa en el mostrador: pagan con un billete de pesos y el vuelto sale
+  // en pesos. Importa que quede escrito: el vuelto SALE de la gaveta, y sin
+  // anotarlo el arqueo espera el billete completo y acusa un faltante del
+  // tamaño del cambio. Fue el faltante del 21/10.
+  let monedaVuelto = 'USD';
 
   const d = abrirDialogo('');
   const resumen = el('div');
@@ -427,6 +559,7 @@ async function cobrar() {
         });
         if (!monto) return;
         pagos = [...pagos, crearPago(codigo, monto, tasas)];
+        monedaVuelto = [...pagos].sort((a, b) => b.montoUSD - a.montoUSD)[0].moneda;
         pintar();
       },
     }));
@@ -464,12 +597,17 @@ async function cobrar() {
           style: `font-weight:700;color:${saldo < 0 ? 'var(--rojo)' : 'var(--verde)'}`,
           texto: saldo < 0 ? `Faltan ${formatear(-saldo)}` : saldo > 0 ? `Vuelto ${formatear(saldo)}` : 'Justo, sin vuelto',
         }),
-        saldo > 0 ? el('div', {
-          style: 'color:var(--texto-suave);font-size:.9rem',
-          texto: Object.entries(vuelto)
-            .filter(([m]) => m !== 'USD')
-            .map(([m, v]) => `o ${formatear(v, m)}`).join('  ·  '),
-        }) : null,
+        // El vuelto se da en UNA moneda y hay que decir en cuál: eso es lo que
+        // sale de la gaveta. Antes solo se mostraban las equivalencias "o Bs…,
+        // o $…" y no quedaba registrado nada.
+        saldo > 0 ? el('div', { style: 'display:flex;gap:.4rem;align-items:center;flex-wrap:wrap;margin-top:.4rem' }, [
+          el('span', { style: 'color:var(--texto-suave);font-size:.85rem', texto: 'El vuelto sale en' }),
+          ...Object.keys(vuelto).map((m) => el('button.chip', {
+            type: 'button', 'aria-pressed': m === monedaVuelto ? 'true' : 'false',
+            texto: formatear(vuelto[m], m),
+            onclick: () => { monedaVuelto = m; pintar(); },
+          })),
+        ]) : null,
       ]));
     }
 
@@ -491,7 +629,11 @@ async function cobrar() {
       // enfrente sería peor que el problema. Pero la plata entra a la gaveta y
       // ningún arqueo la cuenta, así que la venta queda marcada y se avisa.
       const turno = await turnoAbierto().catch(() => null);
-      const { id, venta } = await registrarVenta({ lineas, pagos, clienteId, fiado, sinTurno: !turno });
+      const saldo = saldoPago(t.totalUSD, pagos);
+      const vuelto = saldo > 0
+        ? { moneda: monedaVuelto, monto: vueltoEnMonedas(saldo, tasas)[monedaVuelto] ?? saldo, montoUSD: saldo }
+        : null;
+      const { id, venta } = await registrarVenta({ lineas, pagos, vuelto, clienteId, fiado, sinTurno: !turno });
       d.close();
       vaciar();
       sonidoCobrar();

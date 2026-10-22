@@ -15,7 +15,7 @@ import { db, ref, refNuevo, col } from '../core/firebase.js';
 import {
   writeBatch, serverTimestamp, getDocs, query, where, orderBy, limit, Timestamp, increment,
 } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js';
-import { usuarioActual } from '../core/sesion.js';
+import { usuarioActual, esDueno } from '../core/sesion.js';
 import { registrarMovimientos } from './inventario.js';
 import { totalesVenta, totalPagadoUSD } from '../core/dinero.js';
 import { anotar } from './auditoria.js';
@@ -26,7 +26,7 @@ import { escribir, leer } from '../core/estado.js';
  *             autorizadoPor, esServicio }]
  * pagos  = [{ moneda, monto, tasa, montoUSD }]
  */
-export async function registrarVenta({ lineas, pagos, clienteId = null, fiado = false, nota = '', sinTurno = false }) {
+export async function registrarVenta({ lineas, pagos, vuelto = null, clienteId = null, fiado = false, nota = '', sinTurno = false }) {
   const u = usuarioActual();
   if (!lineas?.length) throw new Error('La venta no tiene productos.');
 
@@ -45,12 +45,23 @@ export async function registrarVenta({ lineas, pagos, clienteId = null, fiado = 
       precioEditado: !!l.precioEditado,
       precioOriginalUSD: Math.round(l.precioOriginalUSD || l.precioUSD),
       autorizadoPor: l.autorizadoPor || null,
+      // Venta libre: no salió del catálogo y su ganancia la estimó el dueño a
+      // ojo. Queda escrito en la venta para poder separarlas en los reportes:
+      // sin la marca, un mes con muchas ventas libres parece un mes de margen
+      // real y no lo es.
+      fueraDeCatalogo: !!l.fueraDeCatalogo,
+      gananciaEstimada: !!l.fueraDeCatalogo,
     })),
     totalUSD: totales.totalUSD,
     costoTotalUSD: totales.costoUSD,
     gananciaUSD: totales.gananciaUSD,
     pagos,
     pagadoUSD,
+    // El cambio que se le dio al cliente, con la moneda en que salió. SALE de
+    // la misma gaveta: sin esto, el arqueo esperaba el billete completo con que
+    // pagaron y el faltante era del tamaño del vuelto.
+    vuelto: vuelto ? { moneda: vuelto.moneda, monto: vuelto.monto, montoUSD: vuelto.montoUSD } : null,
+    vueltoUSD: vuelto?.montoUSD || 0,
     saldoUSD: totales.totalUSD - pagadoUSD,   // > 0 = quedó debiendo
     fiado: !!fiado,
     // Se vendió sin caja abierta: queda escrito en la venta para poder
@@ -147,11 +158,21 @@ export async function pedirAnulacion(ventaId, motivo) {
   await lote.commit();
 }
 
-/** Ventas de un rango de días (YYYY-MM-DD, inclusive). */
+/**
+ * Ventas de un rango de días (YYYY-MM-DD, inclusive).
+ *
+ * Al empleado se le filtra por su uid, y no por gusto: las reglas de Firestore
+ * solo le dejan leer SUS ventas, y una consulta que pida más se rechaza
+ * COMPLETA. Sin este filtro, el empleado no podía ver su reporte X ni cerrar
+ * su propio turno: el arqueo fallaba entero y en silencio.
+ */
 export async function ventasEntre(desde, hasta) {
   const d = Timestamp.fromDate(new Date(`${desde}T00:00:00`));
   const h = Timestamp.fromDate(new Date(`${hasta}T23:59:59.999`));
-  const snap = await getDocs(query(col('ventas'), where('ts', '>=', d), where('ts', '<=', h), orderBy('ts', 'desc')));
+  const u = usuarioActual();
+  const soloMias = !esDueno() && u?.uid ? [where('uid', '==', u.uid)] : [];
+  const snap = await getDocs(query(
+    col('ventas'), ...soloMias, where('ts', '>=', d), where('ts', '<=', h), orderBy('ts', 'desc')));
   return snap.docs.map((x) => ({ id: x.id, ...x.data() })).filter((v) => v.estado !== 'anulada');
 }
 
