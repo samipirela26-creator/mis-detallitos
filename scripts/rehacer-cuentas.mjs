@@ -43,16 +43,26 @@ const HOY = new Date().toISOString().slice(0, 10);
 // volver a leer el conteo tal como se hizo, y no un total que ya no se puede
 // comprobar.
 //
-// Los bolívares no se contaron, así que quedan en CERO. Si hay bolívares
-// guardados, se agregan aquí y se vuelve a correr.
+// Los bolívares van completos a la caja fuerte: entran por pago móvil y nunca
+// pasan por la gaveta (ver public/js/core/sitios.js).
 const CONTEO = [
   { lugar: 'Caja fuerte', moneda: 'COP', monto: 16500, que: 'monedas' },
   { lugar: 'Caja fuerte', moneda: 'COP', monto: 382000, que: 'billetes' },
   { lugar: 'Caja fuerte', moneda: 'USD', monto: 1100, que: 'billetes' },
+  { lugar: 'Caja fuerte', moneda: 'VES', monto: 2354500, que: 'pago móvil' },
   { lugar: 'Caja', moneda: 'COP', monto: 15000, que: 'monedas' },
   { lugar: 'Caja', moneda: 'COP', monto: 23000, que: 'billetes' },
   { lugar: 'Caja', moneda: 'USD', monto: 500, que: 'billetes' },
 ];
+
+// LA HORA DEL CONTEO. Todo lo anotado HASTA aquí ya está dentro de lo que se
+// contó y se neutraliza; lo de después se suma encima, como debe ser.
+//
+// Sin este corte, volver a correr el script más tarde borraba del saldo el
+// efectivo de las ventas hechas DESPUÉS del conteo: la plata estaba en la
+// gaveta y la app decía que no. Es la hora del primer reseteo, que es cuando
+// Samuel acababa de contar.
+const CORTE = new Date('2026-10-22T22:42:02.635Z');
 
 const BORRAR = ['ingresos', 'retiros', 'traslados'];
 
@@ -118,8 +128,21 @@ async function main() {
   const nuevosIngresos = CONTEO.map((c) => ({
     lugar: c.lugar, moneda: c.moneda, monto: c.monto,
   }));
+  const hastaElCorte = (x) => {
+    const t = x.ts?.toDate ? x.ts.toDate() : x.ts ? new Date(x.ts) : null;
+    return t ? t <= CORTE : true;      // sin hora: se cuenta como de antes
+  };
+  const antes = {
+    ventas: vivas.filter(hastaElCorte),
+    gastos: gastos.filter(hastaElCorte),
+    abonos: abonos.filter(hastaElCorte),
+  };
+  const despues = vivas.length - antes.ventas.length;
+  if (despues) {
+    console.log(`\n  (${despues} venta(s) son POSTERIORES al conteo: su plata se suma, no se neutraliza.)`);
+  }
   const conSoloElConteo = efectivoPorLugar({
-    ingresos: nuevosIngresos, ventas: vivas, gastos, abonos, retiros: [], traslados: [],
+    ingresos: nuevosIngresos, ...antes, retiros: [], traslados: [],
   });
 
   const ajustes = [];
@@ -139,20 +162,33 @@ async function main() {
   }
 
   // --- 4. cómo va a quedar ---------------------------------------------------
+  // Lo que va a mostrar la app: el conteo, el ajuste y TODO lo posterior al
+  // corte. Si solo se imprimiera el conteo, una venta hecha después del conteo
+  // haría que el número de la pantalla no coincidiera con este informe.
+  const final = efectivoPorLugar({
+    ingresos: [...nuevosIngresos, ...ajustes.filter((a) => a.signo > 0)],
+    retiros: ajustes.filter((a) => a.signo < 0),
+    ventas: vivas, gastos, abonos, traslados: [],
+  });
   console.log('\n── COMO VA A QUEDAR ──');
   let totalUSD = 0;
   for (const lugar of LUGARES) {
     console.log(`\n  ${lugar}`);
     for (const moneda of Object.keys(MONEDAS)) {
-      const v = deseado[lugar][moneda];
+      const v = final[lugar][moneda];
       if (!v) continue;
       totalUSD += enUSD(v, moneda, tasas);
       console.log(`    ${MONEDAS[moneda].nombre.padEnd(10)} ${formatear(v, moneda).padStart(14)}`);
     }
   }
   console.log(`\n  TOTAL EN DÓLARES  ${formatear(totalUSD)}`);
-  if (!deseado['Caja'].VES && !deseado['Caja fuerte'].VES) {
-    console.log('\n  OJO: los bolívares quedan en CERO porque no se contaron.');
+  for (const lugar of LUGARES) {
+    for (const moneda of Object.keys(MONEDAS)) {
+      if (!CONTEO.some((c) => c.lugar === lugar && c.moneda === moneda) && final[lugar][moneda]) {
+        console.log(`\n  OJO: ${lugar} queda con ${formatear(final[lugar][moneda], moneda)} `
+          + `y eso no se contó: salió de lo registrado después del conteo.`);
+      }
+    }
   }
 
   if (!APLICAR) {

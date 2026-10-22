@@ -9,6 +9,7 @@
 // costo que tenía ese día aunque el proveedor haya subido el precio después.
 
 import { margenPct, LUGARES, LUGAR_VENTAS, MONEDAS } from '../core/dinero.js';
+import { lugarDeLaMoneda } from '../core/sitios.js';
 
 /** Costo de una línea: el que guardó la venta, o el del catálogo si faltaba. */
 export function costoLinea(l, costos = {}) {
@@ -236,16 +237,18 @@ export function efectivoPorLugar({ ingresos = [], retiros = [], traslados = [], 
   for (const r of retiros) mover(r.lugar || LUGAR_VENTAS, r.moneda, -(r.monto || 0));
   for (const g of gastos) mover(g.lugar || LUGAR_VENTAS, g.moneda, -(g.monto || 0));
   for (const a of abonos) {
-    for (const p of a.pagos || []) mover(a.lugar || LUGAR_VENTAS, p.moneda, p.monto || 0);
+    for (const p of a.pagos || []) mover(a.lugar || lugarDeLaMoneda(p.moneda), p.moneda, p.monto || 0);
   }
   for (const t of traslados) {
     mover(t.desde, t.moneda, -(t.monto || 0));
     mover(t.hacia, t.moneda, t.monto || 0);
   }
   for (const v of ventas) {
-    for (const p of v.pagos || []) mover(LUGAR_VENTAS, p.moneda, p.monto || 0);
+    // Cada moneda a su sitio: los bolívares entran por pago móvil y nunca
+    // pasan por la gaveta (ver core/sitios.js).
+    for (const p of v.pagos || []) mover(lugarDeLaMoneda(p.moneda), p.moneda, p.monto || 0);
     const vuelto = vueltoDeVenta(v);
-    if (vuelto) mover(LUGAR_VENTAS, vuelto.moneda, -(vuelto.monto || 0));
+    if (vuelto) mover(lugarDeLaMoneda(vuelto.moneda), vuelto.moneda, -(vuelto.monto || 0));
   }
 
   return saldos;
@@ -268,7 +271,20 @@ export function dineroPorLugar({ ingresos = [], retiros = [], traslados = [], ve
     sumar(t.desde, -(t.montoUSD || 0));
     sumar(t.hacia, t.montoUSD || 0);
   }
-  sumar(LUGAR_VENTAS, cobradoDeVentas(ventas));
+  // Lo cobrado va al sitio de SU moneda, no todo a la gaveta: los bolívares
+  // entran por pago móvil y se quedan guardados (ver core/sitios.js). Si la
+  // venta no trae el detalle de los pagos, se le carga a la gaveta, que es
+  // donde cae el día a día.
+  for (const v of ventas) {
+    const pagos = v.pagos || [];
+    if (!pagos.length) {
+      sumar(LUGAR_VENTAS, (v.totalUSD || 0) - Math.max(0, v.saldoUSD || 0));
+      continue;
+    }
+    for (const p of pagos) sumar(lugarDeLaMoneda(p.moneda), p.montoUSD || 0);
+    const vuelto = vueltoDeVenta(v);
+    if (vuelto) sumar(lugarDeLaMoneda(vuelto.moneda), -(vuelto.montoUSD || 0));
+  }
   // Los abonos de los fiados son PLATA QUE ENTRA. Faltaban: una deuda cobrada
   // no aparecía en ninguna parte y el total del negocio salía por debajo de lo
   // que había en la gaveta (el clásico "sobra y no sé de dónde salió").

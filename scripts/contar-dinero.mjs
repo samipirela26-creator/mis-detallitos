@@ -18,6 +18,7 @@
 import { col } from './admin.mjs';
 import { MONEDAS, LUGARES, LUGAR_VENTAS, formatear } from '../public/js/core/dinero.js';
 import { dineroPorLugar, cobradoDeVentas, efectivoPorLugar, vueltoDeVenta } from '../public/js/reports/analisis.js';
+import { lugarDeLaMoneda } from '../public/js/core/sitios.js';
 
 const DETALLE = process.argv.includes('--detalle');
 
@@ -59,16 +60,16 @@ async function main() {
   }
   for (const v of vivas) {
     for (const p of v.pagos || []) {
-      anotar(LUGAR_VENTAS, p.moneda, p.monto || 0, `${cuando(v)}  venta ${v.id.slice(0, 6)} · pagó ${formatear(p.monto, p.moneda)}`);
+      anotar(lugarDeLaMoneda(p.moneda), p.moneda, p.monto || 0, `${cuando(v)}  venta ${v.id.slice(0, 6)} · pagó ${formatear(p.monto, p.moneda)}`);
     }
     const vuelto = vueltoDeVenta(v);
     if (vuelto) {
-      anotar(LUGAR_VENTAS, vuelto.moneda, -vuelto.monto, `${cuando(v)}  venta ${v.id.slice(0, 6)} · VUELTO (reconstruido)`);
+      anotar(lugarDeLaMoneda(vuelto.moneda), vuelto.moneda, -vuelto.monto, `${cuando(v)}  venta ${v.id.slice(0, 6)} · VUELTO (reconstruido)`);
     }
   }
   for (const a of abonos) {
     for (const p of a.pagos || []) {
-      anotar(a.lugar || LUGAR_VENTAS, p.moneda, p.monto || 0, `${cuando(a)}  abono de fiado · ${formatear(p.monto, p.moneda)}`);
+      anotar(a.lugar || lugarDeLaMoneda(p.moneda), p.moneda, p.monto || 0, `${cuando(a)}  abono de fiado · ${formatear(p.monto, p.moneda)}`);
     }
   }
   for (const g of gastos) {

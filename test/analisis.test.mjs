@@ -250,3 +250,41 @@ test('efectivo por lugar: cada moneda se cuadra con su moneda', () => {
   assert.equal(e['Caja fuerte'].COP, 10000);
   assert.equal(e['Caja fuerte'].VES, 712900);
 });
+
+// --- los bolívares nunca pasan por la gaveta ---------------------------------
+// Entran por pago móvil y el que atiende no puede dar vuelto en bolívares, así
+// que van derecho a la caja fuerte. Si se contaran en la gaveta, cada cierre
+// reclamaría unos bolívares que están en un teléfono.
+
+test('efectivo por lugar: un pago en bolívares no entra a la gaveta', () => {
+  const e = a.efectivoPorLugar({
+    ventas: [{ totalUSD: 50, pagadoUSD: 50, pagos: [{ moneda: 'VES', monto: 50000, montoUSD: 50 }] }],
+  });
+  assert.equal(e['Caja'].VES, 0);
+  assert.equal(e['Caja fuerte'].VES, 50000);
+});
+
+test('efectivo por lugar: pesos y dólares sí van a la gaveta', () => {
+  const e = a.efectivoPorLugar({
+    ventas: [{ totalUSD: 324, pagadoUSD: 324, pagos: [
+      { moneda: 'COP', monto: 7000, montoUSD: 224 },
+      { moneda: 'USD', monto: 100, montoUSD: 100 },
+    ] }],
+  });
+  assert.equal(e['Caja'].COP, 7000);
+  assert.equal(e['Caja'].USD, 100);
+});
+
+test('dinero por lugar: lo cobrado en bolívares se guarda, no queda en la caja', () => {
+  const d = a.dineroPorLugar({
+    ventas: [{ totalUSD: 50, pagadoUSD: 50, saldoUSD: 0, pagos: [{ moneda: 'VES', monto: 50000, montoUSD: 50 }] }],
+  });
+  assert.equal(d.saldos['Caja'], 0);
+  assert.equal(d.saldos['Caja fuerte'], 50);
+  assert.equal(d.totalUSD, 50);          // el total del negocio no cambia
+});
+
+test('dinero por lugar: una venta sin detalle de pagos se le carga a la caja', () => {
+  const d = a.dineroPorLugar({ ventas: [{ totalUSD: 400, saldoUSD: 200 }] });
+  assert.equal(d.saldos['Caja'], 200);   // lo fiado no está
+});

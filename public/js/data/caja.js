@@ -11,6 +11,7 @@ import {
 } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js';
 import { usuarioActual } from '../core/sesion.js';
 import { MONEDAS, desdeUSD, LUGAR_VENTAS } from '../core/dinero.js';
+import { entraALaGaveta } from '../core/sitios.js';
 import { ventasEntre, hoyISO } from './ventas.js';
 import { gastosEntre } from './gastos.js';
 import { anotar } from './auditoria.js';
@@ -147,6 +148,10 @@ export async function esperadoDelTurno(turno) {
     if (!moneda || !monto) return;
     esperado[moneda] = (esperado[moneda] || 0) + monto;
   };
+  // Lo que entra por venta o por abono solo se le pide a la gaveta si de
+  // verdad cae ahí. Los bolívares entran por pago móvil: reclamarlos al cerrar
+  // es un faltante inventado del tamaño de todo lo cobrado en bolívares.
+  const siEsDeLaGaveta = (moneda, monto) => { if (entraALaGaveta(moneda)) mover(moneda, monto); };
 
   let totalUSD = 0;
   let gananciaUSD = 0;
@@ -159,12 +164,12 @@ export async function esperadoDelTurno(turno) {
     gananciaUSD += v.gananciaUSD || 0;
     for (const p of v.pagos || []) {
       cobradoUSD += p.montoUSD || 0;
-      mover(p.moneda, p.monto);
+      siEsDeLaGaveta(p.moneda, p.monto);
     }
     if (v.vuelto) {
       vueltoUSD += v.vuelto.montoUSD || 0;
       cobradoUSD -= v.vuelto.montoUSD || 0;
-      mover(v.vuelto.moneda, -(v.vuelto.monto || 0));
+      siEsDeLaGaveta(v.vuelto.moneda, -(v.vuelto.monto || 0));
     }
   }
 
@@ -189,7 +194,7 @@ export async function esperadoDelTurno(turno) {
   let abonadoUSD = 0;
   for (const a of misAbonos) {
     abonadoUSD += a.montoUSD || 0;
-    for (const p of a.pagos || []) mover(p.moneda, p.monto);
+    for (const p of a.pagos || []) siEsDeLaGaveta(p.moneda, p.monto);
   }
 
   let trasladadoUSD = 0;

@@ -108,11 +108,6 @@ hace lo que quiera" sigue abierta.)
 
 ## Esperan tu respuesta — del reconteo del dinero (22/10/2026)
 
-- [ ] **¿Hay bolívares?** El conteo del 22/10 no los mencionó, así que quedaron en CERO
-      en los dos sitios. Si hay bolívares guardados, se agregan al `CONTEO` de
-      `scripts/rehacer-cuentas.mjs` y se vuelve a correr, o se cargan desde la app con
-      Mi dinero → "Cuadrar lo contado".
-
 - [ ] **Abre la caja antes de vender.** 8 de las 12 ventas se cobraron sin turno abierto
       (21 y 22/10): esa plata entró a la gaveta y ningún arqueo la cuenta.
 
@@ -126,6 +121,18 @@ avisarle que lo escriba en la nota del cierre, o mover el retiro a después de c
 Tu pantalla de Mi dinero sí lo cuenta todo bien.
 
 ## Hecho el 22/10/2026 — tercera ronda
+
+- **Los bolívares nunca pasan por la gaveta** (`public/js/core/sitios.js`). Lo dijo Samuel:
+  entran por pago móvil, no son billetes, y el que atiende no puede dar vuelto en
+  bolívares. Van derecho a la caja fuerte. Esto era una bomba de tiempo: el arqueo sumaba
+  a la gaveta cada venta cobrada en bolívares y al cerrar el turno iba a reclamar unos
+  bolívares que están en un teléfono — un faltante inventado del tamaño de todo lo
+  cobrado en Bs. Ahora el arqueo no los pide, y las cuentas del dueño los guardan donde
+  están. Si algún día entran bolívares en efectivo, se cambia en ese archivo y nada más.
+- **Cargados los Bs 23.545 del conteo**, en la caja fuerte.
+- **`rehacer-cuentas.mjs` tiene hora de corte.** Volver a correrlo borraba del saldo el
+  efectivo de las ventas hechas DESPUÉS del conteo. Ahora solo neutraliza lo anterior al
+  corte y lo posterior se suma encima, así que se puede correr otra vez sin romper nada.
 
 - **Gastos y salidas en una sola pantalla.** El dueño venía a "Gastos" a anotar el pago de
   un trabajador o lo que saca para él, no lo encontraba en el desplegable (eso vivía en
