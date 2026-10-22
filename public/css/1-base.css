@@ -68,6 +68,13 @@ html, body { margin: 0; padding: 0; }
 html { -webkit-text-size-adjust: 100%; }
 
 body {
+  /* Doble toque sin querer = zoom, y en el mostrador eso es un estorbo: se
+     toca rápido y la pantalla se va de tamaño a mitad de una venta.
+     `manipulation` apaga SOLO el zoom por doble toque; pellizcar para acercar
+     sigue funcionando, que es lo que de verdad hace falta para ver una foto o
+     un número chico. Quitarlo del todo (user-scalable=no) dejaría sin salida a
+     quien ve poco. */
+  touch-action: manipulation;
   font-family: var(--fuente-cuerpo);
   font-size: 14px;
   line-height: 1.5;
