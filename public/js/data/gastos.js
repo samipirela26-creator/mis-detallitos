@@ -6,8 +6,12 @@ import {
 import { usuarioActual, esDueno } from '../core/sesion.js';
 import { anotar } from './auditoria.js';
 
+// Las palabras son las que usa Samuel, no las de un plan de cuentas: busca
+// "pago de trabajador" y "herramienta", y si el desplegable dice "Sueldos" y
+// "Otros" no las encuentra y acaba metiendo todo en "Otros".
 export const CATEGORIAS = [
-  'Mercancía', 'Servicios (luz, agua, internet)', 'Alquiler', 'Sueldos',
+  'Mercancía', 'Herramientas o artículos para el negocio',
+  'Servicios (luz, agua, internet)', 'Alquiler', 'Sueldos / pago de trabajador',
   'Transporte / flete', 'Mantenimiento', 'Impuestos', 'Otros',
 ];
 

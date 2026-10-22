@@ -125,6 +125,18 @@ abierto, su cierre va a marcar un faltante de ese tamaño. Dos salidas, cuando m
 avisarle que lo escriba en la nota del cierre, o mover el retiro a después de cerrar.
 Tu pantalla de Mi dinero sí lo cuenta todo bien.
 
+## Hecho el 22/10/2026 — tercera ronda
+
+- **Gastos y salidas en una sola pantalla.** El dueño venía a "Gastos" a anotar el pago de
+  un trabajador o lo que saca para él, no lo encontraba en el desplegable (eso vivía en
+  Mi dinero → Sacar) y lo metía en "Otros", que lo contaba como gasto del negocio y le
+  hundía la ganancia del mes. Ahora el desplegable trae los dos grupos —"Gasto del negocio
+  (baja la ganancia)" y "Sale de la caja pero no es gasto"— y la app guarda cada cosa en su
+  colección, diciendo en pantalla qué va a pasar con esa plata. La lista de abajo muestra
+  las dos clases, con su etiqueta. Al empleado solo se le muestran los gastos.
+- **Categorías con las palabras de Samuel**: "Sueldos" pasó a "Sueldos / pago de trabajador"
+  y se agregó "Herramientas o artículos para el negocio", que no existía.
+
 ## Hecho el 22/10/2026 — segunda ronda
 
 - **Las cuentas de dinero se rehicieron desde el conteo a mano** de Samuel
