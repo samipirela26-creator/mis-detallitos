@@ -558,8 +558,15 @@ async function cobrar() {
       onclick: async () => {
         const falta = Math.max(0, -saldoPago(t.totalUSD, pagos));
         const sugerido = codigo === 'USD' ? falta : desdeUSD(falta, codigo, tasas[codigo]);
+        // "Recibido en Pesos" no dice nada: parecía el nombre de una casilla de
+        // formulario. La pregunta de verdad es cuánto te entregó el cliente, y
+        // el monto que falta viene ya escrito para que lo normal —paga justo—
+        // sea un solo toque.
         const monto = await pedirMonto({
-          titulo: `Recibido en ${MONEDAS[codigo].nombre}`,
+          titulo: `¿Cuánto te dio en ${MONEDAS[codigo].nombre.toLowerCase()}?`,
+          nota: falta
+            ? `Faltan ${formatear(falta)} de ${formatear(t.totalUSD)}. Si te dio más, el vuelto se calcula solo.`
+            : `Ya está cubierto el total de ${formatear(t.totalUSD)}.`,
           moneda: codigo, inicial: sugerido, aceptar: 'Agregar',
         });
         if (!monto) return;
@@ -659,7 +666,7 @@ async function cobrar() {
   pegar(d, 
     el('h2', { texto: 'Cobrar' }),
     resumen,
-    el('p', { style: 'color:var(--texto-suave);font-size:.85rem;margin-top:1rem', texto: '¿Con qué paga?' }),
+    el('p', { style: 'color:var(--texto-suave);font-size:.85rem;margin-top:1rem', texto: '¿Con qué te está pagando?' }),
     botonesMoneda,
     listaPagos,
     el('button.btn.plano.ancho', {
