@@ -27,6 +27,7 @@ import {
   CATEGORIAS as CAT_RETIRO, registrarRetiro, retirosEntre, borrarRetiro,
 } from '../data/retiros.js';
 import { MONEDAS, LUGARES, aMenores, formatear, aUSD } from '../core/dinero.js';
+import { lugarDeLaMoneda } from '../core/sitios.js';
 import { leer } from '../core/estado.js';
 import { esDueno } from '../core/sesion.js';
 
@@ -58,8 +59,9 @@ async function montarGastos(nodo) {
                     : opcionesGasto}
           </select>
           <small id="explica" style="color:var(--texto-suave)"></small></div>
-        <div class="campo" id="caja-lugar" style="display:none"><label>¿De dónde lo sacas?</label>
-          <select name="lugar">${LUGARES.map((l) => `<option>${esc(l)}</option>`).join('')}</select></div>
+        <div class="campo"><label>¿De dónde sale el dinero?</label>
+          <select name="lugar">${LUGARES.map((l) => `<option>${esc(l)}</option>`).join('')}</select>
+          <small id="explica-lugar" style="color:var(--texto-suave)"></small></div>
         <div class="fila">
           <div class="campo"><label>Moneda</label>
             <select name="moneda">${Object.values(MONEDAS).map((m) => `<option value="${m.codigo}">${esc(m.nombre)}</option>`).join('')}</select></div>
@@ -84,7 +86,6 @@ async function montarGastos(nodo) {
   function refrescar() {
     const { clase } = elegido();
     const esRetiro = clase === 'retiro';
-    $('#caja-lugar', nodo).style.display = esRetiro ? '' : 'none';
     $('#guardar', nodo).textContent = esRetiro ? 'Registrar el retiro' : 'Guardar gasto';
     $('#lbl-nota', nodo).textContent = esRetiro ? '¿Por qué? (hace falta)' : 'Nota';
     f.nota.placeholder = esRetiro ? 'Quincena de Yoli' : 'opcional';
@@ -93,6 +94,25 @@ async function montarGastos(nodo) {
       : 'Esto es un costo del negocio y baja la ganancia del mes.';
   }
   f.categoria.addEventListener('change', refrescar);
+
+  /**
+   * De dónde sale la plata. Antes solo se preguntaba en los retiros, y el gasto
+   * se le cargaba entero a la gaveta: un gasto pagado en bolívares por pago
+   * móvil —que nunca estuvo en la gaveta— dejaba la gaveta faltando al cerrar.
+   *
+   * El sitio se propone por la moneda (los bolívares viven en la caja fuerte,
+   * ver core/sitios.js) y se puede cambiar: el billete de a dólar lo mismo sale
+   * de la gaveta que de lo guardado.
+   */
+  function proponerLugar() {
+    f.lugar.value = lugarDeLaMoneda(f.moneda.value);
+    $('#explica-lugar', nodo).textContent = f.moneda.value === 'VES'
+      ? 'Los bolívares entran por pago móvil: nunca están en la gaveta.'
+      : '';
+  }
+  f.moneda.addEventListener('change', proponerLugar);
+  f.lugar.addEventListener('change', () => { $('#explica-lugar', nodo).textContent = ''; });
+  proponerLugar();
   refrescar();
 
   f.addEventListener('submit', async (ev) => {
@@ -115,9 +135,10 @@ async function montarGastos(nodo) {
         if (!f.nota.value.trim()) return avisarMal('Escribe por qué sacas ese dinero.');
         await registrarRetiro({ ...plata, lugar: f.lugar.value, porque: f.nota.value });
       } else {
-        await registrarGasto({ ...plata, nota: f.nota.value });
+        await registrarGasto({ ...plata, lugar: f.lugar.value, nota: f.nota.value });
       }
       f.reset();
+      proponerLugar();
       refrescar();
       avisarOk(clase === 'retiro' ? 'Retiro registrado' : 'Gasto registrado');
       cargar();
@@ -167,7 +188,7 @@ async function montarGastos(nodo) {
                 ? el('span.etiqueta.info', { style: 'margin-left:.4rem', texto: 'retiro' })
                 : null,
             ]),
-            el('div', { style: 'font-size:.8rem;color:var(--texto-suave)', html: `${fecha(g.ts)} · ${esc(g.nombreUsuario || '')} ${g.nota ? '· ' + esc(g.nota) : ''}` }),
+            el('div', { style: 'font-size:.8rem;color:var(--texto-suave)', html: `${fecha(g.ts)} · ${esc(g.nombreUsuario || '')} · ${esc(g.lugar || 'Caja')} ${g.nota ? '· ' + esc(g.nota) : ''}` }),
           ]),
           el('div', { style: 'text-align:right' }, [
             el('div.cifra', { style: 'font-weight:700', texto: formatear(g.montoUSD) }),

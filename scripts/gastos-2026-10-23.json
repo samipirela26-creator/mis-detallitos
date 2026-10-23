@@ -1,0 +1,6 @@
+[
+  { "dia": "2026-10-23", "categoria": "Otros", "moneda": "COP", "monto": 4000,
+    "lugar": "Caja", "nota": "Una galleta" },
+  { "dia": "2026-10-23", "categoria": "Mercancía", "moneda": "COP", "monto": 10000,
+    "lugar": "Caja", "nota": "Papel fotográfico imantado" }
+]

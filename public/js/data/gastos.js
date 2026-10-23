@@ -4,6 +4,7 @@ import {
   setDoc, getDocs, query, where, orderBy, serverTimestamp, deleteDoc, Timestamp,
 } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js';
 import { usuarioActual, esDueno } from '../core/sesion.js';
+import { LUGARES, LUGAR_VENTAS } from '../core/dinero.js';
 import { anotar } from './auditoria.js';
 
 // Las palabras son las que usa Samuel, no las de un plan de cuentas: busca
@@ -15,15 +16,26 @@ export const CATEGORIAS = [
   'Transporte / flete', 'Mantenimiento', 'Impuestos', 'Otros',
 ];
 
-export async function registrarGasto({ categoria, montoUSD, moneda, monto, tasa, nota = '', foto = null }) {
+/**
+ * `lugar` es DE DÓNDE salió la plata: la gaveta o la caja fuerte. Faltaba, y
+ * sin él todo gasto se le cobraba a la gaveta — también el que se pagó por
+ * pago móvil en bolívares, que nunca estuvo ahí. Al cerrar el turno la app
+ * reclamaba un dinero que jamás pasó por la gaveta y cantaba un faltante
+ * inventado; y un faltante inventado tapa los de verdad.
+ *
+ * Los gastos viejos no lo traen: el arqueo y "Mi dinero" los siguen leyendo
+ * como de la gaveta (`x.lugar || 'Caja'`), que es donde estaban antes.
+ */
+export async function registrarGasto({ categoria, lugar = LUGAR_VENTAS, montoUSD, moneda, monto, tasa, nota = '', foto = null }) {
+  if (!LUGARES.includes(lugar)) throw new Error(`Lugar no permitido: ${lugar}`);
   const u = usuarioActual();
   const documento = refNuevo('gastos');
   await setDoc(documento, {
-    categoria, montoUSD, moneda, monto, tasa, nota, foto,
+    categoria, lugar, montoUSD, moneda, monto, tasa, nota, foto,
     uid: u.uid, nombreUsuario: u.nombre,
     ts: serverTimestamp(), dia: new Date().toISOString().slice(0, 10),
   });
-  anotar('gasto-registrado', { gastoId: documento.id, categoria, montoUSD });
+  anotar('gasto-registrado', { gastoId: documento.id, categoria, lugar, montoUSD });
   return documento.id;
 }
 
