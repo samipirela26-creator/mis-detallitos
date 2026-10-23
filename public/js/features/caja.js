@@ -227,8 +227,8 @@ async function montarCaja(nodo) {
     if (FUERA_DE_LA_GAVETA.length) {
       tarjeta.appendChild(el('p', {
         style: 'font-size:.83rem;color:var(--texto-suave)',
-        texto: `${FUERA_DE_LA_GAVETA.map((m) => m.nombre.toLowerCase()).join(' y ')}: no se preguntan aquí. `
-             + 'Entran por pago móvil, no son billetes de la gaveta y se guardan aparte.',
+        texto: `Los ${FUERA_DE_LA_GAVETA.map((m) => m.nombre.toLowerCase()).join(' y los ')} no se preguntan aquí: `
+             + 'entran por pago móvil, no son billetes de la gaveta y se guardan aparte.',
       }));
     }
 
