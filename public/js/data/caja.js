@@ -51,6 +51,25 @@ export async function quienTieneLaCaja() {
   }
 }
 
+/**
+ * Con cuánto quedó la gaveta en el último cierre, para enseñarlo al abrir.
+ * Devuelve null si todavía no hay ninguno (o si no se pudo leer: sin internet
+ * se abre igual, solo que sin la ayuda).
+ */
+export async function comoQuedoLaGaveta() {
+  try {
+    const snap = await getDoc(ref('equipo', 'turno'));
+    const d = snap.exists() ? snap.data() : null;
+    if (!d || !d.quedo || !Object.keys(d.quedo).length) return null;
+    return {
+      contado: d.quedo, noContadas: d.quedoNoContadas || [],
+      cerradoPor: d.cerradoPor || '', cuando: d.quedoCierre || null, dia: d.dia || '',
+    };
+  } catch {
+    return null;
+  }
+}
+
 /** fondo = { USD: 2000, COP: 50000, VES: 0 } en unidades menores. */
 export async function abrirTurno(fondo) {
   const u = usuarioActual();
@@ -234,7 +253,16 @@ export async function cerrarTurno(turno, contado, { nota = '' } = {}) {
 
   const lote = writeBatch(db);
   // Soltar la gaveta: sin esto nadie podría volver a abrir turno.
-  lote.set(ref('equipo', 'turno'), { abierto: false, cajaId: turno.id, cerradoPor: u.nombre, dia: hoyISO() });
+  // Con cuánto quedó la gaveta, para que el siguiente que abra lo VEA en vez
+  // de adivinarlo. Va en el marcador del equipo —y no solo en `cajas`— porque
+  // el empleado no puede leer el turno de otro, y el que abre casi nunca es el
+  // que cerró. No es el registro contable (ese sigue siendo `cajas`, intacto):
+  // es el dato que hace falta en la mano, y es el mismo dinero que esa persona
+  // va a contar en un minuto.
+  lote.set(ref('equipo', 'turno'), {
+    abierto: false, cajaId: turno.id, cerradoPor: u.nombre, dia: hoyISO(),
+    quedo: contado, quedoNoContadas: noContadas, quedoCierre: serverTimestamp(),
+  });
   lote.set(ref('cajas', turno.id), {
     estado: 'cerrada',
     esperado, contado, diferencia, noContadas,

@@ -9,9 +9,10 @@ import { el, esc, $, fecha, diaISO, abrirDialogo, pegar } from '../ui/html.js';
 import { avisarOk, avisarMal, confirmar } from '../ui/avisos.js';
 import {
   DENOMINACIONES, turnoAbierto, abrirTurno, reporteX, cerrarTurno, quienTieneLaCaja,
-  turnosRecientes, sumarConteo,
+  turnosRecientes, sumarConteo, comoQuedoLaGaveta,
 } from '../data/caja.js';
 import { MONEDAS, formatear, aMenores, aMayores } from '../core/dinero.js';
+import { entraALaGaveta } from '../core/sitios.js';
 import { leer } from '../core/estado.js';
 import { esDueno, usuarioActual } from '../core/sesion.js';
 
@@ -20,6 +21,13 @@ registrar('caja', {
   montar: montarCaja,
 });
 registrar('caja-dueno', { titulo: 'Caja', icono: '💵', montar: montarCaja });
+
+// La gaveta solo tiene lo que de verdad está en la gaveta. Los bolívares
+// entran por pago móvil y se quedan en la caja fuerte (ver core/sitios.js):
+// preguntarle a alguien cuántos bolívares hay en la gaveta es pedirle un
+// número que no puede ir a mirar, y el que inventa acaba en un descuadre.
+const DE_LA_GAVETA = Object.values(MONEDAS).filter((m) => entraALaGaveta(m.codigo));
+const FUERA_DE_LA_GAVETA = Object.values(MONEDAS).filter((m) => !entraALaGaveta(m.codigo));
 
 /** Cuántos días lleva abierto un turno, contando por fecha y no por horas:
  *  un turno abierto anoche a las 11 ya es de ayer aunque no hayan pasado 24h. */
@@ -162,41 +170,93 @@ async function montarCaja(nodo) {
     ]));
   }
 
-  function pintarApertura() {
+  async function pintarApertura() {
+    nodo.innerHTML = '<div class="cargando">Buscando cómo quedó la caja…</div>';
+    // Con cuánto quedó la gaveta la última vez que se cerró. Sin esto, abrir
+    // era adivinar: la app preguntaba cuánto hay y la respuesta no estaba en
+    // ningún sitio que la persona pudiera mirar.
+    const quedo = await comoQuedoLaGaveta();
+
     nodo.innerHTML = '';
-    nodo.appendChild(el('div.tarjeta', {}, [
+    const tarjeta = el('div.tarjeta', {}, [
       el('h1', { texto: 'Abrir la caja' }),
       el('p', { texto: '¿Con cuánto arrancas? Es el fondo para dar vuelto. Si no tienes nada, déjalo en cero.' }),
-      ...Object.values(MONEDAS).map((m) =>
-        el('div.campo', {}, [
-          el('label', { texto: m.nombre }),
-          el('input', { id: `f-${m.codigo}`, inputmode: 'decimal', placeholder: '0', value: '' }),
-        ])),
-      el('button.btn.principal.grande.ancho', {
-        texto: 'Abrir turno',
-        onclick: async (ev) => {
-          // Dos clics seguidos abrían dos turnos. La transacción ya lo frena en
-          // el servidor, pero el botón tampoco debe dejar intentarlo.
-          const boton = ev.currentTarget;
-          if (boton.disabled) return;
-          boton.disabled = true;
-          boton.textContent = 'Abriendo…';
-          const fondo = {};
-          for (const m of Object.values(MONEDAS)) {
-            fondo[m.codigo] = aMenores($(`#f-${m.codigo}`, nodo).value, m.codigo) || 0;
-          }
-          try {
-            await abrirTurno(fondo);
-            avisarOk('Turno abierto');
-            montarCaja(nodo);
-          } catch (e) {
-            avisarMal(e.message || 'No se pudo abrir el turno.');
-            boton.disabled = false;
-            boton.textContent = 'Abrir turno';
-          }
-        },
-      }),
-    ]));
+    ]);
+
+    if (quedo) {
+      const linea = DE_LA_GAVETA
+        .filter((m) => quedo.contado[m.codigo] !== undefined && quedo.contado[m.codigo] !== null)
+        .map((m) => formatear(quedo.contado[m.codigo] || 0, m.codigo));
+      if (linea.length) {
+        tarjeta.appendChild(el('div', {
+          style: 'background:var(--fondo-suave,rgba(127,127,127,.08));border:1px solid var(--borde);'
+               + 'border-radius:.6rem;padding:.7rem;margin-bottom:.9rem',
+        }, [
+          el('div', {
+            style: 'font-size:.85rem;color:var(--texto-suave)',
+            texto: `${quedo.cerradoPor || 'El último turno'} cerró${quedo.cuando ? ' el ' + fecha(quedo.cuando) : ''} y contó en la gaveta:`,
+          }),
+          el('div', { style: 'font-weight:700;margin:.25rem 0 .5rem', texto: linea.join('  ·  ') }),
+          el('button.btn.plano', {
+            style: 'min-height:36px;font-size:.85rem', texto: 'Arrancar con eso',
+            onclick: () => {
+              for (const m of DE_LA_GAVETA) {
+                const v = quedo.contado[m.codigo];
+                if (v === undefined || v === null) continue;
+                $(`#f-${m.codigo}`, nodo).value = String(aMayores(v, m.codigo));
+              }
+            },
+          }),
+          el('div', {
+            style: 'font-size:.8rem;color:var(--texto-suave);margin-top:.45rem',
+            texto: 'Cuéntalo igual antes de arrancar: si hoy hay otra cosa, escribe lo que hay de verdad.',
+          }),
+        ]));
+      }
+    }
+
+    // Solo lo que está en la gaveta. Un fondo en bolívares era un número que
+    // nadie podía verificar y que al cerrar la app reclamaba como faltante.
+    for (const m of DE_LA_GAVETA) {
+      tarjeta.appendChild(el('div.campo', {}, [
+        el('label', { texto: m.nombre }),
+        el('input', { id: `f-${m.codigo}`, inputmode: 'decimal', placeholder: '0', value: '' }),
+      ]));
+    }
+
+    if (FUERA_DE_LA_GAVETA.length) {
+      tarjeta.appendChild(el('p', {
+        style: 'font-size:.83rem;color:var(--texto-suave)',
+        texto: `${FUERA_DE_LA_GAVETA.map((m) => m.nombre.toLowerCase()).join(' y ')}: no se preguntan aquí. `
+             + 'Entran por pago móvil, no son billetes de la gaveta y se guardan aparte.',
+      }));
+    }
+
+    tarjeta.appendChild(el('button.btn.principal.grande.ancho', {
+      texto: 'Abrir turno',
+      onclick: async (ev) => {
+        // Dos clics seguidos abrían dos turnos. La transacción ya lo frena en
+        // el servidor, pero el botón tampoco debe dejar intentarlo.
+        const boton = ev.currentTarget;
+        if (boton.disabled) return;
+        boton.disabled = true;
+        boton.textContent = 'Abriendo…';
+        const fondo = {};
+        for (const m of DE_LA_GAVETA) {
+          fondo[m.codigo] = aMenores($(`#f-${m.codigo}`, nodo).value, m.codigo) || 0;
+        }
+        try {
+          await abrirTurno(fondo);
+          avisarOk('Turno abierto');
+          montarCaja(nodo);
+        } catch (e) {
+          avisarMal(e.message || 'No se pudo abrir el turno.');
+          boton.disabled = false;
+          boton.textContent = 'Abrir turno';
+        }
+      },
+    }));
+    nodo.appendChild(tarjeta);
   }
 
   // --- cierre con conteo por denominaciones ---
@@ -211,10 +271,16 @@ async function montarCaja(nodo) {
     // uno cuenta. Sin eso, escribir el número es papeleo.
     const esperado = (turno.__esperado) || {};
 
+    // Se cuenta lo que está en la gaveta. Una moneda que no vive ahí solo
+    // aparece si un turno viejo la arrastra con saldo: si no, se le estaría
+    // pidiendo a alguien que cuente unos bolívares que están en el teléfono.
+    const aContar = Object.values(MONEDAS).filter(
+      (m) => entraALaGaveta(m.codigo) || (esperado[m.codigo] || 0) !== 0);
+
     /** La manera sencilla: un total por moneda y ya. */
     function pintarSimple() {
       detalle.innerHTML = '';
-      for (const m of Object.values(MONEDAS)) {
+      for (const m of aContar) {
         const esp = esperado[m.codigo] || 0;
         const campo = el('input', {
           inputmode: 'decimal', placeholder: 'déjalo vacío si no lo contaste',
@@ -235,7 +301,7 @@ async function montarCaja(nodo) {
     /** La manera larga, para quien sí quiere contar billete por billete. */
     function pintarBilletes() {
       detalle.innerHTML = '';
-      for (const m of Object.values(MONEDAS)) {
+      for (const m of aContar) {
         conteos[m.codigo] = conteos[m.codigo] || {};
         const bloque = el('details', { open: m.codigo === 'USD' ? '' : null, style: 'margin-bottom:.5rem' });
         const total = el('strong.cifra', { texto: formatear(sumarConteo(conteos[m.codigo]), m.codigo) });
@@ -276,7 +342,10 @@ async function montarCaja(nodo) {
       el('h2', { texto: 'Cierre de caja' }),
       el('p', {
         style: 'color:var(--texto-suave);font-size:.9rem',
-        texto: 'Escribe cuánto hay en la gaveta de cada moneda. Lo que no cuentes, déjalo vacío: no se toma como cero.',
+        texto: 'Escribe cuánto hay en la gaveta de cada moneda. Lo que no cuentes, déjalo vacío: no se toma como cero.'
+             + (FUERA_DE_LA_GAVETA.some((m) => !aContar.includes(m))
+                ? ` Los ${FUERA_DE_LA_GAVETA.map((m) => m.nombre.toLowerCase()).join(' y ')} no se cuentan aquí: no pasan por la gaveta.`
+                : ''),
       }),
       el('div', { style: 'max-height:52vh;overflow:auto' }, [detalle]),
       cambiar,
@@ -290,7 +359,7 @@ async function montarCaja(nodo) {
           // Solo las monedas que de verdad se escribieron. Una vacía queda
           // fuera y el cierre la reporta como "no contada".
           const contado = {};
-          for (const m of Object.values(MONEDAS)) {
+          for (const m of aContar) {
             const texto = String(campos[m.codigo] ?? '').trim();
             if (texto === '') continue;
             contado[m.codigo] = aMenores(texto, m.codigo) || 0;
