@@ -15,6 +15,16 @@
             "value": "no-cache"
           }
         ]
+      },
+      {
+        "comentario": "El codigo y los estilos no llevan el contenido en el nombre, asi que el navegador no tiene como saber que cambiaron. Con max-age (lo que pone Hosting solo: una hora) se queda con el archivo viejo sin preguntar, y un despliegue tarda hasta una hora en llegar. Peor: justo despues de publicar, el service worker puede guardar ESE archivo viejo bajo el nombre de version nuevo, y entonces ya no se arregla solo. Con no-cache igual se cachea; lo que cambia es que pregunta antes, y si no cambio nada el servidor responde 304 y no baja nada. Quien de verdad guarda los archivos para trabajar sin senal es el service worker.",
+        "source": "**/*.@(js|css|html|json)",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache"
+          }
+        ]
       }
     ],
     "rewrites": [
