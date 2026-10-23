@@ -44,6 +44,18 @@ export { deudaDe, debe } from '../core/dinero.js';
 
 export const conDeuda = (clientes) => clientes.filter(debe);
 
+/**
+ * Las ventas que este cliente se llevó fiadas.
+ *
+ * Sin esto, la ficha del deudor solo mostraba un número: "debe $12" y nada
+ * más. Lo primero que se pregunta cuando alguien discute una deuda es QUÉ se
+ * llevó y CUÁNDO, y eso estaba en la base pero no se veía en ninguna pantalla.
+ */
+export async function ventasFiadasDe(clienteId) {
+  const snap = await getDocs(query(col('ventas'), where('clienteId', '==', clienteId), orderBy('ts', 'desc')));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((v) => v.estado !== 'anulada');
+}
+
 /** Suma a la deuda del cliente (lo llama la venta fiada). */
 export function sumarDeuda(lote, clienteId, { montoUSD = 0, montoCOP = 0 } = {}) {
   lote.set(ref('clientes', clienteId), {
