@@ -26,7 +26,7 @@ import { el, esc, $, fecha, diaISO, sumarDias, primerDiaDelMes, abrirDialogo, pe
 import { avisarOk, avisarMal, confirmar } from '../ui/avisos.js';
 import {
   ventasEntre, ventaPorId, anularVenta, pedirAnulacion,
-  anulacionesPendientes, resolverAnulacion,
+  anulacionesPendientes, resolverAnulacion, deudaEnPesos,
 } from '../data/ventas.js';
 import { listarClientes } from '../data/clientes.js';
 import { productos as catalogo } from '../data/catalogo.js';
@@ -34,7 +34,9 @@ import { formatear, MONEDAS } from '../core/dinero.js';
 import { leer } from '../core/estado.js';
 import { esDueno, puede } from '../core/sesion.js';
 import { normalizar } from '../core/texto.js';
-import { costoLinea, vueltoDeVenta } from '../reports/analisis.js';
+import {
+  costoLinea, vueltoDeVenta, quedoDebiendo, redondeoDeLaConversion,
+} from '../reports/analisis.js';
 
 const RANGOS = {
   hoy: { titulo: 'Hoy', desde: () => diaISO(), hasta: () => diaISO() },
@@ -43,15 +45,19 @@ const RANGOS = {
   mes: { titulo: 'Este mes', desde: () => primerDiaDelMes(), hasta: () => diaISO() },
 };
 
-// Al empleado se le llama "Mis ventas" porque es literalmente lo que ve: las
-// reglas solo le dejan leer las suyas (y la consulta las filtra por su uid).
-// Llamarla "Ventas" le haría creer que está viendo las del negocio.
+// Dos nombres para la misma pantalla, y no es un capricho: al empleado las
+// reglas solo le dejan leer SUS ventas (y la consulta las filtra por su uid),
+// así que llamársela "Ventas" le haría creer que está viendo las del negocio.
+//
+// Ninguna de las dos va en la barra de abajo: ya tiene cinco botones y el sexto
+// deja los rótulos en "Mi…" y "Mis…", uno al lado del otro. Se llega desde el
+// Panel y desde Reportes (el dueño) y desde Mi caja (el empleado), que es donde
+// de verdad se hace la pregunta.
 registrar('ventas', {
   titulo: 'Ventas', icono: 'cart', montar: montarVentas,
 });
 registrar('mis-ventas', {
-  titulo: 'Mis ventas', icono: 'cart', menu: true, soloEmpleado: true, orden: 45,
-  montar: montarVentas,
+  titulo: 'Mis ventas', icono: 'cart', soloEmpleado: true, montar: montarVentas,
 });
 
 async function montarVentas(nodo, params = {}) {
@@ -178,15 +184,18 @@ async function montarVentas(nodo, params = {}) {
     // vendió aunque estés buscando una venta sola.
     const vivas = ventas.filter((v) => v.estado !== 'anulada');
     const anuladas = ventas.length - vivas.length;
-    const cobradoUSD = vivas.reduce((t, v) => t + ((v.totalUSD || 0) - Math.max(0, v.saldoUSD || 0)), 0);
-    const fiadoUSD = vivas.reduce((t, v) => t + Math.max(0, v.saldoUSD || 0), 0);
+    const fiadoUSD = vivas.reduce((t, v) => t + (quedoDebiendo(v) ? v.saldoUSD : 0), 0);
+    const fiadoCOP = vivas.reduce((t, v) => t + (quedoDebiendo(v) ? deudaEnPesos(v) : 0), 0);
+    const cobradoUSD = vivas.reduce((t, v) => t + (v.totalUSD || 0), 0) - fiadoUSD;
 
     cabeza.innerHTML = '';
     pegar(cabeza,
       el('div.kpis', { style: 'margin:.85rem 0' }, [
         kpi('Ventas', String(vivas.length)),
         kpi('Cobrado', formatear(cobradoUSD)),
-        ...(fiadoUSD ? [kpi('Quedó fiado', formatear(fiadoUSD), 'acento')] : []),
+        ...(fiadoUSD ? [kpi('Quedó fiado',
+          fiadoCOP ? formatear(fiadoCOP, 'COP') : formatear(fiadoUSD),
+          'acento', fiadoCOP ? formatear(fiadoUSD) : '')] : []),
         ...(anuladas ? [kpi('Anuladas', String(anuladas), 'malo')] : []),
       ]),
       ventas.length > 4 ? el('input#buscar-venta', {
@@ -288,7 +297,7 @@ async function montarVentas(nodo, params = {}) {
     const eti = (clase, texto) => el(`span.etiqueta.${clase}`, { texto });
     if (v.estado === 'anulada') m.push(eti('mal', 'anulada'));
     if (pedidos.some((p) => p.ventaId === v.id)) m.push(eti('alerta', 'piden anularla'));
-    if ((v.saldoUSD || 0) > 0) {
+    if (quedoDebiendo(v)) {
       const quien = clientes.get(v.clienteId);
       m.push(eti('acento', quien ? `fiado · ${quien}` : 'fiado'));
     }
@@ -347,7 +356,19 @@ async function montarVentas(nodo, params = {}) {
 
       // --- qué se llevó ---
       el('div.seccion', {}, [el('h2', { texto: 'Qué se llevó' })]),
-      el('div', {}, (v.lineas || []).map((l) => lineaDeVenta(l, v))),
+      el('div', {}, (v.lineas || []).map((l) => lineaDeVenta(l, !!v.totalCOP))),
+
+      // Unas líneas que no suman el total es lo que hace desconfiar de toda la
+      // pantalla, así que cuando no suman se dice por qué. Y casi nunca es un
+      // error: el total se convierte del dólar con la tasa del día y se
+      // redondea, mientras que cada línea lleva el peso de su etiqueta.
+      redondeoDeLaConversion(v) ? el('p', {
+        style: 'display:flex;justify-content:space-between;gap:.5rem;margin:.6rem 0 0;'
+             + 'font-size:var(--t-pie);color:var(--texto-suave)',
+        html: '<span>Redondeo al convertir el total</span>'
+            + `<span class="cifra">${redondeoDeLaConversion(v) > 0 ? '+' : '−'}`
+            + `${esc(formatear(Math.abs(redondeoDeLaConversion(v)), 'COP'))}</span>`,
+      }) : null,
 
       v.ajusteUSD ? el('p', {
         style: 'display:flex;justify-content:space-between;gap:.5rem;margin:.6rem 0 0;font-size:var(--t-cuerpo)',
@@ -365,20 +386,21 @@ async function montarVentas(nodo, params = {}) {
           style: 'color:var(--texto-suave);font-size:var(--t-cuerpo);margin:.2rem 0',
           texto: 'No pagó nada en el momento: quedó todo fiado.',
         })] : []),
+
         vuelto ? renglon(
           `Vuelto${vuelto.reconstruido ? ' (calculado)' : ''}`,
           `− ${formatear(vuelto.monto, vuelto.moneda)}`, 'var(--texto-suave)') : null,
-        (v.saldoUSD || 0) > 0 ? renglon(
+        // La deuda SE DICE EN PESOS, que es como quedó fijada y como la va a
+        // decir la gente. Sale de la misma función que la escribió en el
+        // cliente, para que los dos números no se puedan separar.
+        quedoDebiendo(v) ? renglon(
           clientes.get(v.clienteId) ? `Quedó debiendo · ${clientes.get(v.clienteId)}` : 'Quedó debiendo',
-          formatear(v.saldoUSD), 'var(--rojo)') : null,
+          deudaEnPesos(v) ? formatear(deudaEnPesos(v), 'COP') : formatear(v.saldoUSD),
+          'var(--rojo)') : null,
       ]),
-      el('p', {
+      anulada ? null : el('p', {
         style: 'font-size:var(--t-pie);color:var(--texto-suave);margin:.5rem 0 0',
-        texto: v.lugar && v.lugar !== 'Caja'
-          ? `Esa plata NO entró a la gaveta: quedó en "${v.lugar}".`
-          : v.sinTurno
-            ? 'Se cobró sin caja abierta, pero el efectivo entró a la gaveta.'
-            : 'El efectivo entró a la gaveta.',
+        texto: dondeQuedoLaPlata(v),
       }),
 
       v.nota ? el('p', {
@@ -389,7 +411,9 @@ async function montarVentas(nodo, params = {}) {
       // La ganancia es del dueño y de nadie más.
       puede('verGanancias') && !anulada ? el('div.tarjeta', { style: 'margin-top:1rem;padding:.75rem' }, [
         el('div', { style: 'display:flex;justify-content:space-between;gap:.5rem' }, [
-          el('span', { style: 'font-size:var(--t-cuerpo)', texto: estimada ? 'Ganancia (aproximada)' : 'Te dejó de ganancia' }),
+          el('span', { style: 'font-size:var(--t-cuerpo)', texto: gananciaUSD < 0
+            ? (estimada ? 'Esta venta dio pérdida (aproximada)' : 'Esta venta dio pérdida')
+            : (estimada ? 'Ganancia (aproximada)' : 'Te dejó de ganancia') }),
           el('strong.cifra', {
             style: `color:${gananciaUSD >= 0 ? 'var(--verde)' : 'var(--rojo)'}`,
             texto: formatear(gananciaUSD),
@@ -403,7 +427,7 @@ async function montarVentas(nodo, params = {}) {
 
       // --- qué se puede hacer ---
       el('div.fila', { style: 'margin-top:1.25rem' }, [
-        el('button.btn.callado', { texto: 'Compartir recibo', onclick: () => compartirRecibo(v) }),
+        el('button.btn.callado', { texto: 'Compartir', onclick: () => compartirRecibo(v) }),
         el('button.btn.callado', { texto: 'Imprimir', onclick: () => imprimirRecibo(v) }),
       ]),
       anulada ? null : el('button.btn.peligro.ancho', {
@@ -415,9 +439,15 @@ async function montarVentas(nodo, params = {}) {
     );
   }
 
-  /** Una línea de la venta, con lo que se le cambió a mano si se le cambió. */
-  function lineaDeVenta(l, v) {
-    const enPesos = l.precioCOP > 0;
+  /**
+   * Una línea de la venta, con lo que se le cambió a mano si se le cambió.
+   *
+   * `enPesos` lo decide LA VENTA, no la línea: si arriba el total se dice en
+   * pesos y aquí las líneas en dólares, los números de la misma pantalla no
+   * suman y parece que falta plata.
+   */
+  function lineaDeVenta(l, enPesos) {
+    enPesos = enPesos && l.precioCOP > 0;
     const total = enPesos
       ? formatear(Math.round(l.cantidad * l.precioCOP), 'COP')
       : formatear(Math.round(l.cantidad * l.precioUSD));
@@ -506,13 +536,20 @@ async function montarVentas(nodo, params = {}) {
   // --- recibo ----------------------------------------------------------------
   // Se carga a demanda: el recibo arrastra el formateo de monedas y casi nadie
   // reimprime uno, así que no tiene por qué pesar en el arranque.
+  async function textoDe(v) {
+    const { textoRecibo } = await import('../reports/recibo.js');
+    const texto = textoRecibo({ id: v.id, venta: v, tasas: leer('tasas') || {} });
+    return v.estado === 'anulada'
+      ? `*** VENTA ANULADA ***\n${v.motivoAnulacion || ''}\n\n${texto}`
+      : texto;
+  }
   async function compartirRecibo(v) {
-    const { textoRecibo, compartir } = await import('../reports/recibo.js');
-    compartir(textoRecibo({ id: v.id, venta: v, tasas: leer('tasas') || {} }));
+    const { compartir } = await import('../reports/recibo.js');
+    compartir(await textoDe(v));
   }
   async function imprimirRecibo(v) {
-    const { textoRecibo, imprimir } = await import('../reports/recibo.js');
-    imprimir(textoRecibo({ id: v.id, venta: v, tasas: leer('tasas') || {} }));
+    const { imprimir } = await import('../reports/recibo.js');
+    imprimir(await textoDe(v));
   }
 
   cargar();
@@ -522,6 +559,19 @@ async function montarVentas(nodo, params = {}) {
 
 /** El código que lleva el recibo impreso: los últimos 6 del id. */
 const codigo = (v) => String(v.id || '').slice(-6).toUpperCase();
+
+/**
+ * Dónde quedó el efectivo de esta venta.
+ *
+ * Lo fiado no entra a ninguna parte, y decirle "el efectivo entró a la gaveta"
+ * a una venta que no cobró nada manda a buscar unos billetes que no existen.
+ */
+function dondeQuedoLaPlata(v) {
+  if (!(v.pagadoUSD > 0)) return 'No entró efectivo: quedó fiado.';
+  if (v.lugar && v.lugar !== 'Caja') return `Esa plata NO entró a la gaveta: quedó en "${v.lugar}".`;
+  if (v.sinTurno) return 'Se cobró sin caja abierta, pero el efectivo entró a la gaveta.';
+  return 'El efectivo entró a la gaveta.';
+}
 
 /** El total en la moneda en que se cobró, que es la que la gente reconoce. */
 const enSuMoneda = (v) => (v.totalCOP ? formatear(v.totalCOP, 'COP') : formatear(v.totalUSD || 0));
@@ -550,10 +600,14 @@ function renglon(izq, der, color = '') {
   ]);
 }
 
-function kpi(rotulo, valor, clase = '') {
+function kpi(rotulo, valor, clase = '', pie = '') {
   return el(`div.kpi${clase ? '.' + clase : ''}`, {}, [
     el('div.rotulo', { texto: rotulo }),
     el('div.valor', { texto: valor }),
+    // Con `opacity` y no con `.pie`: dentro de un KPI de color, `.pie` trae
+    // `--texto-suave`, que en oscuro es casi blanco sobre amarillo (ilegible).
+    // Así hereda el color que ya tiene el bloque.
+    pie ? el('div', { style: 'font-size:var(--t-pie);opacity:.75', texto: pie }) : null,
   ]);
 }
 

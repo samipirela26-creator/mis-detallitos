@@ -191,6 +191,41 @@ export const cobradoDeVentas = (ventas = []) =>
   ventas.reduce((t, v) => t + ((v.totalUSD || 0) - Math.max(0, v.saldoUSD || 0)), 0);
 
 /**
+ * ¿Esta venta dejó una deuda de verdad?
+ *
+ * `saldoUSD > 0` por sí solo NO sirve, y es un error fácil de cometer: una
+ * venta cobrada en pesos se paga convirtiendo el total a pesos y volviendo a
+ * dólares, y ese viaje de ida y vuelta deja uno o dos centavos colgando. Con
+ * solo mirar el saldo, media lista de ventas sale marcada "fiado" por un
+ * centavo que nadie va a cobrar nunca.
+ *
+ * La deuda que existe de verdad es la que `registrarVenta` le sumó al cliente,
+ * y eso pasa cuando quien cobró eligió FIADO. Esa es la marca que se mira.
+ */
+export const quedoDebiendo = (venta) => !!venta?.fiado && (venta.saldoUSD || 0) > 0;
+
+/**
+ * Lo que le falta (o le sobra) a la suma de las líneas para dar el total
+ * cobrado, en pesos. Cero cuando cuadra, que es lo normal.
+ *
+ * No es un error: el total se convierte del dólar con la tasa del día y se
+ * redondea, mientras que cada línea lleva el peso de su etiqueta. Pero unas
+ * líneas que no suman el total es lo que hace desconfiar de toda la pantalla,
+ * así que hay que poder decirlo.
+ *
+ * Solo aplica a las ventas cobradas en pesos y sin ajuste a mano: si el total
+ * se ajustó, lo que no cuadra ya lo explica el ajuste, y decirlo dos veces
+ * confunde más que callarlo.
+ */
+export function redondeoDeLaConversion(venta) {
+  if (!venta?.totalCOP || venta.ajusteUSD) return 0;
+  const lineas = venta.lineas || [];
+  if (!lineas.length || lineas.some((l) => !(l.precioCOP > 0))) return 0;
+  const suma = lineas.reduce((t, l) => t + Math.round(l.cantidad * l.precioCOP), 0);
+  return venta.totalCOP - suma;
+}
+
+/**
  * El vuelto de una venta, en la moneda en que salió de la gaveta.
  *
  * Las ventas nuevas lo traen escrito. Las viejas no, y ahí se reconstruye: si

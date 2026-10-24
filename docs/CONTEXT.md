@@ -127,6 +127,44 @@ bolsillo, llega al teléfono igual.
 Quién vende decide el sitio (`data/ventas.js`): el dueño sin caja abierta está afuera; el
 empleado está en el mostrador con la gaveta al lado, así que lo suyo cae en `Caja`.
 
+## Las ventas, una por una (octubre 2026)
+
+`features/ventas.js`. Reportes contesta "cuánto vendí" y "a qué le gano poco", que son
+preguntas de totales; esta contesta **"qué se hizo"**, que es la del día: a qué hora, quién
+la cobró, qué se llevó el cliente, con qué pagó y dónde quedó esa plata.
+
+No va en la barra de abajo —ya tiene cinco botones y un sexto deja los rótulos en "Mi…" y
+"Mis…", uno al lado del otro—. Se llega desde:
+
+| Desde | Quién | Dónde |
+|---|---|---|
+| Panel → atajo "Ventas", y el KPI "Ventas hoy" | Dueño | `app.js` |
+| Reportes → "Ver las N ventas, una por una" | Dueño | `reports/panel.js` |
+| Mi caja → "Ver esas ventas, una por una" | Empleado y dueño | `features/caja.js` |
+
+Dos ids para la misma pantalla: `ventas` y `mis-ventas`. No es un capricho — al empleado
+las reglas solo le dejan leer SUS ventas (y la consulta las filtra por su uid), así que
+llamársela "Ventas" le haría creer que ve las del negocio.
+
+Con esta pantalla por fin se puede **anular**: el dueño anula —la mercancía vuelve al
+inventario y la deuda del fiado se borra— y el empleado solo lo PIDE, y se le dice que
+mientras nadie lo atienda la venta sigue contando. Lo que se cobró **no se edita**: las
+reglas son casi de solo-agregar y las cuentas se rehacen sumando documentos, así que una
+venta de ayer que cambiara de monto descuadraría el arqueo de ayer sin dejar rastro.
+
+Trampas que costó encontrar, y que valen para cualquier pantalla nueva:
+
+- **`saldoUSD > 0` NO quiere decir que deban plata.** Cobrar en pesos convierte el total a
+  pesos y de vuelta a dólares, y ese viaje deja uno o dos centavos de saldo. Mirando solo
+  el saldo, media lista salía marcada "fiado" por un centavo que nadie va a cobrar. La
+  deuda de verdad es la que se le sumó al cliente, o sea `fiado && saldoUSD > 0`
+  (`reports/analisis.js` → `quedoDebiendo`, con prueba).
+- **Las líneas en pesos no siempre suman el total cobrado**, por el mismo redondeo. Cuando
+  no suman, la ficha lo dice en un renglón aparte: unos números que no cuadran es lo que
+  hace desconfiar de toda la pantalla (`redondeoDeLaConversion`, con prueba).
+- **La deuda se dice en PESOS**, y sale de `deudaEnPesos()` —la misma función que la
+  escribió en el cliente—, para que la ficha y Deudores no puedan decir números distintos.
+
 ## Decisiones técnicas y por qué
 
 - **Módulos ES sin bundler.** No hay paso de compilación que se pueda romper.
@@ -139,6 +177,10 @@ empleado está en el mostrador con la gaveta al lado, así que lo suyo cae en `C
   consulta** (casos reportados de millones de lecturas al mes sin nadie usando
   la app). Una caja registradora no necesita varias pestañas.
 - **Todo el dinero en enteros** (`public/js/core/dinero.js`). Nunca float.
+- **`el('input#buscar')` entiende el `#id`** (`ui/html.js`). Antes solo partía por el
+  punto, así que el selector entero entraba a `createElement` y el navegador —sin
+  quejarse— devolvía un `<input#buscar>`: no es un input, no se puede escribir en él y
+  no se ve. El buscador de Deudores llevaba así desde que se escribió.
 - **Ventas con id local estable** → un reintento no duplica la venta.
 - **Sin Cloud Functions y sin Cloud Storage por ahora**, para quedarnos en el
   plan gratuito (Spark): los proyectos nuevos necesitan plan Blaze para

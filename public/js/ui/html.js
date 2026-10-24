@@ -6,10 +6,23 @@ export function esc(texto) {
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
-/** el('div.tarjeta', { onclick }, 'texto' | nodos) */
+/**
+ * el('div.tarjeta', { onclick }, 'texto' | nodos)
+ *
+ * El `#id` del selector se entiende también: `el('input#buscar', …)`.
+ *
+ * Y es MÁS QUE UNA COMODIDAD. Antes solo se partía por el punto, así que
+ * `'input#buscar'` entraba entero a `createElement` y el navegador —sin
+ * quejarse ni lanzar error— devolvía un elemento llamado `<input#buscar>`: no
+ * es un `<input>`, no se puede escribir en él, no tiene id y no se ve en la
+ * pantalla. El buscador de Deudores llevaba así desde que se escribió: con más
+ * de seis clientes el campo simplemente no aparecía y nadie sabía por qué.
+ */
 export function el(selector, props = {}, hijos = []) {
-  const [etiqueta, ...clases] = selector.split('.');
+  const [cabeza, ...clases] = selector.split('.');
+  const [etiqueta, id] = cabeza.split('#');
   const nodo = document.createElement(etiqueta || 'div');
+  if (id) nodo.id = id;
   if (clases.length) nodo.className = clases.join(' ');
   for (const [k, v] of Object.entries(props)) {
     if (k === 'html') nodo.innerHTML = v;

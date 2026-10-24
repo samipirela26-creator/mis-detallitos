@@ -381,3 +381,46 @@ test('reportes: el producto conserva su precio de etiqueta', () => {
 test('reportes: una venta redondeada no deja vuelto que reconstruir', () => {
   assert.equal(a.vueltoDeVenta({ ...VENTA_REDONDEADA, pagadoUSD: 472, pagos: [{ moneda: 'COP', monto: 1500, montoUSD: 472 }] }), null);
 });
+
+// --- ¿quién quedó debiendo de verdad? ---------------------------------------
+// El bug que esto tapa: la pantalla de ventas marcaba "fiado" ventas pagadas
+// completas, porque cobrar en pesos deja uno o dos centavos de saldo al
+// convertir ida y vuelta.
+
+test('quedoDebiendo: solo lo que se dejó fiado a propósito', () => {
+  assert.equal(a.quedoDebiendo({ fiado: true, saldoUSD: 500 }), true);
+  assert.equal(a.quedoDebiendo({ fiado: true, saldoUSD: 0 }), false,
+    'fiada pero ya pagada: no debe nada');
+  assert.equal(a.quedoDebiendo({ fiado: false, saldoUSD: 2 }), false,
+    'dos centavos del redondeo de la conversión NO son una deuda');
+  assert.equal(a.quedoDebiendo({}), false);
+  assert.equal(a.quedoDebiendo(null), false);
+});
+
+// --- las líneas tienen que sumar el total -----------------------------------
+
+test('redondeoDeLaConversion: lo que le falta a las líneas para dar el total', () => {
+  const venta = (totalCOP, lineas, extra = {}) => ({ totalCOP, lineas, ...extra });
+
+  assert.equal(a.redondeoDeLaConversion(
+    venta(205, [{ cantidad: 1, precioCOP: 200 }])), 5,
+    'la etiqueta dice 200 y se cobraron 205: faltan 5 por explicar');
+
+  assert.equal(a.redondeoDeLaConversion(
+    venta(12000, [{ cantidad: 2, precioCOP: 2000 }, { cantidad: 1, precioCOP: 8000 }])), 0,
+    'cuando cuadra, no hay nada que decir');
+
+  assert.equal(a.redondeoDeLaConversion(
+    venta(2900, [{ cantidad: 1, precioCOP: 3000 }], { ajusteUSD: -2 })), 0,
+    'con el total ajustado a mano, lo explica el ajuste y no se dice dos veces');
+
+  assert.equal(a.redondeoDeLaConversion(
+    venta(0, [{ cantidad: 1, precioCOP: 200 }])), 0,
+    'una venta cobrada en dólares no se mide en pesos');
+
+  assert.equal(a.redondeoDeLaConversion(
+    venta(5000, [{ cantidad: 1, precioCOP: 2000 }, { cantidad: 1, nombre: 'Venta libre' }])), 0,
+    'si una línea no tiene precio en pesos, la suma no significa nada');
+
+  assert.equal(a.redondeoDeLaConversion(venta(500, [])), 0);
+});

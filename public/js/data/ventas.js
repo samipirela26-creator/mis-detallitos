@@ -175,11 +175,15 @@ export async function registrarVenta({
 /**
  * Lo que quedó debiendo, en pesos.
  *
+ * Se exporta porque la pantalla de ventas tiene que MOSTRAR esa misma deuda:
+ * si la calculara por su cuenta, el número de la ficha y el que se le sumó al
+ * cliente podrían no coincidir, y entonces no hay cuál creerle.
+ *
  * Se suman los precios de etiqueta de las líneas; si la venta se pagó en parte,
  * se cobra la misma proporción que en dólares. Una línea sin precio en pesos se
  * convierte con la tasa del día.
  */
-function deudaEnPesos(venta) {
+export function deudaEnPesos(venta) {
   const tasaCOP = (leer('tasas') || {}).COP || 0;
   // Si la venta se cobró en pesos, ese es el número que se acordó —ya
   // redondeado— y no hay nada que recalcular.

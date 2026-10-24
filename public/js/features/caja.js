@@ -4,7 +4,7 @@
 // por billete, la app dice qué debería haber, y la diferencia queda escrita tal
 // cual (no se "corrige" para que cuadre).
 
-import { registrar } from '../core/router.js';
+import { registrar, ir } from '../core/router.js';
 import { el, esc, $, fecha, diaISO, abrirDialogo, pegar } from '../ui/html.js';
 import { avisarOk, avisarMal, confirmar } from '../ui/avisos.js';
 import {
@@ -101,6 +101,16 @@ async function montarCaja(nodo) {
       ...(datos.gastosUSD ? [kpi('Gastos del turno', formatear(datos.gastosUSD), 'malo')] : []),
       ...(esDueno() ? [kpi('Ganancia', formatear(datos.gananciaUSD), 'bueno')] : []),
     ]));
+
+    // "Ventas del turno: 12" invita a preguntar cuáles son, sobre todo cuando
+    // la gaveta no cuadra. Desde aquí se abren una por una.
+    if (datos.cantidad) {
+      nodo.appendChild(el('button.btn.plano.ancho', {
+        style: 'margin-bottom:1rem',
+        texto: datos.cantidad === 1 ? 'Ver esa venta' : 'Ver esas ventas, una por una',
+        onclick: () => ir(esDueno() ? 'ventas' : 'mis-ventas'),
+      }));
+    }
 
     const tarjeta = el('div.tarjeta', {}, [el('h2', { texto: 'Debería haber en la gaveta' })]);
     for (const [moneda, monto] of Object.entries(datos.esperado)) {
