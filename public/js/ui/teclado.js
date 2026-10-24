@@ -37,7 +37,7 @@ export function pedirMonto({ titulo, moneda = 'USD', inicial = 0, nota = '', ace
       placeholder: '0',
       style: 'font-size:2rem;font-weight:700;text-align:center;height:68px;font-family:var(--fuente-cifra,inherit)',
     });
-    const eco = el('div', { style: 'text-align:center;color:var(--texto-suave);font-size:.95rem;min-height:1.4em' });
+    const eco = el('div', { style: 'text-align:center;color:var(--texto-suave);font-size:var(--t-cuerpo);min-height:1.4em' });
     const botonOk = el('button.btn.principal', { type: 'button' });
 
     const pintar = () => {
@@ -88,14 +88,14 @@ export function pedirMonto({ titulo, moneda = 'USD', inicial = 0, nota = '', ace
 
     pegar(d,
       el('h2', { texto: titulo || 'Monto' }),
-      nota ? el('p', { texto: nota, style: 'color:var(--texto-suave);font-size:.9rem;margin-top:-.4rem' }) : null,
+      nota ? el('p', { texto: nota, style: 'color:var(--texto-suave);font-size:var(--t-cuerpo);margin-top:-.4rem' }) : null,
       campo,
       eco,
       // Solo donde hay decimales que confundir. En pesos no hay nada que
       // explicar, y la línea sobraba en la pantalla que más se usa.
       dec ? el('p', {
         texto: `Con los botones, los últimos dos dígitos son los céntimos.`,
-        style: 'text-align:center;color:var(--texto-suave);font-size:.78rem;margin:.2rem 0 0',
+        style: 'text-align:center;color:var(--texto-suave);font-size:var(--t-pie);margin:.2rem 0 0',
       }) : null,
       rejilla,
       el('div.fila', {}, [

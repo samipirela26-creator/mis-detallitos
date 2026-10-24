@@ -104,7 +104,7 @@ registrar('importar', {
           <button class="btn plano" id="plantilla">Descargar plantilla</button>
         </div>
         <input type="file" id="archivo" accept=".xlsx,.xls,.csv,.ods" hidden>
-        <p style="font-size:.85rem;color:var(--texto-suave);margin-top:.75rem">
+        <p style="font-size:var(--t-pie);color:var(--texto-suave);margin-top:.75rem">
           Acepta .xlsx, .xls, .csv y .ods. Las fotos no se ponen aquí:
           eso se hace de corrido en el <strong>Estudio de Fotos</strong>.</p>
       </div>
@@ -386,7 +386,7 @@ function pintarPrevia(caja) {
     }
     t.appendChild(cuerpo);
     tabla.appendChild(t);
-    if (buenas.length > 50) tabla.appendChild(el('p', { style: 'color:var(--texto-suave);font-size:.85rem', texto: `…y ${buenas.length - 50} más.` }));
+    if (buenas.length > 50) tabla.appendChild(el('p', { style: 'color:var(--texto-suave);font-size:var(--t-pie)', texto: `…y ${buenas.length - 50} más.` }));
     tarjeta.appendChild(tabla);
   }
 
@@ -394,7 +394,7 @@ function pintarPrevia(caja) {
     tarjeta.appendChild(el('details', { style: 'margin-top:.75rem' }, [
       el('summary', { style: 'cursor:pointer;font-weight:600', texto: `${duplicadas.length} filas duplicadas (no se crean de nuevo)` }),
       el('div', {
-        style: 'font-size:.85rem;color:var(--texto-suave);max-height:20vh;overflow:auto',
+        style: 'font-size:var(--t-pie);color:var(--texto-suave);max-height:20vh;overflow:auto',
         html: duplicadas.slice(0, 40).map((p) =>
           `Línea ${p.linea}: ${esc(p.nombre)} — ${p.yaExiste ? `ya existe como "${esc(p.yaExiste)}"${p.desactivado ? ' (desactivado)' : ''}` : `repetida de la línea ${p.repetidaEnLinea}`}`
         ).join('<br>'),
@@ -405,7 +405,7 @@ function pintarPrevia(caja) {
     tarjeta.appendChild(el('details', {}, [
       el('summary', { style: 'cursor:pointer;font-weight:600;color:var(--rojo)', texto: `${malas.length} filas con error (se saltan)` }),
       el('div', {
-        style: 'font-size:.85rem;color:var(--texto-suave)',
+        style: 'font-size:var(--t-pie);color:var(--texto-suave)',
         html: malas.slice(0, 40).map((m) => `Línea ${m.linea}: ${m.razon}`).join('<br>'),
       }),
     ]));
@@ -415,8 +415,8 @@ function pintarPrevia(caja) {
     el('div', { style: 'height:10px;background:var(--superficie-2);border-radius:999px;overflow:hidden' }, [
       el('div', { id: 'relleno', style: 'height:100%;width:0;background:var(--marca);transition:width .2s' }),
     ]),
-    el('p', { id: 'texto-barra', style: 'text-align:center;color:var(--texto-suave);font-size:.9rem;margin-top:.4rem' }),
-    el('div', { style: 'text-align:center;font-size:.9rem' }, [contadorPendientes()]),
+    el('p', { id: 'texto-barra', style: 'text-align:center;color:var(--texto-suave);font-size:var(--t-cuerpo);margin-top:.4rem' }),
+    el('div', { style: 'text-align:center;font-size:var(--t-cuerpo)' }, [contadorPendientes()]),
   ]);
 
   const boton = el('button.btn.principal.grande.ancho', {
@@ -438,6 +438,7 @@ function pintarPrevia(caja) {
           $('#texto-barra', barra).textContent = `${hechos} de ${total}…`;
         });
         avisarOk(`${buenas.length} productos importados`);
+        recordarImportacion(importId, buenas.length);
         pintarHecho(caja, importId, buenas.length, incompletas.length, !navigator.onLine);
       } catch (e) {
         avisarMal('Falló la importación: ' + (e.message || e));
@@ -538,6 +539,7 @@ function pintarHecho(caja, importId, cuantos, incompletos, enCola = false) {
         })) return;
         avisar('Deshaciendo…');
         const borrados = await deshacerImportacion(importId);
+        olvidarImportacion();
         avisarOk(`Se deshizo: ${borrados} productos borrados`);
         ir('importar');
       },
@@ -797,3 +799,38 @@ async function descargarPlantilla() {
 }
 
 
+
+// --- la última importación, para poder deshacerla mañana ----------------------
+//
+// El `importId` vivía solo en la memoria de esta pantalla: bastaba recargar la
+// app —o que el teléfono matara la pestaña— para que el botón de deshacer
+// desapareciera y no hubiera forma de volver a esa importación desde ningún
+// lado. Y una importación que salió mal se descubre casi siempre al rato, no
+// en el mismo minuto.
+//
+// Se guarda en el aparato y no en Firestore a propósito: es una ayuda local y
+// no tiene por qué gastar lecturas ni viajar al servidor.
+const CLAVE_IMPORT = 'detallitos:ultima-importacion';
+
+export function recordarImportacion(importId, cuantos) {
+  try {
+    localStorage.setItem(CLAVE_IMPORT, JSON.stringify({ importId, cuantos, cuando: Date.now() }));
+  } catch { /* modo incógnito o almacenamiento bloqueado: se sigue sin esto */ }
+}
+
+export function ultimaImportacion() {
+  try {
+    const crudo = localStorage.getItem(CLAVE_IMPORT);
+    if (!crudo) return null;
+    const d = JSON.parse(crudo);
+    if (!d?.importId) return null;
+    // Después de una semana ya no es "lo que acabo de hacer": ofrecer deshacerla
+    // es más peligroso que útil.
+    if (Date.now() - (d.cuando || 0) > 7 * 86400000) { olvidarImportacion(); return null; }
+    return d;
+  } catch { return null; }
+}
+
+export function olvidarImportacion() {
+  try { localStorage.removeItem(CLAVE_IMPORT); } catch { /* da igual */ }
+}

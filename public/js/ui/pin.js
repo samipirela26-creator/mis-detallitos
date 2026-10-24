@@ -63,7 +63,7 @@ export async function pedirAutorizacion(motivo = '') {
       type: 'password', inputmode: 'numeric', autocomplete: 'off',
       placeholder: '••••', style: 'font-size:1.5rem;text-align:center;letter-spacing:.5em',
     });
-    const error = el('p', { style: 'color:var(--rojo);font-size:.9rem;min-height:1.2em' });
+    const error = el('p', { style: 'color:var(--rojo);font-size:var(--t-cuerpo);min-height:1.2em' });
     const d = abrirDialogo('');
     const probar = async () => {
       if ((await hashPin(entrada.value, esperado.sal, esperado.vueltas)) === esperado.hash) { d.close(); resolver('Dueño'); }

@@ -27,3 +27,6 @@ respaldo-fotos-*/
 # Respaldos de las cuentas de dinero: son datos reales del negocio, se quedan
 # en el disco y no van al repo.
 respaldo-cuentas-*.json
+
+# Entorno de Python para las pruebas de quitar fondo (se regenera con requirements.txt)
+.venv/

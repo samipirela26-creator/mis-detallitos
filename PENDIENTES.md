@@ -91,9 +91,20 @@ empiezan a mentir.
 - [ ] **"Qué pudo pasar" en el cierre con descuadre.** Anulaciones, precios
       bajados a mano, descuentos con su autor y retiros del turno, en la misma
       pantalla del faltante. Los datos ya están en `auditoria`.
-- [ ] **Respaldo que el dueño pueda guardar.** Un botón que baje un JSON con
-      catálogo, ventas, cajas, clientes y deudas. "El respaldo no restauró y
-      perdí todo" es la queja que no se perdona.
+- [x] **Respaldo que el dueño pueda guardar.** Hecho (23/10). Configuración →
+      Datos: "Bajar respaldo completo" y "Restaurar". El formato está en
+      `core/respaldo-formato.js`, aparte de Firestore, con prueba de ida y
+      vuelta en `test/respaldo.test.mjs` — exportar, pasar por JSON y volver,
+      al centavo y con los id intactos.
+      **OJO con restaurar desde la app:** las reglas son append-only a
+      propósito (`movimientos` no admite update; `ventas` y `cajas` exigen que
+      el uid del documento sea el de quien escribe). Un respaldo trae los uid
+      originales, así que el dueño NO puede reponer desde el teléfono lo que
+      registró el empleado: la app lo dice y sigue con el resto. Para una
+      recuperación de verdad está `scripts/restaurar-respaldo.mjs`, que entra
+      con llave de administrador y no pasa por las reglas.
+      Falta: **probarlo con los datos reales** — bajar el respaldo, mirar el
+      archivo, y correr el script en seco contra producción.
 - [ ] **Primera corrida guiada y modo de práctica.** Una venta de ejemplo que no
       toca la caja, y ayuda corta de las tres cosas que asustan: anular, cambiar
       precio, cerrar turno. El empleado que no entiende vuelve al papel.
@@ -110,6 +121,20 @@ hace lo que quiera" sigue abierta.)
 
 - [ ] **Abre la caja antes de vender.** 8 de las 12 ventas se cobraron sin turno abierto
       (21 y 22/10): esa plata entró a la gaveta y ningún arqueo la cuenta.
+
+## Hecho el 23/10/2026
+
+- **La caja entiende los cambios de moneda.** El descuadre más común no era plata perdida:
+  la venta es en pesos, el cliente paga con un dólar y el vuelto sale en pesos (o al
+  revés). Como el cobro no anota el billete con que pagaron —y está bien que no lo haga—,
+  el arqueo terminaba diciendo "sobra $ 5,00" y "faltan 20.500 pesos", y eso se lee como
+  que alguien se quedó con algo. Ahora `core/cambio-moneda.js` empareja lo que sobra en una
+  moneda con lo que falta en otra a la tasa de hoy; mientras se cuenta, el diálogo de
+  cierre ya lo avisa, el reporte Z titula "La caja cuadra: fue un cambio de moneda" y la
+  lista de cierres anteriores lo marca en verde en vez de en rojo. Lo que el cambio NO
+  explica se dice aparte y con nombre propio ("aparte del cambio falta $ 2,00"): un aviso
+  que tape un faltante de verdad sería peor que no tener aviso. La diferencia guardada no
+  se toca, sigue siendo la de siempre.
 
 ## Límite conocido del arqueo del empleado
 

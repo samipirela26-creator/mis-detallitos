@@ -8,10 +8,10 @@
 //  - El SDK de Firebase (gstatic): stale-while-revalidate, también cacheado.
 //  - Los datos NO pasan por aquí: de eso se encarga el caché propio de Firestore.
 
-const CACHE_NAME = 'detallitos-v54';
+const CACHE_NAME = 'detallitos-v60';
 // Huella de todo lo que se cachea. La pone `npm run precache`: si no coincide,
 // sube CACHE_NAME solo. No se edita a mano.
-const HUELLA = 'c5917bad7287';
+const HUELLA = '118907fe5c18';
 
 const PRECACHE_URLS = [
   './',
@@ -23,11 +23,14 @@ const PRECACHE_URLS = [
   'icons/icono-maskable-512.png',
   'icons/logo-256.webp',
   'icons/logo.webp',
+  'css/0-fuentes.css',
   'css/1-base.css',
   'css/2-layout.css',
   'css/3-componentes.css',
   'css/4-pantallas.css',
   'css/5-catalogo.css',
+  'fuentes/outfit.woff2',
+  'fuentes/work-sans.woff2',
   'vendor/fuse.mjs',
   'js/app.js',
   'js/catalogo-standalone.js',
@@ -37,6 +40,9 @@ const PRECACHE_URLS = [
   'js/reports/graficos.js',
   'js/reports/panel.js',
   'js/reports/recibo.js',
+  'js/core/producto-publico.js',
+  'js/core/respaldo-formato.js',
+  'js/data/respaldo.js',
   'js/ui/avisos.js',
   'js/ui/html.js',
   'js/ui/iconos.js',
@@ -90,10 +96,12 @@ const PRECACHE_URLS = [
 
 const SDK = 'https://www.gstatic.com/firebasejs/';
 
-// Las tipografías vienen de Google Fonts. Sin cachearlas, estando sin señal la
-// app se ve con otra letra (funciona, pero se nota feo). Se guardan la primera
-// vez que se usan, igual que el SDK.
-const EXTERNOS = ['fonts.googleapis.com', 'fonts.gstatic.com'];
+// Las tipografías YA NO vienen de Google: están en `fuentes/` y entran en el
+// precache como un archivo más. El <link> externo bloqueaba la PRIMERA carga,
+// que es justo la que pasa con mala señal — cachear en caliente solo ayudaba a
+// partir de la segunda vez. La lista se deja vacía (y no se borra) porque el
+// SDK de Firebase sigue necesitando el mismo camino de abajo.
+const EXTERNOS = [];
 
 self.addEventListener('install', (ev) => {
   ev.waitUntil(

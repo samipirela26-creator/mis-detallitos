@@ -39,7 +39,7 @@ async function montarReportes(nodo) {
   const barraRangos = $('#rangos', nodo);
   for (const [clave, r] of Object.entries(RANGOS)) {
     barraRangos.appendChild(el('button.btn.plano', {
-      'data-r': clave, style: 'min-height:40px;font-size:.9rem',
+      'data-r': clave, style: 'min-height:40px;font-size:var(--t-cuerpo)',
       texto: r.titulo,
       onclick: () => { rango = clave; marcar(); cargar(); },
     }));
@@ -70,7 +70,7 @@ async function montarReportes(nodo) {
         onclick: () => ir('caja'),
       }, [
         el('div', { style: 'font-weight:700;color:var(--rojo)', texto: dias === 1 ? 'Tienes la caja abierta desde ayer' : `Tienes la caja abierta desde hace ${dias} días` }),
-        el('div', { style: 'font-size:.9rem;margin-top:.2rem', texto: 'Toca aquí para cerrarla. Mientras no se cierre, el arqueo no cuadra.' }),
+        el('div', { style: 'font-size:var(--t-cuerpo);margin-top:.2rem', texto: 'Toca aquí para cerrarla. Mientras no se cierre, el arqueo no cuadra.' }),
       ]));
     } catch { /* sin internet: el Panel no es el sitio para quejarse de eso */ }
   }
@@ -89,7 +89,7 @@ async function montarReportes(nodo) {
       el('div', { style: 'font-weight:700;color:var(--ambar)', texto: sueltas.length === 1
         ? '1 venta se hizo sin caja abierta'
         : `${sueltas.length} ventas se hicieron sin caja abierta` }),
-      el('div', { style: 'font-size:.9rem;margin-top:.2rem', texto:
+      el('div', { style: 'font-size:var(--t-cuerpo);margin-top:.2rem', texto:
         `${formatear(totalUSD)} que entraron a la gaveta y no están en ningún arqueo. `
         + 'Al abrir la caja, cuenta ese dinero dentro del fondo.' }),
     ]));
@@ -146,7 +146,7 @@ async function montarReportes(nodo) {
 
     if (estimado) {
       caja.appendChild(el('p', {
-        style: 'color:var(--texto-suave);font-size:.82rem;margin-top:.75rem',
+        style: 'color:var(--texto-suave);font-size:var(--t-pie);margin-top:.75rem',
         texto: 'Nota: algunas ventas las registró un empleado, que no ve los costos. Para esas, la ganancia se calcula con el costo que tiene hoy el producto en el inventario.',
       }));
     }
@@ -215,7 +215,7 @@ async function montarReportes(nodo) {
         el('details', {}, [
           el('summary', { style: 'cursor:pointer;font-weight:600', texto: 'Ver cuáles' }),
           el('div', {
-            style: 'font-size:.85rem;max-height:30vh;overflow:auto;margin-top:.5rem',
+            style: 'font-size:var(--t-pie);max-height:30vh;overflow:auto;margin-top:.5rem',
             html: regalado.slice(0, 30).map((d) =>
               `${d.dia} · ${esc(d.producto)} — ${formatear(d.regaladoUSD)} · ${esc(d.vendedor)}${d.autorizadoPor ? ` (autorizó ${esc(d.autorizadoPor)})` : ''}`
             ).join('<br>'),
@@ -237,7 +237,7 @@ async function montarReportes(nodo) {
         }, [
           el('div', {}, [
             el('div', { style: 'font-weight:600', html: esc(p.nombre) }),
-            el('div', { style: 'font-size:.8rem;color:var(--texto-suave)', texto: dias !== null ? `Alcanza para ~${dias} días` : 'No se ha vendido en este período' }),
+            el('div', { style: 'font-size:var(--t-pie);color:var(--texto-suave)', texto: dias !== null ? `Alcanza para ~${dias} días` : 'No se ha vendido en este período' }),
           ]),
           el('span', { class: `etiqueta ${p.stock <= 0 ? 'mal' : 'alerta'}`, texto: `${p.stock} ${esc(p.unidad || 'u')}` }),
         ]));

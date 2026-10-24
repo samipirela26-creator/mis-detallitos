@@ -21,14 +21,22 @@
 .barra .tasas-badge {
   order: 2; flex: 1 1 auto;
   display: inline-flex; align-items: center; justify-content: center; gap: .6rem;
-  min-height: 34px;
+  min-height: 44px;   /* era 34px, y es un botón: abre las tasas */
   padding: .3rem .85rem; border-radius: var(--pildora);
   background: var(--marca-suave); border: 0;
-  font-size: .78rem; font-weight: 600;
+  font-size: var(--t-pie); font-weight: 600;
   color: var(--marca-oscuro);
   font-variant-numeric: tabular-nums;
 }
 .barra .tasas-badge span { color: var(--marca-oscuro); font-family: var(--fuente-titulo); }
+/* Tasa arrastrada de otro día: se avisa, porque cobrar toda la jornada a la
+   tasa de ayer se come el margen venta por venta y no da ningún error. */
+.barra .tasas-badge.vieja {
+  background: var(--ambar-suave);
+  border-color: var(--ambar);
+  color: var(--ambar);
+}
+.barra .tasas-badge.vieja span { color: var(--ambar); }
 
 .barra .logo-boton {
   order: 1;
@@ -40,7 +48,7 @@
 .barra .logo-boton:hover { transform: scale(1.06); }
 .barra .logo-boton:active { transform: scale(.96); }
 .barra .logo-boton:focus-visible {
-  outline: 0; box-shadow: 0 0 0 3px rgba(11, 106, 130, .45);
+  outline: 0; box-shadow: 0 0 0 3px var(--foco);
 }
 
 .barra .logo-barra {
@@ -74,7 +82,7 @@
   background: var(--superficie);
   border: 1px solid var(--borde);
   border-radius: var(--pildora);
-  box-shadow: 0 10px 28px -8px rgba(18, 18, 18, .18);
+  box-shadow: var(--sombra-alta);   /* era una sombra negra a mano: en oscuro desaparecía */
 }
 /* Cada botón se distribuye de manera simétrica dentro de la píldora. */
 .nav button {
@@ -84,7 +92,7 @@
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
   border: 0; background: transparent; cursor: pointer; border-radius: var(--pildora);
   font-family: var(--fuente-cuerpo);
-  font-size: .64rem; font-weight: 600; line-height: 1.15; color: var(--texto-suave);
+  font-size: var(--t-rotulo); font-weight: 600; line-height: 1.15; color: var(--texto-suave);
   overflow: hidden;
   transition: background-color .15s ease, color .15s ease;
 }
@@ -125,4 +133,40 @@
   .rejilla.tres { grid-template-columns: repeat(3, 1fr); }
   .rejilla.cuatro { grid-template-columns: repeat(4, 1fr); }
   .rejilla.cinco { grid-template-columns: repeat(5, 1fr); }
+}
+
+/* --- Laptop y escritorio: la navegación sube -------------------------------
+   En el teléfono la píldora de abajo es correcta: ahí está el pulgar. En una
+   laptop la mano está en el teclado y el ratón arriba, y una barra flotante
+   centrada abajo obliga a bajar el cursor a la esquina para cada cambio de
+   pantalla, encima de dejar 5,5rem de aire muerto al pie de cada página.
+
+   A partir de 900px se vuelve una fila horizontal pegada bajo el encabezado.
+   No es un rediseño: son los mismos botones, puestos donde la mano ya está. */
+@media (min-width: 900px) {
+  .nav {
+    position: sticky;
+    top: .5rem;
+    left: auto; transform: none;
+    bottom: auto;
+    width: 100%; max-width: var(--ancho);
+    margin: 0 auto 1rem;
+    justify-content: flex-start;
+    gap: .25rem;
+    border-radius: var(--r);
+  }
+  .nav button {
+    flex: 0 1 auto;
+    min-width: 92px;
+    flex-direction: row;
+    gap: .45rem;
+    padding: .3rem .9rem;
+    font-size: var(--t-pie);
+  }
+  /* Con la navegación arriba, el hueco que la píldora dejaba abajo sobra. */
+  #contenido {
+    padding-bottom: 2rem;
+  }
+  /* Los avisos ya no tienen que esquivarla. */
+  #avisos { bottom: 1.25rem; }
 }

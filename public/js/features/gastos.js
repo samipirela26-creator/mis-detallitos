@@ -188,11 +188,11 @@ async function montarGastos(nodo) {
                 ? el('span.etiqueta.info', { style: 'margin-left:.4rem', texto: 'retiro' })
                 : null,
             ]),
-            el('div', { style: 'font-size:.8rem;color:var(--texto-suave)', html: `${fecha(g.ts)} · ${esc(g.nombreUsuario || '')} · ${esc(g.lugar || 'Caja')} ${g.nota ? '· ' + esc(g.nota) : ''}` }),
+            el('div', { style: 'font-size:var(--t-pie);color:var(--texto-suave)', html: `${fecha(g.ts)} · ${esc(g.nombreUsuario || '')} · ${esc(g.lugar || 'Caja')} ${g.nota ? '· ' + esc(g.nota) : ''}` }),
           ]),
           el('div', { style: 'text-align:right' }, [
             el('div.cifra', { style: 'font-weight:700', texto: formatear(g.montoUSD) }),
-            g.moneda !== 'USD' ? el('div', { style: 'font-size:.78rem;color:var(--texto-suave)', texto: formatear(g.monto, g.moneda) }) : null,
+            g.moneda !== 'USD' ? el('div', { style: 'font-size:var(--t-pie);color:var(--texto-suave)', texto: formatear(g.monto, g.moneda) }) : null,
           ]),
           esDueno() ? el('button.btn.plano', {
             style: 'min-height:38px;min-width:44px;padding:0', texto: '×', 'aria-label': 'Quitar', title: 'Quitar',

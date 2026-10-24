@@ -99,7 +99,7 @@
 }
 .kpi .rotulo {
   font-family: var(--fuente-cuerpo);
-  font-size: .68rem; color: var(--texto-suave);
+  font-size: var(--t-rotulo); color: var(--texto-suave);
   text-transform: uppercase; letter-spacing: .1em; font-weight: 600;
 }
 .kpi .valor {
@@ -108,7 +108,7 @@
   letter-spacing: -.04em; line-height: 1.05; margin-top: .15rem; color: var(--texto);
   font-variant-numeric: tabular-nums;
 }
-.kpi .pie { font-size: .78rem; color: var(--texto-suave); }
+.kpi .pie { font-size: var(--t-pie); color: var(--texto-suave); }
 /* Lo bueno en turquesa, lo que urge en amarillo, lo malo en papel con cifra roja. */
 .kpi.bueno { background: var(--marca); border-radius: var(--r-bloque); }
 .kpi.bueno .rotulo { color: var(--sobre-marca-fuerte); opacity: .85; }
@@ -119,11 +119,17 @@
 .kpi.acento .valor { color: #0c1e24; }
 
 /* Cifra enorme para totales */
+/* Estaba fija en 2.9rem. Dentro de un diálogo de min(94vw,460px) con 1.5rem de
+   padding, en un teléfono de 360px quedan ~290px útiles: "Bs 1.234.567,00" no
+   cabía y se salía, sin recorte ni salto. Ahora encoge con el ancho disponible
+   y nunca parte el número en dos renglones. */
 .cifra-gigante {
   font-family: var(--fuente-titulo);
-  font-size: 2.9rem; font-weight: 700;
-  letter-spacing: -.045em; line-height: 1;
+  font-size: clamp(1.6rem, 8.5vw, 2.9rem); font-weight: 700;
+  letter-spacing: -.045em; line-height: 1.05;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  max-width: 100%;
 }
 
 /* Atajos: píldoras de contorno, no tarjetas con párrafo que nadie lee. */
@@ -141,7 +147,7 @@
 .atajo-card:hover { background: var(--superficie); border-color: var(--marca); }
 .atajo-card .ico-wrap { color: var(--texto); display: flex; }
 .atajo-card .ico-wrap svg { width: 17px; height: 17px; }
-.atajo-card h2 { margin: 0; font-family: var(--fuente-cuerpo); font-size: .82rem; font-weight: 600; }
+.atajo-card h2 { margin: 0; font-family: var(--fuente-cuerpo); font-size: var(--t-cuerpo); font-weight: 600; }
 /* El párrafo del atajo sobra en una píldora. */
 .atajo-card p { display: none; }
 
@@ -155,7 +161,7 @@
   color: var(--sobre-marca-fuerte); font-family: var(--fuente-titulo); font-weight: 700; font-size: .78rem; padding-bottom: .35rem;
   background: var(--marca); transition: height .3s ease;
 }
-.barras .etiq { font-size: .74rem; color: var(--texto-suave); font-weight: 500; }
+.barras .etiq { font-size: var(--t-pie); color: var(--texto-suave); font-weight: 500; }
 
 /* --- Vender --- */
 .buscador-pos input {
@@ -172,6 +178,12 @@
   cursor: pointer; transition: background-color .15s ease;
 }
 .resultados li:hover { background: var(--superficie-2); }
+/* El resultado que se lleva el Enter, al moverse con ↑ ↓. Lleva fondo Y una
+   barra lateral: con el sol encima del mostrador el fondo solo no se ve. */
+.resultados li.resaltado {
+  background: var(--marca-suave);
+  box-shadow: inset 3px 0 0 0 var(--marca);
+}
 .resultados .miniatura {
   width: 42px; height: 42px; border-radius: var(--r-chico);
   object-fit: cover; background: var(--superficie-2); flex: 0 0 auto;
@@ -184,4 +196,4 @@
   width: 100%; max-height: 50dvh;
   background: #0c1e24; border-radius: var(--r-bloque);
 }
-.estudio .contador { color: var(--texto-suave); font-size: .86rem; font-weight: 500; }
+.estudio .contador { color: var(--texto-suave); font-size: var(--t-cuerpo); font-weight: 500; }

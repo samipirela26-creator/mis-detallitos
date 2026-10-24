@@ -7,13 +7,38 @@ import { avisar, avisarOk } from '../ui/avisos.js';
 
 const NEGOCIO = 'Mis Detallitos G&M C.A';
 
+/** La fecha de la venta; si el documento no la trae todavía, la de ahora. */
+function fechaDeLaVenta(venta) {
+  const ts = venta?.ts;
+  const d = ts?.toDate ? ts.toDate() : (ts ? new Date(ts) : new Date());
+  return (Number.isNaN(d.getTime()) ? new Date() : d).toLocaleString('es-VE');
+}
+
+/** "Tasa: Bs 980,61/$ · COP 4.100/$" — solo las monedas que se usaron. */
+function lineaTasa(tasasDeLaVenta, venta) {
+  const usadas = new Set((venta.pagos || []).map((p) => p.moneda).filter((m) => m !== 'USD'));
+  if (venta.totalCOP) usadas.add('COP');
+  const partes = [...usadas]
+    .filter((m) => tasasDeLaVenta[m] > 0)
+    .map((m) => `${formatear(tasasDeLaVenta[m], m)}/$`);
+  return partes.length ? `Tasa: ${partes.join(' · ')}` : '';
+}
+
 export function textoRecibo({ id, venta, tasas = {} }) {
   const lineas = venta.lineas.map((l) =>
     `${l.cantidad} x ${l.nombre} — ${formatear(Math.round(l.cantidad * l.precioUSD))}`
   );
+  // La tasa sale de la VENTA, no del objeto global. `crearPago` la congela en
+  // cada pago (`dinero.js`), y con eso un recibo reimpreso en diciembre sigue
+  // diciendo lo que se cobró en octubre. Antes se recalculaba con la tasa de
+  // hoy: el papel cambiaba solo y no había cómo defender el número.
+  const tasasDeLaVenta = { ...tasas };
+  for (const pago of venta.pagos || []) {
+    if (pago.moneda !== 'USD' && pago.tasa > 0) tasasDeLaVenta[pago.moneda] = pago.tasa;
+  }
   const otras = Object.keys(MONEDAS)
-    .filter((m) => m !== 'USD' && tasas[m])
-    .map((m) => `${formatear(desdeUSD(venta.totalUSD, m, tasas[m]), m)}`);
+    .filter((m) => m !== 'USD' && tasasDeLaVenta[m])
+    .map((m) => `${formatear(desdeUSD(venta.totalUSD, m, tasasDeLaVenta[m]), m)}`);
   // "Pagó: $ 6.000" debajo de un total de $ 6.000 no le dice nada a nadie: se
   // pone solo cuando aporta algo, que es cuando quedó debiendo.
   const pagos = venta.saldoUSD > 0
@@ -22,7 +47,9 @@ export function textoRecibo({ id, venta, tasas = {} }) {
 
   return [
     `*${NEGOCIO}*`,
-    new Date().toLocaleString('es-VE'),
+    // La fecha de LA VENTA. Era `new Date()`, que daba igual mientras el recibo
+    // solo se abría al cobrar, pero mentía en cuanto se reimprimiera uno viejo.
+    fechaDeLaVenta(venta),
     `Recibo ${String(id).slice(-6).toUpperCase()}`,
     '',
     ...lineas,
@@ -36,6 +63,9 @@ export function textoRecibo({ id, venta, tasas = {} }) {
     venta.ajusteUSD < 0 ? 'Se le redondeó a favor.' : '',
     pagos.length ? `Pagó:\n${pagos.join('\n')}` : '',
     venta.saldoUSD > 0 ? `*Queda debiendo: ${formatear(venta.saldoUSD)}*` : '',
+    // Con qué tasa se cobró y de cuándo. Si el cliente reclama, el papel se
+    // defiende solo.
+    lineaTasa(tasasDeLaVenta, venta),
     '',
     '¡Gracias por su compra!',
   ].filter(Boolean).join('\n');
@@ -54,7 +84,7 @@ export function recibo({ id, venta, tasas = {}, alCerrar = null }) {
       ? el('p', { style: 'text-align:center;color:var(--rojo);font-weight:700', texto: `Queda debiendo ${formatear(venta.saldoUSD)}` })
       : null,
     el('pre', {
-      style: 'background:var(--superficie-2);border-radius:var(--r-chico);padding:.75rem;font-size:.8rem;white-space:pre-wrap;max-height:30vh;overflow:auto',
+      style: 'background:var(--superficie-2);border-radius:var(--r-chico);padding:.75rem;font-size:var(--t-pie);white-space:pre-wrap;max-height:30vh;overflow:auto',
       texto: texto.replace(/\*/g, ''),
     }),
     // El principal es lo que vas a hacer DESPUÉS, no el que cierra. Antes el

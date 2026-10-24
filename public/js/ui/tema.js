@@ -27,7 +27,11 @@ export function aplicarTema(tema = temaGuardado()) {
   if (meta) {
     const oscuro = tema === 'oscuro'
       || (tema === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
-    meta.setAttribute('content', oscuro ? '#101719' : '#0b6a82');
+    // Se leen los tokens en vez de repetir los hex: antes estaban escritos a
+    // mano aquí y había que acordarse de cambiarlos en dos sitios.
+    const estilo = getComputedStyle(document.documentElement);
+    const color = (oscuro ? estilo.getPropertyValue('--fondo') : estilo.getPropertyValue('--marca')).trim();
+    meta.setAttribute('content', color || (oscuro ? '#101719' : '#0b6a82'));
   }
 }
 

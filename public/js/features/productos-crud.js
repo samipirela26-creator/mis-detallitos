@@ -10,11 +10,11 @@ import { productos as catalogo, categorias } from '../data/catalogo.js';
 import { guardarProducto, desactivarProducto } from '../data/productos.js';
 import { registrarMovimientos, bajoMinimo, TIPOS } from '../data/inventario.js';
 import { pintarFoto } from '../data/fotos.js';
+import { anotar } from '../data/auditoria.js';
 import { buscar } from '../data/busqueda.js';
 import { observar, leer } from '../core/estado.js';
-import { aMenores, formatear, margenPct, aMayores, parsearCosto, escribirCosto, aUSD } from '../core/dinero.js';
+import { aMenores, formatear, margenPct, estadoMargen, MARGEN_FLOJO, aMayores, parsearCosto, escribirCosto, aUSD } from '../core/dinero.js';
 
-const MARGEN_FLOJO = 15;   // por debajo de esto, se marca en amarillo
 
 registrar('inventario', {
   titulo: 'Inventario', icono: '📦', menu: true, soloDueno: true, orden: 20,
@@ -30,7 +30,7 @@ registrar('inventario', {
                   aria-label="Borrar lo escrito">&times;</button>
         </div>
         <p id="cuenta" class="pista-busqueda" aria-live="polite"></p>
-        <p style="color:var(--texto-suave);font-size:.85rem;margin:.3rem 0 0">
+        <p style="color:var(--texto-suave);font-size:var(--t-pie);margin:.3rem 0 0">
           Toca la foto de un producto para verla, cambiarla o quitarla. Desde la computadora también
           puedes arrastrar una foto encima de su fila y queda puesta.
         </p>
@@ -104,7 +104,7 @@ registrar('inventario', {
       const tarjeta = el('div.tarjeta', { style: 'padding:.5rem' });
       for (const p of lista) {
         const m = p.precioUSD ? margenPct(p.precioUSD, p.costoUSD) : null;
-        const colorMargen = m === null ? 'var(--texto-suave)' : m < 0 ? 'var(--rojo)' : m < MARGEN_FLOJO ? 'var(--ambar)' : 'var(--verde)';
+        const estado = estadoMargen(m);
         // Tocar la miniatura abre la foto para verla, cambiarla o quitarla.
         // Antes el único camino para CAMBIAR una foto ya puesta era arrastrar
         // el archivo encima desde una computadora: en el teléfono no había
@@ -124,16 +124,16 @@ registrar('inventario', {
           img,
           el('div', { style: 'flex:1;min-width:0' }, [
             el('div', { style: 'font-weight:600', html: esc(p.nombre) }),
-            el('div', { style: 'font-size:.8rem;color:var(--texto-suave)' }, [
+            el('div', { style: 'font-size:var(--t-pie);color:var(--texto-suave)' }, [
               el('span', { html: esc(p.categoria || 'Sin categoría') }),
               p.tipoPrecio === 'variable' ? el('span.etiqueta.info', { style: 'margin-left:.4rem', texto: 'precio libre' }) : null,
               (!p.precioUSD || !p.costoUSD) ? el('span.etiqueta.alerta', { style: 'margin-left:.4rem', texto: 'incompleto' }) : null,
               p.costoEstimado ? el('span.etiqueta.info', { style: 'margin-left:.4rem', texto: 'costo estimado' }) : null,
             ]),
           ]),
-          el('div', { style: 'text-align:right;font-size:.85rem' }, [
+          el('div', { style: 'text-align:right;font-size:var(--t-pie)' }, [
             el('div.cifra', { style: 'font-weight:700;font-size:1rem', texto: formatear(p.precioUSD) }),
-            el('div', { style: `color:${colorMargen};font-weight:600`, texto: m === null ? 'sin costo' : `${m.toFixed(0)}% margen` }),
+            el(`div.estado-${estado}`, { style: 'font-weight:600', texto: m === null ? 'sin costo' : `${m.toFixed(0)}% margen` }),
             el('div', { style: 'color:var(--texto-suave)', texto: p.tipo === 'servicio' ? 'servicio' : `${p.stock} ${esc(p.unidad || 'u')}` }),
           ]),
         ]);
@@ -319,7 +319,8 @@ export function formulario(p = null) {
     const caja = $('#margen', d);
     if (m === null || !costo) { caja.textContent = ''; return; }
     const ganancia = precio - costo;
-    caja.style.color = m < 0 ? 'var(--rojo)' : m < MARGEN_FLOJO ? 'var(--ambar)' : 'var(--verde)';
+    caja.style.color = '';
+    caja.className = `estado-${estadoMargen(m)}`;
     // Con paquete se dice primero el unitario: es el número que el dueño no
     // tenía y la razón por la que puede escribirlo como lo compró.
     const porPaquete = paquete ? `Cada uno te cuesta ${formatear(costo)}. ` : '';
@@ -460,6 +461,18 @@ export function ajustarStock(p) {
           // si se queda, el formulario lo muestra con prioridad y revierte este.
           await guardarProducto({ ...p, costoUSD: nuevoCosto, costoPaquete: null }, p.id);
         }
+      }
+      // Un conteo físico es lo primero que se mira cuando el inventario no
+      // cuadra: tiene que quedar de cuánto a cuánto, y por qué. El movimiento
+      // guarda la diferencia (para el ledger), no el antes y el después.
+      if (tipo === 'ajuste') {
+        anotar('stock-ajustado', {
+          productoId: p.id,
+          nombre: p.nombre,
+          stock: { antes: p.stock || 0, ahora: cantidad },
+          diferencia: cantidad - (p.stock || 0),
+          nota: f.nota.value || null,
+        });
       }
       d.close();
       avisarOk(`${TIPOS[tipo].etiqueta} registrada`);

@@ -95,7 +95,7 @@ function abrir(img, original, { titulo, razon }) {
       titulo ? el('p', { style: 'color:var(--texto-suave);margin:0 0 .75rem', html: esc(titulo) }) : null,
       escena,
       el('p', {
-        style: 'color:var(--texto-suave);font-size:.85rem;margin:.6rem 0 0',
+        style: 'color:var(--texto-suave);font-size:var(--t-pie);margin:.6rem 0 0',
         texto: 'Arrastra el marco para encuadrar el producto. Las esquinas lo estiran.',
       }),
       tira,

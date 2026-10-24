@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buscar } from '../public/js/data/busqueda.js';
+import { buscar, buscarClientes } from '../public/js/data/busqueda.js';
 import { normalizar } from '../public/js/core/texto.js';
 
 const hacer = (nombre, extra = {}) => ({
@@ -74,4 +74,34 @@ test('sin texto no devuelve nada, y lo imposible devuelve vacío', () => {
   assert.deepEqual(buscar('', CATALOGO), []);
   assert.deepEqual(buscar('   ', CATALOGO), []);
   assert.equal(buscar('xqzwkj', CATALOGO).length, 0, 'aquí es donde entra la ayuda de la IA');
+});
+
+test('los clientes se buscan como los productos: mal escritos y por teléfono', () => {
+  const clientes = [
+    { nombre: 'José Ramírez', nombreNorm: 'jose ramirez', telefono: '0412-555 11 22' },
+    { nombre: 'María Peña', nombreNorm: 'maria pena', telefono: '0424 777 3344' },
+    { nombre: 'Pedro', nombreNorm: 'pedro', telefono: '' },
+  ];
+  const nombres = (f) => buscarClientes(clientes, f).map((c) => c.nombre);
+
+  // Sin acentos en ninguno de los dos lados.
+  assert.deepEqual(nombres('jose'), ['José Ramírez']);
+  assert.deepEqual(nombres('José'), ['José Ramírez']);
+  assert.deepEqual(nombres('pena'), ['María Peña']);
+  assert.deepEqual(nombres('PEÑA'), ['María Peña']);
+
+  // Por teléfono, dé igual cómo esté escrito el que se busca y el guardado.
+  assert.deepEqual(nombres('0412555'), ['José Ramírez']);
+  assert.deepEqual(nombres('0412-555'), ['José Ramírez']);
+  assert.deepEqual(nombres('7773344'), ['María Peña']);
+
+  // Sin filtro salen todos; sin coincidencia no sale nadie.
+  assert.equal(buscarClientes(clientes, '').length, 3);
+  assert.equal(buscarClientes(clientes, 'zzz').length, 0);
+
+  // Un cliente sin `nombreNorm` guardado (de antes) igual se encuentra.
+  assert.deepEqual(
+    buscarClientes([{ nombre: 'Ángel Núñez' }], 'angel nunez').map((c) => c.nombre),
+    ['Ángel Núñez'],
+  );
 });

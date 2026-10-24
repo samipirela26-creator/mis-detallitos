@@ -16,7 +16,7 @@
 //   5+ Datos                        (con cebra)
 //   n  TOTALES                      (en negrita, fuera del autofiltro)
 
-import { aMayores } from '../core/dinero.js';
+import { aMayores, formatear } from '../core/dinero.js';
 import { avisar } from '../ui/avisos.js';
 
 // Los colores son los de la app: el turquesa del logo y el hielo del fondo.
@@ -295,7 +295,14 @@ export async function exportarVentas(ventas, { desde, hasta, porProducto = [], p
       aMayores(v.totalUSD || 0),
       aMayores(v.costoTotalUSD || 0),
       formula(`D${r}-E${r}`),
-      (v.pagos || []).map((p) => `${p.moneda} ${p.monto}`).join(' + '),
+      // Antes salía `VES 98061`: unidades menores sin convertir y sin la tasa,
+      // o sea un número que no es ni bolívares ni dólares y que nadie puede
+      // cuadrar contra nada. Ahora sale el monto de verdad y a qué tasa entró.
+      (v.pagos || []).map((p) => {
+        const monto = formatear(p.monto, p.moneda);
+        if (p.moneda === 'USD' || !(p.tasa > 0)) return monto;
+        return `${monto} (a ${formatear(p.tasa, p.moneda, { simbolo: false })}/$)`;
+      }).join(' + '),
       aMayores(Math.max(0, v.saldoUSD || 0)),
     ];
     escribirFila(hojaVentas, r, valores, fmtVentas);

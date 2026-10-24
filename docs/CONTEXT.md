@@ -76,6 +76,37 @@ Y una consecuencia: **la navegación no es una acción.** La píldora de abajo d
 dónde estás; los botones hacen algo. Un botón que solo navega no lleva
 `.principal` si en esa pantalla hay algo que hacer.
 
+## El respaldo, y por qué hay DOS caminos (octubre 2026)
+
+El botón de la app y el script de la computadora no son lo mismo, y la
+diferencia no es comodidad: es que **las reglas de Firestore impiden restaurar
+desde la app, a propósito**.
+
+- `movimientos` (el ledger de inventario) tiene `allow update, delete: if false`.
+- `ventas`, `cajas` y `gastos` solo dejan crear si `soyYo()`, es decir si el
+  `uid` del documento es el de quien está escribiendo.
+
+Un respaldo trae los **uid originales**. Cuando el dueño intenta reponer una
+venta que registró el empleado, la regla la rechaza — y hace bien: eso es lo
+que impide que una sesión robada reescriba el historial.
+
+Consecuencia práctica:
+
+| | Qué puede | Cuándo se usa |
+|---|---|---|
+| Botón en Configuración | Bajar todo. Restaurar lo que las reglas permitan, y **decir qué no entró** | Día a día. Bajar el respaldo cada tanto |
+| `scripts/restaurar-respaldo.mjs` | Todo, con llave de administrador | Cuando la base está vacía o a medias |
+
+Lo que NO va en el respaldo, y por qué: `secretos` (llaves de API — un respaldo
+se manda por WhatsApp sin pensarlo), `equipo` (el hash del PIN es una
+credencial) y `productos_venta` (el espejo del empleado se **reconstruye** desde
+`productos`; restaurar uno viejo le devolvería precios que ya no existen).
+
+La regla que manda: **un respaldo que no se ha restaurado no es un respaldo.**
+Por eso el formato vive en `core/respaldo-formato.js`, sin tocar Firebase, y
+`test/respaldo.test.mjs` lo exporta, lo pasa por JSON y lo trae de vuelta
+comprobando que no se perdió ni un centavo ni un id ni un nanosegundo.
+
 ## Decisiones técnicas y por qué
 
 - **Módulos ES sin bundler.** No hay paso de compilación que se pueda romper.
@@ -152,6 +183,31 @@ que saber para no deshacerlo sin querer:
 - **El índice de Fuse se arma al cargar el catálogo**, no en el primer tecleo:
   si no, la primera venta del día paga indexar mil productos con el cliente
   esperando.
+
+### Vender sin soltar el teclado (octubre 2026)
+
+En la laptop la mano está en el teclado, no en el pulgar, y antes había que ir
+al ratón en cada línea. Hoy una venta completa se hace a ciegas:
+
+| Tecla | Qué hace |
+|---|---|
+| `/` | Salta al buscador desde cualquier parte de la pantalla de vender |
+| `↑` `↓` | Mueve el resaltado por los resultados |
+| `Enter` | Agrega el resaltado. Sin resaltar, agrega el primero |
+| `Escape` | Limpia el buscador |
+| `3x lapiz` | Agrega tres de un golpe |
+
+Dos trampas que ya costaron una vez:
+
+- **El resaltado se reinicia en cada búsqueda nueva** (`pintarResultados`). Si
+  no, el índice apunta a un producto que ya no está en pantalla y `Enter` cobra
+  cualquier cosa.
+- **El atajo de `/` se quita al desmontar la pantalla.** Es un listener en
+  `document`, no en el nodo: sin quitarlo se acumula uno nuevo cada vez que se
+  vuelve a Vender, y sigue escuchando en las demás pantallas.
+
+Y al cerrar el recibo el foco vuelve solo al buscador, así que la venta
+siguiente empieza escribiendo.
 
 ### Deuda técnica conocida
 

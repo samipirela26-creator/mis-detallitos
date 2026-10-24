@@ -90,7 +90,7 @@ registrar('fotos', {
           el('button.btn.plano', { texto: '→', 'aria-label': 'Saltar al siguiente', title: 'Saltar', style: 'flex:0 0 70px;font-size:1.3rem', onclick: saltar }),
         ]),
         el('p', {
-          style: 'color:var(--texto-suave);font-size:.85rem;margin-top:.75rem',
+          style: 'color:var(--texto-suave);font-size:var(--t-pie);margin-top:.75rem',
           texto: esComputadora
             ? 'Al poner la foto pasa solo al siguiente producto. Si no tienes esa foto, dale a la flecha.'
             : 'Al tomar la foto pasa solo al siguiente producto. Si no tienes el producto a mano, dale a la flecha.',
@@ -115,7 +115,7 @@ registrar('fotos', {
              + 'text-align:center;color:var(--texto-suave);margin-top:.5rem;transition:background .1s',
       }, [
         el('div', { style: 'font-weight:600;color:var(--texto)', texto: 'Arrastra aquí la foto' }),
-        el('div', { style: 'font-size:.85rem;margin-top:.25rem', html: `de <strong>${esc(producto.nombre)}</strong>` }),
+        el('div', { style: 'font-size:var(--t-pie);margin-top:.25rem', html: `de <strong>${esc(producto.nombre)}</strong>` }),
       ]);
       const resaltar = (si) => {
         caja.style.borderColor = si ? 'var(--marca)' : 'var(--borde)';
@@ -144,14 +144,14 @@ registrar('fotos', {
       const activa = iaLista(ajustes);
       return el('div', {
         style: 'display:flex;gap:.5rem;align-items:center;justify-content:center;'
-             + 'font-size:.82rem;margin-bottom:.75rem;color:var(--texto-suave)',
+             + 'font-size:var(--t-pie);margin-bottom:.75rem;color:var(--texto-suave)',
       }, [
         el('span', {
           class: `etiqueta ${activa ? 'ok' : 'info'}`,
           texto: activa ? 'Fondo blanco con IA activado' : 'Fondo blanco con IA apagado',
         }),
         el('button.btn.plano', {
-          style: 'min-height:32px;padding:.2rem .6rem;font-size:.8rem',
+          style: 'min-height:32px;padding:.2rem .6rem;font-size:var(--t-pie)',
           texto: activa ? 'Ajustar' : 'Activar',
           onclick: () => ir('config'),
         }),
@@ -193,7 +193,7 @@ registrar('fotos', {
       pegar(caja, 
         el('h2', { texto: 'O de un solo golpe' }),
         el('p', {
-          style: 'color:var(--texto-suave);font-size:.9rem',
+          style: 'color:var(--texto-suave);font-size:var(--t-cuerpo)',
           texto: 'Si ya tienes las fotos en la computadora, suéltalas aquí. Se emparejan por el nombre del archivo: debe ser el código de barras, el SKU o el nombre del producto (por ejemplo "lapiz-mongol.jpg"). Si el fondo blanco con IA está activado, se le aplica a cada una.',
         }),
         el('input', {
@@ -255,14 +255,14 @@ registrar('fotos', {
       caja.appendChild(el('p', { style: 'font-weight:600', texto: `${hechas} fotos emparejadas.` }));
       if (fallosIA) {
         caja.appendChild(el('p', {
-          style: 'color:var(--ambar);font-size:.85rem',
+          style: 'color:var(--ambar);font-size:var(--t-pie)',
           texto: `${fallosIA} se guardaron con su fondo original porque la IA no respondió.`,
         }));
       }
       if (fallidas.length) {
         caja.appendChild(el('details', {}, [
           el('summary', { style: 'cursor:pointer;color:var(--ambar)', texto: `${fallidas.length} no se pudieron emparejar` }),
-          el('div', { style: 'font-size:.85rem;color:var(--texto-suave)', html: fallidas.map(esc).join('<br>') }),
+          el('div', { style: 'font-size:var(--t-pie);color:var(--texto-suave)', html: fallidas.map(esc).join('<br>') }),
         ]));
       }
       recargar();

@@ -11,6 +11,19 @@
   --fuente-titulo: 'Outfit', -apple-system, system-ui, sans-serif;
   --fuente-cuerpo: 'Work Sans', -apple-system, system-ui, sans-serif;
 
+  /* --- Tamaños de letra ---
+     Antes no existían: los tamaños eran literales sueltos por las cuatro hojas
+     Y por el JS. Así fue como la navegación terminó en 10,2px y los montos en
+     moneda local en 12,5px, mientras las cifras grandes estaban perfectas.
+     El rem se calcula contra los 16px de la raíz, no contra el cuerpo.
+     REGLA: nada que haya que leer con un cliente enfrente —monto, nombre,
+     fecha— baja de `--t-dato`. */
+  --t-rotulo: .82rem;    /* 13px · versales: rótulos de KPI, th, label */
+  --t-pie: .88rem;       /* 14px · notas, ayudas, texto de apoyo */
+  --t-cuerpo: .95rem;    /* 15px · texto normal */
+  --t-dato: 1rem;        /* 16px · el piso de lo que se lee en el mostrador */
+  --t-seccion: 1.15rem;  /* 18px · h2 */
+
   /* --- Marca: sacada del logo (paleta "Hielo") --- */
   /* El turquesa del círculo, bajado hasta que TODO pase contraste encima:
      blanco 6.2:1, rótulo claro 4.9:1, y como texto sobre el hielo 5.6:1. */
@@ -59,6 +72,9 @@
   --sombra: none;
   --sombra-elevada: none;
   --sombra-alta: 0 18px 40px -8px rgba(18, 18, 18, .28);
+  /* Anillo de foco. Era el turquesa del tema claro escrito a mano en seis
+     sitios; en oscuro la marca se aclara y el anillo quedaba invisible. */
+  --foco: rgba(11, 106, 130, .45);
   --toque: 46px;
   --ancho: 1040px;
 }
@@ -76,7 +92,7 @@ body {
      quien ve poco. */
   touch-action: manipulation;
   font-family: var(--fuente-cuerpo);
-  font-size: 14px;
+  font-size: 15px;   /* era 14px: chico para leer un monto con el cliente enfrente */
   line-height: 1.5;
   color: var(--texto);
   background: var(--fondo);
@@ -95,7 +111,7 @@ h1 {
   font-size: 2.75rem; font-weight: 700; color: var(--texto);
   line-height: .96; letter-spacing: -.045em;
 }
-h2 { font-size: 1.15rem; font-weight: 600; color: var(--texto); }
+h2 { font-size: var(--t-seccion); font-weight: 600; color: var(--texto); }
 p { margin: 0 0 .75rem; }
 a { color: var(--marca-fuerte); text-decoration: none; font-weight: 500; }
 a:hover { text-decoration: underline; }
@@ -153,6 +169,7 @@ a:hover { text-decoration: underline; }
     --sobre-tinta: #0c1e24;
 
     --sombra-alta: 0 18px 40px -8px rgba(0, 0, 0, .6);
+    --foco: rgba(44, 192, 226, .55);
   }
 }
 
@@ -190,4 +207,5 @@ a:hover { text-decoration: underline; }
   --sobre-tinta: #0c1e24;
 
   --sombra-alta: 0 18px 40px -8px rgba(0, 0, 0, .6);
+  --foco: rgba(44, 192, 226, .55);
 }

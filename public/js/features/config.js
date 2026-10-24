@@ -56,7 +56,7 @@ async function pintarTasas(caja) {
   pegar(caja, 
     el('h2', { texto: 'Tasas de hoy' }),
     el('p', {
-      style: 'color:var(--texto-suave);font-size:.9rem',
+      style: 'color:var(--texto-suave);font-size:var(--t-cuerpo)',
       texto: actual?.deHoy
         ? (auto
             ? `Puestas hoy solas con la tasa del ${actual.fuente === 'bcv-eur' ? 'euro' : 'dólar'} del BCV.`
@@ -122,13 +122,13 @@ async function pintarTasas(caja) {
         style: 'display:flex;align-items:center;gap:.5rem;margin-top:.4rem;cursor:pointer;font-weight:400',
       }, [
         casilla,
-        el('span', { style: 'font-size:.88rem', texto: 'Dejarla fija (no la actualices sola cada día)' }),
+        el('span', { style: 'font-size:var(--t-cuerpo)', texto: 'Dejarla fija (no la actualices sola cada día)' }),
       ]),
     ]));
   }
 
   // Lo que dice el BCV ahora mismo, para comparar antes de guardar.
-  const comparacion = el('p', { style: 'color:var(--texto-suave);font-size:.82rem' });
+  const comparacion = el('p', { style: 'color:var(--texto-suave);font-size:var(--t-pie)' });
 
   caja.appendChild(el('div.fila', {}, [
     el('button.btn.plano', { texto: 'Consultar BCV', onclick: async () => {
@@ -175,7 +175,7 @@ async function pintarTasas(caja) {
   ]));
   caja.appendChild(comparacion);
   caja.appendChild(el('p', {
-    style: 'color:var(--texto-suave);font-size:.82rem;margin-top:.6rem',
+    style: 'color:var(--texto-suave);font-size:var(--t-pie);margin-top:.6rem',
     texto: 'Cada venta guarda la tasa que se usó en ese momento. Cambiar la tasa de hoy no altera las ventas de ayer.',
   }));
 }
@@ -188,7 +188,7 @@ async function pintarSinonimos(caja) {
   pegar(caja, 
     el('h2', { texto: 'Sinónimos por aprobar' }),
     el('p', {
-      style: 'color:var(--texto-suave);font-size:.9rem',
+      style: 'color:var(--texto-suave);font-size:var(--t-cuerpo)',
       texto: 'Cuando alguien busca algo con otro nombre y termina vendiendo un producto, la app lo anota aquí. Apruébalo y esa palabra queda para siempre.',
     })
   );
@@ -200,7 +200,7 @@ async function pintarSinonimos(caja) {
     }, [
       el('div', { style: 'flex:1;min-width:0' }, [
         el('div', { html: `¿<strong>"${esc(s.busqueda)}"</strong> es ${esc(s.nombreProducto)}?` }),
-        el('div', { style: 'font-size:.78rem;color:var(--texto-suave)', texto: fecha(s.ts) }),
+        el('div', { style: 'font-size:var(--t-pie);color:var(--texto-suave)', texto: fecha(s.ts) }),
       ]),
       el('button.btn.plano', { style: 'min-height:38px', texto: 'No', 'aria-label': 'Descartar esta sugerencia', onclick: async () => { await descartar(s.id); fila.remove(); } }),
       el('button.btn.principal', { style: 'min-height:38px', texto: 'Sí', 'aria-label': 'Aprobar esta sugerencia', onclick: async () => {
@@ -227,7 +227,7 @@ async function pintarPin(caja) {
   pegar(caja, 
     el('h2', { texto: 'PIN de autorización' }),
     el('p', {
-      style: 'color:var(--texto-suave);font-size:.9rem',
+      style: 'color:var(--texto-suave);font-size:var(--t-cuerpo)',
       texto: tiene
         ? 'Ya tienes PIN. Se pide cuando un empleado quiere vender por debajo del precio mínimo.'
         : 'Sin PIN, cualquiera puede bajar los precios todo lo que quiera. Ponle uno.',
@@ -266,7 +266,7 @@ async function pintarSolicitudes(caja, alCambiar) {
   pegar(caja,
     el('h2', { texto: 'Dar acceso' }),
     el('p', {
-      style: 'color:var(--texto-suave);font-size:.9rem',
+      style: 'color:var(--texto-suave);font-size:var(--t-cuerpo)',
       texto: 'Manda este link a tu mamá y a tu trabajador. Ellos crean su cuenta y aparecen aquí; hasta que les des acceso no ven nada.',
     }),
     el('div.fila', { style: 'margin-bottom:1rem' }, [
@@ -286,7 +286,7 @@ async function pintarSolicitudes(caja, alCambiar) {
     }, [
       el('div', { style: 'flex:1;min-width:0' }, [
         el('div', { style: 'font-weight:600', html: esc(u.nombre || '(sin nombre)') }),
-        el('div', { style: 'font-size:.8rem;color:var(--texto-suave)', html: esc(u.email || u.id) }),
+        el('div', { style: 'font-size:var(--t-pie);color:var(--texto-suave)', html: esc(u.email || u.id) }),
       ]),
       el('button.btn.plano', { style: 'min-height:38px', texto: 'Rechazar', onclick: async () => {
         if (!await confirmar(`¿Rechazar a ${u.nombre}?`, {
@@ -341,13 +341,13 @@ async function pintarUsuarios(caja) {
     }, [
       el('div', {}, [
         el('div', { style: 'font-weight:600', html: esc(u.nombre || u.id) }),
-        el('div', { style: 'font-size:.78rem;color:var(--texto-suave)', texto: u.id }),
+        el('div', { style: 'font-size:var(--t-pie);color:var(--texto-suave)', texto: u.id }),
       ]),
       el('span', { class: `etiqueta ${u.rol === 'dueno' ? 'info' : 'ok'}`, texto: u.rol === 'dueno' ? 'Dueño' : 'Empleado' }),
     ]));
   }
   caja.appendChild(el('p', {
-    style: 'color:var(--texto-suave);font-size:.85rem;margin-top:.6rem',
+    style: 'color:var(--texto-suave);font-size:var(--t-pie);margin-top:.6rem',
     texto: 'Los usuarios se crean en la consola de Firebase (Authentication) y su rol se pone en el documento usuarios/{UID}. Ver docs/FIREBASE-SETUP.md.',
   }));
 }
@@ -357,6 +357,28 @@ function pintarDatos(caja) {
   caja.innerHTML = '';
   pegar(caja, 
     el('h2', { texto: 'Datos' }),
+
+    // El respaldo va primero y es el único botón fuerte de la pantalla: es lo
+    // que salva el inventario completo si se pierde la cuenta o alguien borra
+    // una colección. El Excel de inventario NO sirve para eso — no lleva id,
+    // ni los pesos, ni escalas, ni ventas, ni clientes.
+    el('div.tarjeta', { style: 'margin-bottom:1rem' }, [
+      el('p', {
+        style: 'margin:0 0 .75rem;color:var(--texto-suave)',
+        texto: 'Un archivo con todo: catálogo, ventas, cajas, clientes, deudas, '
+             + 'movimientos y tasas. Guárdalo donde no dependa de este teléfono.',
+      }),
+      el('div.fila', {}, [
+        el('button.btn.principal', { texto: 'Bajar respaldo completo', onclick: (ev) => bajarRespaldo(ev.target) }),
+        el('button.btn.plano', { texto: 'Restaurar', onclick: () => pedirRestaurar(caja) }),
+      ]),
+    ]),
+
+    // Si hubo una importación hace poco, se puede deshacer desde aquí aunque
+    // se haya cerrado la app. Antes el botón vivía solo en la pantalla de
+    // importar y se perdía al recargar.
+    pintarDeshacerImportacion(caja),
+
     el('div.fila', {}, [
       el('button.btn.plano', { texto: 'Exportar inventario', onclick: async () => {
         const { exportarInventario } = await import('../reports/export-excel.js');
@@ -421,7 +443,7 @@ function pintarTema(caja) {
   pegar(caja,
     el('h2', { texto: 'Aspecto' }),
     el('p', {
-      style: 'color:var(--texto-suave);font-size:.9rem',
+      style: 'color:var(--texto-suave);font-size:var(--t-cuerpo)',
       texto: 'El oscuro cansa menos la vista de noche en el mostrador. De día, bajo el sol, se lee mejor el claro.',
     }),
     fila
@@ -472,7 +494,7 @@ function pintarCatalogoConfig(caja) {
   pegar(caja,
     el('h2', { texto: 'Catálogo Digital y Pedidos por WhatsApp' }),
     el('p', {
-      style: 'color:var(--texto-suave);font-size:.9rem',
+      style: 'color:var(--texto-suave);font-size:var(--t-cuerpo)',
       texto: 'Tus clientes pueden ver tu catálogo en su teléfono y enviarte pedidos formateados a tu WhatsApp.',
     }),
     el('div.campo', {}, [
@@ -525,11 +547,11 @@ async function pintarEstudioIA(caja) {
   const marcarFondos = () => fondos.querySelectorAll('.chip').forEach((b) =>
     b.setAttribute('aria-pressed', String(b.dataset.fondo === ajustes.fondo)));
 
-  const CAJA = 'aspect-ratio:1;display:grid;place-items:center;overflow:hidden;padding:0;font-size:.8rem';
+  const CAJA = 'aspect-ratio:1;display:grid;place-items:center;overflow:hidden;padding:0;font-size:var(--t-pie)';
   const antes = el('div.vacio', { style: CAJA, texto: 'Sin probar' });
   const despues = el('div.vacio', { style: CAJA, texto: 'Sin probar' });
   const columna = (rotulo, cuerpo) => el('div', {}, [
-    el('div', { style: 'font-size:.72rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--texto-suave);margin-bottom:.3rem', texto: rotulo }),
+    el('div', { style: 'font-size:var(--t-pie);font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--texto-suave);margin-bottom:.3rem', texto: rotulo }),
     cuerpo,
   ]);
   const visor = el('div', { style: 'display:grid;grid-template-columns:1fr 1fr;gap:.6rem;margin:.75rem 0' }, [
@@ -574,7 +596,7 @@ async function pintarEstudioIA(caja) {
       } catch (e) {
         prueba = null;
         despues.innerHTML = '';
-        despues.appendChild(el('div', { style: 'color:var(--rojo);font-size:.8rem;padding:.5rem', texto: e.message || 'Falló' }));
+        despues.appendChild(el('div', { style: 'color:var(--rojo);font-size:var(--t-pie);padding:.5rem', texto: e.message || 'Falló' }));
         avisarMal(e.message || 'No se pudo probar');
       }
       ev.target.value = '';
@@ -585,7 +607,7 @@ async function pintarEstudioIA(caja) {
   pegar(caja,
     el('h2', { texto: 'Fotos con fondo blanco (IA)' }),
     el('p', {
-      style: 'color:var(--texto-suave);font-size:.9rem',
+      style: 'color:var(--texto-suave);font-size:var(--t-cuerpo)',
       texto: 'Recorta el producto y lo pone sobre fondo blanco, centrado y con sombra, como foto de catálogo. '
            + 'Se aplica solo al tomar la foto en el Estudio de Fotos. Si la IA falla o no hay internet, '
            + 'la foto se guarda con su fondo original: nunca se pierde el disparo.',
@@ -642,4 +664,126 @@ async function pintarEstudioIA(caja) {
     ])
   );
   marcarFondos();
+}
+
+// --- respaldo -----------------------------------------------------------------
+
+/** Baja el archivo, avisando por dónde va: con muchas ventas esto tarda. */
+async function bajarRespaldo(boton) {
+  const original = boton.textContent;
+  boton.disabled = true;
+  try {
+    const { armarRespaldo, descargar } = await import('../data/respaldo.js');
+    const { respaldo, fallaron } = await armarRespaldo({
+      incluirFotos: false,
+      alProgreso: (nombre, i, total) => { boton.textContent = `Leyendo ${nombre}… (${i + 1}/${total})`; },
+    });
+    boton.textContent = 'Guardando…';
+    const bytes = descargar(respaldo);
+    const kb = Math.round(bytes / 1024);
+    if (fallaron.length) {
+      avisarMal(`Respaldo bajado (${respaldo.documentos} documentos, ${kb} KB), pero NO se pudo leer: ${fallaron.join(', ')}.`);
+    } else {
+      avisarOk(`Respaldo bajado: ${respaldo.documentos} documentos, ${kb} KB.`);
+    }
+  } catch (e) {
+    avisarMal('No se pudo armar el respaldo: ' + (e.message || e));
+  } finally {
+    boton.disabled = false;
+    boton.textContent = original;
+  }
+}
+
+/**
+ * Restaurar: elegir archivo, VER qué trae, y recién ahí confirmar.
+ *
+ * El mismo camino que el importador de Excel, por la misma razón: nadie debe
+ * escribir en la base sin haber visto antes qué va a entrar.
+ */
+function pedirRestaurar(caja) {
+  const entrada = el('input', { type: 'file', accept: '.json,application/json', style: 'display:none' });
+  entrada.addEventListener('change', async () => {
+    const file = entrada.files?.[0];
+    if (!file) return;
+    try {
+      const { leerArchivo, validar, restaurar } = await import('../data/respaldo.js');
+      const datos = await leerArchivo(file);
+      const v = validar(datos);
+      if (!v.ok) return avisarMal(v.error);
+
+      const cuando = datos.fecha ? new Date(datos.fecha).toLocaleString('es-VE') : 'sin fecha';
+      const detalle = v.resumen.map((r) => `${r.cuantos} ${r.nombre}`).join(', ');
+      const ok = await confirmar('¿Restaurar este respaldo?', {
+        detalle: `Del ${cuando}. Trae ${v.total} documentos: ${detalle}.\n\n`
+               + 'No se borra nada: lo que coincida por id se sobrescribe con lo del archivo, '
+               + 'y lo que no esté en él se queda como está.',
+        aceptar: 'Sí, restaurar',
+      });
+      if (!ok) return;
+
+      avisar('Restaurando… no cierres la app.');
+      const r = await restaurar(datos, {
+        alProgreso: (nombre, hechos, total) => { avisar(`Restaurando ${nombre}… ${hechos}/${total}`); },
+      });
+      const fallaron = Object.keys(r.rechazadas || {});
+      if (fallaron.length) {
+        // Decirlo claro: media restauración que se anuncia como completa es
+        // justo el fallo que este botón venía a evitar.
+        avisarMal(
+          `Restauró ${r.escritos} de ${r.total}. Las reglas rechazaron: ${fallaron.join(', ')}. `
+          + 'Eso es a propósito (el historial no se puede reescribir desde la app). '
+          + 'Para reponerlo todo corre scripts/restaurar-respaldo.mjs desde la computadora.',
+        );
+      } else {
+        avisarOk(`Listo: ${r.escritos} documentos restaurados. Recarga la app para verlos.`);
+      }
+      pintarDatos(caja);
+    } catch (e) {
+      avisarMal('No se pudo restaurar: ' + (e.message || e));
+    } finally {
+      entrada.value = '';
+    }
+  });
+  entrada.click();
+}
+
+/** El botón de deshacer la última importación, si la hay y es reciente. */
+function pintarDeshacerImportacion(caja) {
+  let ultima = null;
+  try {
+    // import() es asíncrono y esto se pinta de una: se lee el mismo
+    // localStorage, con la misma clave, sin cargar la pantalla de importar.
+    const crudo = localStorage.getItem('detallitos:ultima-importacion');
+    if (crudo) {
+      const d = JSON.parse(crudo);
+      if (d?.importId && Date.now() - (d.cuando || 0) <= 7 * 86400000) ultima = d;
+    }
+  } catch { /* almacenamiento bloqueado */ }
+  if (!ultima) return null;
+
+  const cuando = new Date(ultima.cuando).toLocaleString('es-VE');
+  return el('div.tarjeta.amarilla', { style: 'margin-bottom:1rem' }, [
+    el('p', { style: 'margin:0 0 .6rem', texto: `Última importación: ${ultima.cuantos} productos, el ${cuando}.` }),
+    el('button.btn.plano', {
+      texto: 'Deshacer esa importación',
+      onclick: async () => {
+        if (!await confirmar('¿Deshacer la importación?', {
+          detalle: `Se borran los ${ultima.cuantos} productos que entraron el ${cuando}. `
+                 + 'Lo que ya estaba antes no se toca.',
+          aceptar: 'Sí, deshacer', peligro: true,
+        })) return;
+        try {
+          avisar('Deshaciendo…');
+          const { deshacerImportacion } = await import('../data/productos.js');
+          const borrados = await deshacerImportacion(ultima.importId);
+          const { olvidarImportacion } = await import('./importar-excel.js');
+          olvidarImportacion();
+          avisarOk(`Se deshizo: ${borrados} productos borrados`);
+          pintarDatos(caja);
+        } catch (e) {
+          avisarMal('No se pudo deshacer: ' + (e.message || e));
+        }
+      },
+    }),
+  ]);
 }

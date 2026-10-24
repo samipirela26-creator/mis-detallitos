@@ -30,7 +30,7 @@ registrar('buscar', {
 
     for (const c of categorias().slice(0, 8)) {
       chips.appendChild(el('button.btn.plano', {
-        style: 'min-height:38px;padding:0 .9rem;font-size:.85rem;flex:0 0 auto',
+        style: 'min-height:38px;padding:0 .9rem;font-size:var(--t-pie);flex:0 0 auto',
         texto: c,
         onclick: () => { q.value = c; pintar(); },
       }));
@@ -52,7 +52,7 @@ registrar('buscar', {
       if (sinResultados(lista)) {
         res.appendChild(el('div.tarjeta', { style: 'text-align:center' }, [
           el('p', { texto: `No hay nada con "${texto}".` }),
-          el('p', { style: 'color:var(--texto-suave);font-size:.9rem', texto: 'Prueba con otra palabra: a veces el producto está con otro nombre.' }),
+          el('p', { style: 'color:var(--texto-suave);font-size:var(--t-cuerpo)', texto: 'Prueba con otra palabra: a veces el producto está con otro nombre.' }),
         ]));
         return;
       }
@@ -72,7 +72,7 @@ registrar('buscar', {
           img,
           el('div', { style: 'flex:1;min-width:0' }, [
             el('div', { style: 'font-weight:600', html: esc(p.nombre) }),
-            el('div', { style: 'font-size:.8rem;color:var(--texto-suave)', html: esc(otras || p.categoria || '') }),
+            el('div', { style: 'font-size:var(--t-pie);color:var(--texto-suave)', html: esc(otras || p.categoria || '') }),
           ]),
           el('div', { style: 'text-align:right' }, [
             el('div', { style: 'font-weight:700', texto: p.tipoPrecio === 'variable' ? 'Libre' : formatear(p.precioUSD) }),

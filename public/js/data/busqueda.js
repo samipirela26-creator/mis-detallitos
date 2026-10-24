@@ -160,3 +160,25 @@ export function pareceCodigo(entrada) {
   const s = String(entrada ?? '').trim();
   return s.length >= 8 && /^\d+$/.test(s);
 }
+
+/**
+ * Filtra clientes como se filtran los productos: sin acentos y sin signos.
+ *
+ * Antes era `c.nombre.toLowerCase().includes(filtro)`, que falla con "jose"
+ * buscando a "José" y no mira el teléfono. El campo `nombreNorm` ya se venía
+ * guardando en `data/clientes.js` desde siempre; simplemente no lo usaba nadie.
+ *
+ * Buscar por teléfono compara solo dígitos, para que dé igual cómo esté
+ * escrito: "0412-555" encuentra "0412 555 11 22".
+ */
+export function buscarClientes(clientes, filtro = '') {
+  const texto = normalizar(filtro);
+  const digitos = filtro.replace(/\D/g, '');
+  if (!texto && !digitos) return clientes;
+  return clientes.filter((c) => {
+    const nombre = c.nombreNorm || normalizar(c.nombre || '');
+    if (texto && nombre.includes(texto)) return true;
+    if (digitos && (c.telefono || '').replace(/\D/g, '').includes(digitos)) return true;
+    return false;
+  });
+}

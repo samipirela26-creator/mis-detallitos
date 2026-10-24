@@ -22,6 +22,7 @@ import {
 } from '../data/clientes.js';
 import { MONEDAS, formatear, crearPago, totalPagadoUSD, aMenores } from '../core/dinero.js';
 import { leer } from '../core/estado.js';
+import { buscarClientes } from '../data/busqueda.js';
 
 /** Hace cuántos días es esa fecha. Null si no hay fecha. */
 function diasDesde(ts) {
@@ -52,14 +53,27 @@ registrar('clientes', {
     const tasas = () => leer('tasas') || {};
     const deuda = (c) => deudaDe(c, tasas());
 
+    // Lo que se escribió en el buscador. Vive fuera de `pintar` para que no se
+    // borre cada vez que la lista se repinta (al abonar, al crear un cliente).
+    let filtro = '';
+
     const pintar = () => {
-      const deben = [...clientes].filter(debe)
+      // El filtro manda sobre las dos listas, pero NO sobre los totales de
+      // arriba: "te deben" tiene que seguir diciendo el total de verdad aunque
+      // estés buscando a una persona.
+      // Los KPI salen de TODOS los que deben, filtre o no: el total que debe la
+      // calle no cambia porque estés buscando a una persona.
+      const todosDeben = clientes.filter(debe);
+      const totalCOP = todosDeben.reduce((t, c) => t + (deuda(c).COP || 0), 0);
+      const total = todosDeben.reduce((t, c) => t + deuda(c).USD, 0);
+      const sinPesos = todosDeben.some((c) => !deuda(c).enPesos);
+      const viejas = todosDeben.filter((c) => (diasDesde(c.ultimaCompra) ?? 0) >= 30);
+
+      // Las listas sí se filtran.
+      const visibles = buscarClientes(clientes, filtro);
+      const deben = [...visibles].filter(debe)
         .sort((a, b) => deuda(b).USD - deuda(a).USD);
-      const alDia = clientes.filter((c) => !debe(c));
-      const totalCOP = deben.reduce((t, c) => t + (deuda(c).COP || 0), 0);
-      const total = deben.reduce((t, c) => t + deuda(c).USD, 0);
-      const sinPesos = deben.some((c) => !deuda(c).enPesos);
-      const viejas = deben.filter((c) => (diasDesde(c.ultimaCompra) ?? 0) >= 30);
+      const alDia = visibles.filter((c) => !debe(c));
 
       nodo.innerHTML = '';
       pegar(nodo,
@@ -67,11 +81,11 @@ registrar('clientes', {
           el('div.kpi.acento', {}, [
             el('div.rotulo', { texto: 'TE DEBEN' }),
             el('div.valor', { texto: totalCOP ? formatear(totalCOP, 'COP') : formatear(total) }),
-            totalCOP ? el('div', { style: 'font-size:.78rem;opacity:.75', texto: formatear(total) }) : null,
+            totalCOP ? el('div', { style: 'font-size:var(--t-pie);opacity:.75', texto: formatear(total) }) : null,
           ]),
           el('div.kpi', {}, [
             el('div.rotulo', { texto: 'Personas' }),
-            el('div.valor', { texto: String(deben.length) }),
+            el('div.valor', { texto: String(todosDeben.length) }),
           ]),
           ...(viejas.length ? [el('div.kpi.malo', {}, [
             el('div.rotulo', { texto: 'De más de un mes' }),
@@ -79,7 +93,7 @@ registrar('clientes', {
           ])] : []),
         ]),
         el('p', {
-          style: 'color:var(--texto-suave);font-size:.85rem;margin:-.3rem 0 1rem',
+          style: 'color:var(--texto-suave);font-size:var(--t-pie);margin:-.3rem 0 1rem',
           texto: total
             ? 'La deuda está en pesos, como la etiqueta: no se mueve cuando se mueve el dólar. '
               + 'Y esta plata NO está en la caja: está en la calle.'
@@ -87,19 +101,28 @@ registrar('clientes', {
         }),
         sinPesos ? el('div.tarjeta.amarilla', { style: 'margin-bottom:1rem' }, [
           el('p', {
-            style: 'font-size:.9rem;margin:0',
+            style: 'font-size:var(--t-cuerpo);margin:0',
             texto: 'Hay deudas de antes que solo existen en dólares: el peso que se ve es una '
                  + 'conversión de hoy, no lo que se acordó. Corre scripts/deudas-en-pesos.mjs para fijarlas.',
           }),
         ]) : null,
-        el('button.btn.principal.ancho', { style: 'margin-bottom:1rem', texto: 'Cliente nuevo', onclick: () => formulario() })
+        el('button.btn.principal.ancho', { style: 'margin-bottom:1rem', texto: 'Cliente nuevo', onclick: () => formulario() }),
+        // Con veinte fiados, bajar scrolleando a buscar a alguien es lo que
+        // hace que no se consulte. Busca sin acentos y por teléfono, igual que
+        // el del mostrador.
+        clientes.length > 6 ? el('input#buscar-cliente', {
+          type: 'search', placeholder: 'Buscar por nombre o teléfono…',
+          value: filtro, autocomplete: 'off',
+          style: 'margin-bottom:1rem',
+          oninput: (ev) => { filtro = ev.target.value; pintar(); },
+        }) : null
       );
 
       if (!clientes.length) {
         return nodo.appendChild(el('div.vacio', {}, [
           el('p', { texto: 'Todavía no hay clientes.' }),
           el('p', {
-            style: 'font-size:.9rem;color:var(--texto-suave)',
+            style: 'font-size:var(--t-cuerpo);color:var(--texto-suave)',
             texto: 'Se crean solos cuando dejas una venta fiada, o con el botón de arriba.',
           }),
         ]));
@@ -112,6 +135,21 @@ registrar('clientes', {
       if (alDia.length) {
         nodo.appendChild(el('div.seccion', {}, [el('h2', { texto: 'Al día' })]));
         nodo.appendChild(listaDe(alDia, false));
+      }
+
+      if (filtro && !deben.length && !alDia.length) {
+        nodo.appendChild(el('div.vacio', { texto: `Ningún cliente coincide con "${filtro}".` }));
+      }
+
+      // `pintar` rehace el nodo entero, así que el campo de búsqueda que acabas
+      // de escribir es uno NUEVO: sin esto se pierde el foco en cada tecla y
+      // solo se puede escribir una letra.
+      if (filtro) {
+        const campo = $('#buscar-cliente', nodo);
+        if (campo && document.activeElement !== campo) {
+          campo.focus();
+          campo.setSelectionRange(campo.value.length, campo.value.length);
+        }
       }
     };
 
@@ -126,7 +164,7 @@ registrar('clientes', {
         }, [
           el('div', { style: 'flex:1;min-width:0' }, [
             el('div', { style: 'font-weight:600', html: esc(c.nombre) }),
-            el('div', { style: 'font-size:.8rem;color:var(--texto-suave)' }, [
+            el('div', { style: 'font-size:var(--t-pie);color:var(--texto-suave)' }, [
               el('span', { html: esc(c.telefono || (debiendo ? '' : 'sin deuda')) }),
             ]),
           ]),
@@ -138,10 +176,10 @@ registrar('clientes', {
                 : 'al día',
             }),
             debiendo && deuda(c).COP
-              ? el('div', { style: 'font-size:.75rem;color:var(--texto-suave)', texto: formatear(deuda(c).USD) })
+              ? el('div', { style: 'font-size:var(--t-pie);color:var(--texto-suave)', texto: formatear(deuda(c).USD) })
               : null,
             debiendo && a.texto
-              ? el('div', { style: `font-size:.78rem;color:${a.color}`, texto: a.texto })
+              ? el('div', { style: `font-size:var(--t-pie);color:${a.color}`, texto: a.texto })
               : null,
           ]),
         ]));
@@ -215,18 +253,18 @@ registrar('clientes', {
       caja.innerHTML = '';
 
       const fila = (izq, der, nota, color) => el('div', {
-        style: 'display:flex;justify-content:space-between;gap:.5rem;padding:.4rem 0;border-bottom:1px solid var(--borde);font-size:.9rem',
+        style: 'display:flex;justify-content:space-between;gap:.5rem;padding:.4rem 0;border-bottom:1px solid var(--borde);font-size:var(--t-cuerpo)',
       }, [
         el('div', { style: 'min-width:0' }, [
           el('div', { texto: izq }),
-          nota ? el('div', { style: 'font-size:.78rem;color:var(--texto-suave)', html: nota }) : null,
+          nota ? el('div', { style: 'font-size:var(--t-pie);color:var(--texto-suave)', html: nota }) : null,
         ]),
         el('strong.cifra', { style: color ? `color:${color}` : '', texto: der }),
       ]);
 
       caja.appendChild(el('h3', { style: 'font-size:1rem;margin:.5rem 0 .2rem', texto: 'Lo que se llevó fiado' }));
       if (!fiadas.length) {
-        caja.appendChild(el('p', { style: 'color:var(--texto-suave);font-size:.88rem', texto: 'Nada fiado todavía.' }));
+        caja.appendChild(el('p', { style: 'color:var(--texto-suave);font-size:var(--t-cuerpo)', texto: 'Nada fiado todavía.' }));
       }
       for (const v of fiadas) {
         caja.appendChild(fila(
@@ -238,7 +276,7 @@ registrar('clientes', {
 
       caja.appendChild(el('h3', { style: 'font-size:1rem;margin:1rem 0 .2rem', texto: 'Lo que ha abonado' }));
       if (!abonos.length) {
-        caja.appendChild(el('p', { style: 'color:var(--texto-suave);font-size:.88rem', texto: 'Sin abonos todavía.' }));
+        caja.appendChild(el('p', { style: 'color:var(--texto-suave);font-size:var(--t-cuerpo)', texto: 'Sin abonos todavía.' }));
       }
       for (const x of abonos) {
         caja.appendChild(fila(
@@ -269,7 +307,7 @@ registrar('clientes', {
         resumen.innerHTML = '';
         pegar(resumen,
           el('div', { style: 'text-align:center;margin:.5rem 0' }, [
-            el('div', { style: 'color:var(--texto-suave);font-size:.85rem', texto: 'ABONA' }),
+            el('div', { style: 'color:var(--texto-suave);font-size:var(--t-pie)', texto: 'ABONA' }),
             el('div.cifra-gigante', { texto: formatear(pagado) }),
             el('div', {
               style: `color:${queda > 0 ? 'var(--texto-suave)' : 'var(--verde)'}`,

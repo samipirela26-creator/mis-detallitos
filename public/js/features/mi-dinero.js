@@ -56,7 +56,7 @@ async function montarMiDinero(nodo) {
 
     <div class="tarjeta" data-form="contar">
       <form id="f-contar">
-        <p style="color:var(--texto-suave);font-size:.9rem;margin-top:0">
+        <p style="color:var(--texto-suave);font-size:var(--t-cuerpo);margin-top:0">
           Cuenta los billetes y escribe cuánto hay DE VERDAD en cada moneda. La app
           te dice cuánto debería haber y anota <strong>solo la diferencia</strong>,
           con su explicación. Así cuadrar no borra ni duplica nada.
@@ -68,7 +68,7 @@ async function montarMiDinero(nodo) {
         <div class="campo"><label>¿Qué pasó? (queda escrito en el ajuste)</label>
           <input name="porque" required value="Cuadre: conté la plata que hay"></div>
         <button class="btn principal ancho" type="submit">Cuadrar con lo que conté</button>
-        <p style="color:var(--texto-suave);font-size:.82rem;margin-bottom:0">
+        <p style="color:var(--texto-suave);font-size:var(--t-pie);margin-bottom:0">
           La moneda que dejes en blanco no se toca. Escribir 0 sí significa
           "no hay nada de eso".
         </p>
@@ -117,7 +117,7 @@ async function montarMiDinero(nodo) {
 
     <div class="tarjeta" data-form="mover" style="display:none">
       <form id="f-mover">
-        <p style="font-size:.9rem;color:var(--texto-suave);margin-top:0">
+        <p style="font-size:var(--t-cuerpo);color:var(--texto-suave);margin-top:0">
           El dinero no sale del negocio: solo cambia de sitio. El total no se mueve.</p>
         <div class="fila">
           <div class="campo"><label>De</label>
@@ -158,7 +158,7 @@ async function montarMiDinero(nodo) {
   };
   for (const [clave, titulo] of FORMS) {
     pestanas.appendChild(el('button.btn.plano', {
-      'data-f': clave, style: 'min-height:40px;font-size:.9rem', texto: titulo,
+      'data-f': clave, style: 'min-height:40px;font-size:var(--t-cuerpo)', texto: titulo,
       onclick: () => { formActivo = clave; marcarForm(); },
     }));
   }
@@ -168,7 +168,7 @@ async function montarMiDinero(nodo) {
   const barraRangos = $('#rangos', nodo);
   for (const [clave, r] of Object.entries(RANGOS)) {
     barraRangos.appendChild(el('button.btn.plano', {
-      'data-r': clave, style: 'min-height:40px;font-size:.9rem', texto: r.titulo,
+      'data-r': clave, style: 'min-height:40px;font-size:var(--t-cuerpo)', texto: r.titulo,
       onclick: () => { rango = clave; marcarRango(); cargar(); },
     }));
   }
@@ -418,7 +418,7 @@ async function montarMiDinero(nodo) {
     ]));
     const porCobrar = venTodo.reduce((t, v) => t + Math.max(0, v.saldoUSD || 0), 0);
     cajaNodo.appendChild(el('p', {
-      style: 'color:var(--texto-suave);font-size:.82rem;margin-top:.75rem',
+      style: 'color:var(--texto-suave);font-size:var(--t-pie);margin-top:.75rem',
       texto: porCobrar
         ? `Esto es plata en mano. Aparte hay ${formatear(porCobrar)} fiados, que todavía no están aquí.`
         : 'Esto es plata en mano: lo que entró menos lo que salió. Lo fiado no cuenta hasta que se cobre.',
@@ -444,7 +444,7 @@ async function montarMiDinero(nodo) {
     ]));
     if (queda < 0) {
       cuentas.appendChild(el('div.tarjeta.amarilla', { style: 'margin-top:.85rem' }, [
-        el('p', { style: 'font-size:.92rem;margin:0', texto: 'Sacaste más de lo que ganó el negocio en este período: esa diferencia sale del dinero que ya había.' }),
+        el('p', { style: 'font-size:var(--t-cuerpo);margin:0', texto: 'Sacaste más de lo que ganó el negocio en este período: esa diferencia sale del dinero que ya había.' }),
       ]));
     }
     if (rr.porCategoria.length) {
@@ -455,7 +455,7 @@ async function montarMiDinero(nodo) {
         }, [
           el('div', {}, [
             el('div', { style: 'font-weight:600', html: esc(c.categoria) }),
-            el('div', { style: 'font-size:.8rem;color:var(--texto-suave)', texto: `${c.cantidad} ${c.cantidad === 1 ? 'retiro' : 'retiros'}` }),
+            el('div', { style: 'font-size:var(--t-pie);color:var(--texto-suave)', texto: `${c.cantidad} ${c.cantidad === 1 ? 'retiro' : 'retiros'}` }),
           ]),
           el('div.cifra', { style: 'font-weight:700', texto: formatear(c.totalUSD) }),
         ]));
@@ -487,12 +487,12 @@ async function montarMiDinero(nodo) {
       }, [
         el('div', { style: 'flex:1;min-width:0' }, [
           el('div', { style: 'font-weight:600', html: esc(titulo) }),
-          m.porque ? el('div', { style: 'font-size:.88rem', html: esc(m.porque) }) : null,
-          el('div', { style: 'font-size:.8rem;color:var(--texto-suave)', html: `${fecha(m.ts)} · ${esc(sitio)}${m.paraQue ? ' · ' + esc(m.paraQue) : ''}` }),
+          m.porque ? el('div', { style: 'font-size:var(--t-cuerpo)', html: esc(m.porque) }) : null,
+          el('div', { style: 'font-size:var(--t-pie);color:var(--texto-suave)', html: `${fecha(m.ts)} · ${esc(sitio)}${m.paraQue ? ' · ' + esc(m.paraQue) : ''}` }),
         ]),
         el('div', { style: 'text-align:right' }, [
           el('div.cifra', { style: `font-weight:700;color:${color}`, texto: `${signo}${formatear(m.montoUSD)}` }),
-          m.moneda !== 'USD' ? el('div', { style: 'font-size:.78rem;color:var(--texto-suave)', texto: formatear(m.monto, m.moneda) }) : null,
+          m.moneda !== 'USD' ? el('div', { style: 'font-size:var(--t-pie);color:var(--texto-suave)', texto: formatear(m.monto, m.moneda) }) : null,
         ]),
         el('button.btn.plano', {
           style: 'min-height:34px;padding:0 .5rem', html: icono('trash'), 'aria-label': 'Borrar movimiento',

@@ -12,6 +12,7 @@ import {
   turnosRecientes, sumarConteo, comoQuedoLaGaveta,
 } from '../data/caja.js';
 import { MONEDAS, formatear, aMenores, aMayores } from '../core/dinero.js';
+import { detectarCambioDeMoneda, RESTO_TOLERADO } from '../core/cambio-moneda.js';
 import { entraALaGaveta } from '../core/sitios.js';
 import { leer } from '../core/estado.js';
 import { esDueno, usuarioActual } from '../core/sesion.js';
@@ -85,7 +86,7 @@ async function montarCaja(nodo) {
     el('div', { style: 'display:flex;justify-content:space-between;align-items:center' }, [
       el('div', {}, [
         el('h2', { texto: 'Turno abierto' }),
-        el('div', { style: 'color:var(--texto-suave);font-size:.9rem', texto: `Desde ${fecha(turno.apertura)}` }),
+        el('div', { style: 'color:var(--texto-suave);font-size:var(--t-cuerpo)', texto: `Desde ${fecha(turno.apertura)}` }),
       ]),
       el('span.etiqueta.ok', { texto: turno.nombreUsuario }),
     ]),
@@ -127,11 +128,11 @@ async function montarCaja(nodo) {
       ['Se llevó a otro sitio', Math.max(0, -(datos.trasladadoUSD ?? 0)), 'menos'],
     ].filter(([, v]) => v);
     const desglose = el('details', { style: 'margin-top:.75rem' }, [
-      el('summary', { style: 'cursor:pointer;color:var(--texto-suave);font-size:.85rem', texto: 'Qué entró y qué salió del turno' }),
+      el('summary', { style: 'cursor:pointer;color:var(--texto-suave);font-size:var(--t-pie)', texto: 'Qué entró y qué salió del turno' }),
     ]);
     for (const [rotulo, monto, clase] of partes) {
       desglose.appendChild(el('div', {
-        style: 'display:flex;justify-content:space-between;font-size:.88rem;padding:.3rem 0',
+        style: 'display:flex;justify-content:space-between;font-size:var(--t-cuerpo);padding:.3rem 0',
       }, [
         el('span', { style: 'color:var(--texto-suave)', texto: rotulo }),
         el('span.cifra', { texto: `${clase === 'menos' ? '−' : clase === 'mas' ? '+' : ''} ${formatear(monto)}` }),
@@ -139,7 +140,7 @@ async function montarCaja(nodo) {
     }
     tarjeta.appendChild(desglose);
     tarjeta.appendChild(el('p', {
-      style: 'color:var(--texto-suave);font-size:.85rem;margin-top:.75rem',
+      style: 'color:var(--texto-suave);font-size:var(--t-pie);margin-top:.75rem',
       texto: 'Incluye el fondo con el que abriste. Esto es el reporte X: míralo las veces que quieras, no cierra nada.',
     }));
     nodo.appendChild(tarjeta);
@@ -193,12 +194,12 @@ async function montarCaja(nodo) {
                + 'border-radius:.6rem;padding:.7rem;margin-bottom:.9rem',
         }, [
           el('div', {
-            style: 'font-size:.85rem;color:var(--texto-suave)',
+            style: 'font-size:var(--t-pie);color:var(--texto-suave)',
             texto: `${quedo.cerradoPor || 'El último turno'} cerró${quedo.cuando ? ' el ' + fecha(quedo.cuando) : ''} y contó en la gaveta:`,
           }),
           el('div', { style: 'font-weight:700;margin:.25rem 0 .5rem', texto: linea.join('  ·  ') }),
           el('button.btn.plano', {
-            style: 'min-height:36px;font-size:.85rem', texto: 'Arrancar con eso',
+            style: 'min-height:36px;font-size:var(--t-pie)', texto: 'Arrancar con eso',
             onclick: () => {
               for (const m of DE_LA_GAVETA) {
                 const v = quedo.contado[m.codigo];
@@ -208,7 +209,7 @@ async function montarCaja(nodo) {
             },
           }),
           el('div', {
-            style: 'font-size:.8rem;color:var(--texto-suave);margin-top:.45rem',
+            style: 'font-size:var(--t-pie);color:var(--texto-suave);margin-top:.45rem',
             texto: 'Cuéntalo igual antes de arrancar: si hoy hay otra cosa, escribe lo que hay de verdad.',
           }),
         ]));
@@ -226,7 +227,7 @@ async function montarCaja(nodo) {
 
     if (FUERA_DE_LA_GAVETA.length) {
       tarjeta.appendChild(el('p', {
-        style: 'font-size:.83rem;color:var(--texto-suave)',
+        style: 'font-size:var(--t-pie);color:var(--texto-suave)',
         texto: `Los ${FUERA_DE_LA_GAVETA.map((m) => m.nombre.toLowerCase()).join(' y los ')} no se preguntan aquí: `
              + 'entran por pago móvil, no son billetes de la gaveta y se guardan aparte.',
       }));
@@ -264,6 +265,9 @@ async function montarCaja(nodo) {
     const d = abrirDialogo('');
     const campos = {};
     const detalle = el('div');
+    // El aviso de cambio de moneda, mientras se cuenta: si se avisara solo en
+    // el cierre ya hecho, la persona se enteraría cuando no puede recontar.
+    const aviso = el('div');
     let porBilletes = false;
     const conteos = {};
 
@@ -277,6 +281,19 @@ async function montarCaja(nodo) {
     const aContar = Object.values(MONEDAS).filter(
       (m) => entraALaGaveta(m.codigo) || (esperado[m.codigo] || 0) !== 0);
 
+    /** Con lo escrito hasta ahora: ¿esto se ve como un cambio de moneda? */
+    function revisarCambio() {
+      const diferencia = {};
+      for (const m of aContar) {
+        const texto = String(campos[m.codigo] ?? '').trim();
+        if (texto === '') continue;      // sin contar no se compara nada
+        diferencia[m.codigo] = (aMenores(texto, m.codigo) || 0) - (esperado[m.codigo] || 0);
+      }
+      aviso.innerHTML = '';
+      const caja = avisoDeCambio(diferencia, leer('tasas') || {});
+      if (caja) aviso.appendChild(caja);
+    }
+
     /** La manera sencilla: un total por moneda y ya. */
     function pintarSimple() {
       detalle.innerHTML = '';
@@ -285,7 +302,7 @@ async function montarCaja(nodo) {
         const campo = el('input', {
           inputmode: 'decimal', placeholder: 'déjalo vacío si no lo contaste',
           value: campos[m.codigo] ?? '',
-          oninput: (ev) => { campos[m.codigo] = ev.target.value; },
+          oninput: (ev) => { campos[m.codigo] = ev.target.value; revisarCambio(); },
         });
         detalle.appendChild(el('div.campo', { style: 'margin-bottom:.6rem' }, [
           el('label', { texto: m.nombre }),
@@ -318,6 +335,7 @@ async function montarCaja(nodo) {
                 const suma = sumarConteo(conteos[m.codigo]);
                 campos[m.codigo] = String(aMayores(suma, m.codigo));
                 total.textContent = formatear(suma, m.codigo);
+                revisarCambio();
               },
             }),
           ]));
@@ -329,7 +347,7 @@ async function montarCaja(nodo) {
     pintarSimple();
 
     const cambiar = el('button.btn.plano', {
-      style: 'min-height:36px;font-size:.85rem',
+      style: 'min-height:36px;font-size:var(--t-pie)',
       texto: 'Contar billete por billete',
       onclick: () => {
         porBilletes = !porBilletes;
@@ -341,13 +359,14 @@ async function montarCaja(nodo) {
     pegar(d,
       el('h2', { texto: 'Cierre de caja' }),
       el('p', {
-        style: 'color:var(--texto-suave);font-size:.9rem',
+        style: 'color:var(--texto-suave);font-size:var(--t-cuerpo)',
         texto: 'Escribe cuánto hay en la gaveta de cada moneda. Lo que no cuentes, déjalo vacío: no se toma como cero.'
              + (FUERA_DE_LA_GAVETA.some((m) => !aContar.includes(m))
                 ? ` Los ${FUERA_DE_LA_GAVETA.map((m) => m.nombre.toLowerCase()).join(' y ')} no se cuentan aquí: no pasan por la gaveta.`
                 : ''),
       }),
       el('div', { style: 'max-height:52vh;overflow:auto' }, [detalle]),
+      aviso,
       cambiar,
       el('div.campo', { style: 'margin-top:.75rem' }, [
         el('label', { texto: 'Nota (opcional)' }),
@@ -395,21 +414,32 @@ async function montarCaja(nodo) {
         html: `<td>${esc(m.nombre)}</td>
                <td class="num">${formatear(r.esperado[m.codigo] || 0, m.codigo)}</td>
                <td class="num">${formatear(r.contado[m.codigo] || 0, m.codigo)}</td>
-               <td class="num" style="color:${dif === 0 ? 'var(--verde)' : dif > 0 ? 'var(--ambar)' : 'var(--rojo)'};font-weight:700">
+               <td class="num estado-${dif === 0 ? 'bueno' : dif > 0 ? 'flojo' : 'perdida'}" style="font-weight:700">
                  ${dif > 0 ? '+' : ''}${formatear(dif, m.codigo)}</td>`,
       });
     }).filter(Boolean);
 
     const cuadra = Object.values(r.diferencia).every((x) => x === 0);
+    const tasas = leer('tasas') || {};
+    const cambio = avisoDeCambio(r.diferencia, tasas);
+    // Un cierre que solo se descuadró por un cambio de moneda cuadra en plata:
+    // decirle "cierre con diferencia" manda a buscar algo que no se perdió.
+    const soloCambio = !cuadra && detectarCambioDeMoneda(r.diferencia, tasas).soloCambio;
     pegar(d, 
-      el('h2', { texto: cuadra ? 'Caja cuadrada' : 'Cierre con diferencia' }),
+      el('h2', { texto: cuadra ? 'Caja cuadrada'
+        : soloCambio ? 'La caja cuadra: fue un cambio de moneda'
+        : 'Cierre con diferencia' }),
       el('p', { style: 'color:var(--texto-suave)', texto: `${r.cantidad} ventas · ${formatear(r.totalUSD)} cobrado` }),
-      el('table', { style: 'margin:.75rem 0' }, [
+      // Cuatro columnas de montos en un diálogo de 460px: es el sitio más
+      // apretado de la app. `tabla-cierre` las reparte fijo y protege la
+      // columna que importa —la diferencia—, que es la única que se mira.
+      el('table.tabla-cierre', { style: 'margin:.75rem 0' }, [
         el('thead', { html: '<tr><th>Moneda</th><th class="num">Debería</th><th class="num">Contado</th><th class="num">Dif.</th></tr>' }),
         el('tbody', {}, filas),
       ]),
-      cuadra ? null : el('p', {
-        style: 'font-size:.88rem;color:var(--texto-suave)',
+      cambio,
+      cuadra || soloCambio ? null : el('p', {
+        style: 'font-size:var(--t-cuerpo);color:var(--texto-suave)',
         texto: 'Antes de pensar mal: vuelve a contar, y revisa si hubo una venta repetida, una devolución sin registrar o plata sacada de la gaveta.',
       }),
       el('button.btn.principal.ancho', { texto: 'Listo', onclick: () => { d.close(); montarCaja(nodo); } })
@@ -426,20 +456,25 @@ async function montarCaja(nodo) {
       return caja;
     }
     const tarjeta = el('div.tarjeta', { style: 'padding:.5rem' });
+    const tasas = leer('tasas') || {};
     for (const t of cerrados) {
       const difUSD = t.diferencia?.USD || 0;
+      const cuadro = Object.values(t.diferencia || {}).every((x) => !x);
+      // Un cierre viejo que solo cambió moneda no se marca en rojo: no hubo
+      // plata perdida, y la lista es justo donde eso se malinterpretaba.
+      const fueCambio = !cuadro && detectarCambioDeMoneda(t.diferencia || {}, tasas).soloCambio;
       tarjeta.appendChild(el('div', {
         style: 'display:flex;justify-content:space-between;align-items:center;padding:.55rem;border-bottom:1px solid var(--borde)',
       }, [
         el('div', {}, [
           el('div', { style: 'font-weight:600', texto: t.nombreUsuario }),
-          el('div', { style: 'font-size:.8rem;color:var(--texto-suave)', texto: fecha(t.cierre) }),
+          el('div', { style: 'font-size:var(--t-pie);color:var(--texto-suave)', texto: fecha(t.cierre) }),
         ]),
         el('div', { style: 'text-align:right' }, [
           el('div.cifra', { style: 'font-weight:700', texto: formatear(t.ventasUSD || 0) }),
           el('span', {
-            class: `etiqueta ${Object.values(t.diferencia || {}).every((x) => !x) ? 'ok' : 'alerta'}`,
-            texto: Object.values(t.diferencia || {}).every((x) => !x) ? 'cuadró' : `dif ${formatear(difUSD)}`,
+            class: `etiqueta ${cuadro || fueCambio ? 'ok' : 'alerta'}`,
+            texto: cuadro ? 'cuadró' : fueCambio ? 'cambio de moneda' : `dif ${formatear(difUSD)}`,
           }),
         ]),
       ]));
@@ -447,6 +482,70 @@ async function montarCaja(nodo) {
     caja.appendChild(tarjeta);
     return caja;
   }
+}
+
+/**
+ * El aviso de que un descuadre fue en realidad un cambio de moneda.
+ *
+ * Es el descuadre más común y el único que no es un problema: la venta es en
+ * pesos, el cliente paga con un dólar y el vuelto sale en pesos. La gaveta
+ * termina con un dólar de más y con los pesos de menos. Sin este aviso el
+ * cierre decía "faltan 20.500 pesos" y ahí empezaba la conversación fea.
+ *
+ * Devuelve null si no hay nada que decir, para poder pegarlo sin preguntar.
+ */
+function avisoDeCambio(diferencia, tasas) {
+  const r = detectarCambioDeMoneda(diferencia || {}, tasas || {});
+  if (!r.hayCambio) return null;
+
+  const caja = el('div', {
+    style: 'background:var(--ambar-suave);border:1px solid var(--ambar);border-radius:.6rem;'
+         + 'padding:.7rem;margin:.75rem 0',
+  }, [
+    el('strong', {
+      texto: r.soloCambio
+        ? 'Esto fue un cambio de moneda: no falta plata'
+        : 'Parte de esto fue un cambio de moneda',
+    }),
+  ]);
+
+  for (const par of r.pares) {
+    caja.appendChild(el('div', {
+      style: 'font-size:var(--t-cuerpo);margin-top:.35rem',
+      texto: `Sobran ${formatear(par.sobra.monto, par.sobra.moneda)} y faltan `
+           + `${formatear(par.falta.monto, par.falta.moneda)}: a la tasa de hoy es lo mismo `
+           + `(${formatear(par.usd)}).`,
+    }));
+  }
+
+  caja.appendChild(el('p', {
+    style: 'font-size:var(--t-pie);color:var(--texto-suave);margin:.5rem 0 0',
+    texto: 'Pasa cuando pagan en una moneda y el vuelto sale en otra, o cuando le cambias '
+         + 'plata a un cliente. La gaveta no perdió nada: cambió de forma.',
+  }));
+
+  // Lo que el cambio NO explica se dice aparte y con nombre propio: un aviso
+  // que tape un faltante de verdad es peor que no tener aviso.
+  if (r.faltanteUSD > RESTO_TOLERADO) {
+    caja.appendChild(el('div', {
+      style: 'font-weight:600;margin-top:.5rem',
+      texto: `Aparte del cambio falta ${formatear(r.faltanteUSD)}: eso sí hay que buscarlo.`,
+    }));
+  }
+  if (r.sobranteUSD > RESTO_TOLERADO) {
+    caja.appendChild(el('div', {
+      style: 'font-weight:600;margin-top:.5rem',
+      texto: `Aparte del cambio sobra ${formatear(r.sobranteUSD)}, y un sobrante también se revisa.`,
+    }));
+  }
+  if (r.sinTasa.length) {
+    caja.appendChild(el('div', {
+      style: 'font-size:var(--t-pie);color:var(--texto-suave);margin-top:.45rem',
+      texto: `No se pudo comparar ${r.sinTasa.map((m) => MONEDAS[m].nombre.toLowerCase()).join(' ni ')}: `
+           + 'falta cargar la tasa de hoy.',
+    }));
+  }
+  return caja;
 }
 
 function kpi(rotulo, valor, clase = '') {

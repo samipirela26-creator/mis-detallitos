@@ -14,9 +14,11 @@ import { usuarioActual } from '../core/sesion.js';
 import { escribir, leer } from '../core/estado.js';
 import { anotar } from './auditoria.js';
 import { aUSD } from '../core/dinero.js';
+import { versionVenta, SECRETOS } from '../core/producto-publico.js';
+
+export { versionVenta, SECRETOS };
 
 /** Campos que NUNCA pueden llegar a la app del empleado. */
-const SECRETOS = ['costoUSD', 'costoCOP', 'costoPaquete', 'costoEstimado', 'margenObjetivo', 'proveedor', 'notaCosto'];
 
 /** Deja el producto listo para guardar: normaliza nombre, alias y números. */
 export function normalizarProducto(p) {
@@ -83,17 +85,6 @@ export function normalizarProducto(p) {
 }
 
 /** La versión que puede ver el empleado. */
-export function versionVenta(p) {
-  const copia = { ...p };
-  for (const campo of SECRETOS) delete copia[campo];
-  // El mínimo SÍ viaja cuando el dueño puso uno: es un piso de venta que él
-  // eligió, no el costo. Sin él, `requiereAutorizacion` le daba `0` al empleado
-  // y el PIN no se pedía nunca — justo a quien debía frenar. Cuando no hay
-  // mínimo puesto, no se manda nada: ahí el campo sí delataría el costo.
-  if (!(copia.precioMinimoUSD > 0)) delete copia.precioMinimoUSD;
-  delete copia.incompleto;
-  return copia;
-}
 
 /**
  * Lee del servidor TODAS las claves del catálogo, incluidos los desactivados,
@@ -134,13 +125,40 @@ export async function guardarProducto(datos, id = null) {
   const documento = id ? ref('productos', id) : refNuevo('productos');
   const productoId = documento.id;
 
+  // Cómo estaba ANTES, para poder explicar un descuadre sin adivinar. Se lee
+  // de la caché en memoria (no cuesta una lectura) y si no está, no pasa nada:
+  // el rastro sale sin el "antes", que es lo que había hasta ahora.
+  const antes = id ? (leer('productos') || []).find((p) => p.id === id) : null;
+
   const lote = writeBatch(db);
   lote.set(documento, { ...limpio, actualizado: serverTimestamp() }, { merge: !!id });
   lote.set(ref('productos_venta', productoId), { ...versionVenta(limpio), actualizado: serverTimestamp() }, { merge: !!id });
   await lote.commit();
 
-  anotar(id ? 'producto-editado' : 'producto-creado', { productoId, nombre: limpio.nombre });
+  anotar(id ? 'producto-editado' : 'producto-creado', {
+    productoId,
+    nombre: limpio.nombre,
+    ...(antes ? { cambios: queCambio(antes, limpio) } : {}),
+  });
   return productoId;
+}
+
+/**
+ * Qué cambió de verdad, campo por campo: { precioUSD: { antes: 120, ahora: 150 } }.
+ *
+ * Solo los campos que mueven plata o stock. Guardar el producto entero dos
+ * veces engordaría la auditoría sin que nadie la lea; lo que se consulta
+ * cuando la caja no cuadra es "¿a esto le cambiaron el precio?".
+ */
+function queCambio(antes, ahora) {
+  const MIRAR = ['precioUSD', 'precioCOP', 'costoUSD', 'costoCOP', 'precioMinimoUSD', 'stock', 'nombre', 'activo'];
+  const cambios = {};
+  for (const campo of MIRAR) {
+    const a = antes?.[campo] ?? null;
+    const b = ahora?.[campo] ?? null;
+    if (a !== b) cambios[campo] = { antes: a, ahora: b };
+  }
+  return cambios;
 }
 
 /**

@@ -50,7 +50,7 @@ export function escanear() {
     video.muted = true;   // como atributo no basta en todos los navegadores
 
     const estado = el('p', {
-      style: 'text-align:center;color:var(--texto-suave);font-size:.9rem;min-height:1.3em',
+      style: 'text-align:center;color:var(--texto-suave);font-size:var(--t-cuerpo);min-height:1.3em',
       texto: 'Apunta al código de barras',
     });
 

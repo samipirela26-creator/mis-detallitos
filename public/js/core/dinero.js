@@ -304,6 +304,24 @@ export function margenPct(totalUSD, costoUSD) {
   return ((totalUSD - costoUSD) / totalUSD) * 100;
 }
 
+/** Por debajo de esto el margen se considera flojo y se marca en ámbar. */
+export const MARGEN_FLOJO = 15;
+
+/**
+ * En qué estado está un margen. Devuelve el NOMBRE del estado, no un color:
+ * el color lo pone el CSS (`.estado-*`), que es quien sabe de temas.
+ *
+ * Antes esto era el mismo ternario escrito a mano en dos sitios de
+ * productos-crud.js, cada uno con su copia del 15. Cambiar el umbral obligaba
+ * a acordarse de los dos, y no había forma de probarlo.
+ */
+export function estadoMargen(pct, flojo = MARGEN_FLOJO) {
+  if (pct === null || pct === undefined || Number.isNaN(pct)) return 'sin-dato';
+  if (pct < 0) return 'perdida';
+  if (pct < flojo) return 'flojo';
+  return 'bueno';
+}
+
 /** ¿Esta línea necesita autorización del dueño? */
 export function requiereAutorizacion(producto, precioUSD, { permitirBajoMinimo = false } = {}) {
   if (permitirBajoMinimo) return false;

@@ -159,7 +159,7 @@ function kpi(rotulo, valor, clase = '') {
 function tarjetaAccion(clase, titulo, texto, boton, destino) {
   return el(`div.tarjeta${clase ? '.' + clase : ''}`, { style: 'margin-bottom:.85rem' }, [
     el('h2', { texto: titulo }),
-    el('p', { style: 'font-size:.92rem', texto }),
+    el('p', { style: 'font-size:var(--t-cuerpo)', texto }),
     el('button.btn.principal', { texto: boton, onclick: () => ir(destino) }),
   ]);
 }
@@ -193,11 +193,11 @@ function pintarCascara() {
     el('div.sin-conexion', { texto: 'Sin conexión — puedes seguir trabajando, se sube solo' }),
     el('header.barra', {}, [
       el('div', { class: 'crece' }, [
-        el('div', { style: 'color:var(--texto-suave);font-size:.82rem;font-weight:500', texto: `${saludo},` }),
+        el('div', { style: 'color:var(--texto-suave);font-size:var(--t-pie);font-weight:500', texto: `${saludo},` }),
         el('div.saludo', { html: esc(u.nombre) }),
       ]),
       chapitaTasas,
-      el('button.btn.plano', { style: 'min-height:36px;padding:0 .85rem;font-size:.82rem', texto: 'Salir', onclick: () => cerrarSesion() }),
+      el('button.btn.plano', { style: 'min-height:36px;padding:0 .85rem;font-size:var(--t-pie)', texto: 'Salir', onclick: () => cerrarSesion() }),
       // El logo entra a Configuración. Va en un <button> de verdad, no un
       // onclick sobre el <img>: así se llega con el tabulador y el lector de
       // pantalla lo anuncia. Sólo para el dueño, que es quien tiene esa
@@ -223,7 +223,16 @@ function pintarCascara() {
       .filter(([m, valor]) => m !== 'USD' && MONEDAS[m] && valor > 0)
       .map(([m, valor]) => `${m}: <span>${formatear(valor, m, { simbolo: false })}</span>`)
       .join('  ·  ');
-    chapitaTasas.innerHTML = texto ? `💱 ${texto}` : '';
+    // Si la tasa no es de hoy, la chapita tiene que decirlo. `cargarTasas`
+    // arrastra la del último día que haya cuando nadie puso una (data/tasas.js),
+    // y eso es correcto —mejor una tasa vieja que ninguna—, pero cobrar todo el
+    // día a la tasa de ayer sin enterarse es perder plata en cada venta.
+    const fechaTasa = leer('tasaFecha');
+    const deHoy = fechaTasa === diaISO();
+    const aviso = texto && fechaTasa && !deHoy ? ` · de ${fechaTasa.slice(8)}/${fechaTasa.slice(5, 7)}` : '';
+    chapitaTasas.innerHTML = texto ? `💱 ${texto}${aviso}` : '';
+    chapitaTasas.classList.toggle('vieja', !!aviso);
+    chapitaTasas.title = aviso ? 'Esta tasa no es de hoy. Ponla al día en Configuración.' : '';
     chapitaTasas.style.display = texto ? '' : 'none';
   });
 

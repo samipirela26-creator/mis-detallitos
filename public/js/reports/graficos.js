@@ -6,15 +6,30 @@ async function cargar() {
     await import('../../vendor/chart.js');
     Chart = window.Chart;
     Chart.defaults.font.family = 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
-    Chart.defaults.color = '#6f6a63';
   }
+  // El color del texto se relee en cada carga: si el tema cambió, el gráfico
+  // no se queda con el gris del tema anterior.
+  Chart.defaults.color = token('--texto-suave', '#6f6a63');
   return Chart;
 }
 
-const MARCA = '#00a2c8';
-const AMARILLO = '#f5c518';
-const VERDE = '#2f7d32';
-const ROJO = '#c0392b';
+/**
+ * Chart.js no entiende `var(--marca)`: necesita un color resuelto. Así que se
+ * leen los tokens reales en el momento de pintar.
+ *
+ * Antes eran cuatro hex a mano que no correspondían a ningún token de la
+ * paleta (el turquesa del gráfico era #00a2c8 y el de la marca #0b6a82), y en
+ * modo oscuro no seguían al tema.
+ */
+const token = (nombre, respaldo) =>
+  getComputedStyle(document.documentElement).getPropertyValue(nombre).trim() || respaldo;
+
+const MARCA = () => token('--marca', '#0b6a82');
+const AMARILLO = () => token('--amarillo', '#ffc400');
+const VERDE = () => token('--verde', '#1e6f4e');
+const ROJO = () => token('--rojo', '#a52a1c');
+/** El mismo turquesa de la marca, translúcido, para el relleno bajo la línea. */
+const RELLENO = () => `color-mix(in srgb, ${MARCA()} 12%, transparent)`;
 
 const enUSD = (centavos) => centavos / 100;
 
@@ -26,15 +41,15 @@ export async function lineaDiaria(lienzo, dias) {
     data: {
       labels: dias.map((d) => d.dia.slice(5)),
       datasets: [
-        { label: 'Vendido', data: dias.map((d) => enUSD(d.vendidoUSD)), borderColor: MARCA, backgroundColor: 'rgba(0,162,200,.12)', fill: true, tension: .35, borderWidth: 3, pointRadius: 2 },
-        { label: 'Ganancia', data: dias.map((d) => enUSD(d.gananciaUSD)), borderColor: VERDE, tension: .35, borderWidth: 3, pointRadius: 2 },
-        { label: 'Gastos', data: dias.map((d) => enUSD(d.gastosUSD)), borderColor: ROJO, borderDash: [5, 4], tension: .35, borderWidth: 2, pointRadius: 0 },
+        { label: 'Vendido', data: dias.map((d) => enUSD(d.vendidoUSD)), borderColor: MARCA(), backgroundColor: RELLENO(), fill: true, tension: .35, borderWidth: 3, pointRadius: 2 },
+        { label: 'Ganancia', data: dias.map((d) => enUSD(d.gananciaUSD)), borderColor: VERDE(), tension: .35, borderWidth: 3, pointRadius: 2 },
+        { label: 'Gastos', data: dias.map((d) => enUSD(d.gastosUSD)), borderColor: ROJO(), borderDash: [5, 4], tension: .35, borderWidth: 2, pointRadius: 0 },
       ],
     },
     options: {
       responsive: true, maintainAspectRatio: false,
       plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, boxWidth: 8 } } },
-      scales: { y: { beginAtZero: true, ticks: { callback: (v) => `$${v}` }, grid: { color: '#eee' } }, x: { grid: { display: false } } },
+      scales: { y: { beginAtZero: true, ticks: { callback: (v) => `$${v}` }, grid: { color: token('--borde', '#eee') } }, x: { grid: { display: false } } },
     },
   });
 }
@@ -50,7 +65,7 @@ export async function barrasProductos(lienzo, productos, { campo = 'gananciaUSD'
       datasets: [{
         label: titulo,
         data: top.map((p) => enUSD(p[campo])),
-        backgroundColor: top.map((p) => (p[campo] < 0 ? ROJO : MARCA)),
+        backgroundColor: top.map((p) => (p[campo] < 0 ? ROJO() : MARCA())),
         borderRadius: 10,
         borderSkipped: false,
       }],
@@ -59,7 +74,7 @@ export async function barrasProductos(lienzo, productos, { campo = 'gananciaUSD'
       indexAxis: 'y',
       responsive: true, maintainAspectRatio: false,
       plugins: { legend: { display: false } },
-      scales: { x: { beginAtZero: true, ticks: { callback: (v) => `$${v}` }, grid: { color: '#eee' } }, y: { grid: { display: false } } },
+      scales: { x: { beginAtZero: true, ticks: { callback: (v) => `$${v}` }, grid: { color: token('--borde', '#eee') } }, y: { grid: { display: false } } },
     },
   });
 }
@@ -73,7 +88,7 @@ export async function donaVendedores(lienzo, vendedores) {
       labels: vendedores.map((v) => v.nombre),
       datasets: [{
         data: vendedores.map((v) => enUSD(v.vendidoUSD)),
-        backgroundColor: [MARCA, AMARILLO, '#6f6a63', VERDE, ROJO],
+        backgroundColor: [MARCA(), AMARILLO(), token('--texto-suave', '#6f6a63'), VERDE(), ROJO()],
         borderWidth: 0,
       }],
     },

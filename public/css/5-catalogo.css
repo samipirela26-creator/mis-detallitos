@@ -143,7 +143,7 @@ body.cat-publico #app { padding-bottom: 7rem; }
   font-size: 1.1rem; line-height: 1; cursor: pointer;
 }
 .cat-cantidad button:hover { background: var(--fondo); }
-.cat-cantidad button:focus-visible { outline: 0; box-shadow: 0 0 0 3px rgba(11, 106, 130, .45); }
+.cat-cantidad button:focus-visible { outline: 0; box-shadow: 0 0 0 3px var(--foco); }
 .cat-cantidad .valor { font-family: var(--fuente-titulo); font-weight: 700; font-size: 1rem; min-width: 1.5rem; text-align: center; }
 
 /* Categorías: chips en móvil, columna en escritorio */
@@ -166,7 +166,7 @@ body.cat-publico #app { padding-bottom: 7rem; }
   text-align: left;
   font-family: var(--fuente-cuerpo);
 }
-.cat-barra-pedido:focus-visible { outline: 0; box-shadow: 0 0 0 3px rgba(11, 106, 130, .6), var(--sombra-alta); }
+.cat-barra-pedido:focus-visible { outline: 0; box-shadow: 0 0 0 3px var(--foco), var(--sombra-alta); }
 .cat-barra-pedido .resumen { flex: 1; min-width: 0; }
 .cat-barra-pedido .resumen .cuantos { font-size: .76rem; color: #b9d2da; }
 .cat-barra-pedido .resumen .total { font-family: var(--fuente-titulo); font-weight: 700; font-size: 1.05rem; }
@@ -280,7 +280,7 @@ dialog.cat-hoja h2 { font-family: var(--fuente-titulo); margin: 0 0 .15rem; font
     font-size: .9rem; text-align: left; cursor: pointer;
   }
   .cat-lateral button:hover { background: var(--marca-suave); }
-  .cat-lateral button:focus-visible { outline: 0; box-shadow: 0 0 0 3px rgba(11, 106, 130, .45); }
+  .cat-lateral button:focus-visible { outline: 0; box-shadow: 0 0 0 3px var(--foco); }
   .cat-lateral button[aria-pressed="true"] {
     background: var(--marca); color: var(--sobre-marca-fuerte);
     font-family: var(--fuente-titulo); font-weight: 600;

@@ -1,0 +1,27 @@
+/* 0-fuentes.css — Outfit y Work Sans servidas desde aquí, no desde Google.
+   
+   El <link> a fonts.googleapis.com bloqueaba la PRIMERA carga, que es justo la
+   que pasa con mala señal; el service worker solo ayudaba a partir de la
+   segunda. Ahora entran en el precache como un archivo más.
+
+   Son fuentes VARIABLES: un solo archivo por familia cubre todos los pesos.
+   Google servía la misma URL para los cuatro pesos de Outfit, así que pedir
+   siete archivos era bajar el mismo dos veces y pico.
+
+   Solo el subconjunto `latin`: cubre los acentos y la ñ del español. */
+
+@font-face {
+  font-family: 'Outfit';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url(../fuentes/outfit.woff2) format('woff2');
+}
+
+@font-face {
+  font-family: 'Work Sans';
+  font-style: normal;
+  font-weight: 400 600;
+  font-display: swap;
+  src: url(../fuentes/work-sans.woff2) format('woff2');
+}

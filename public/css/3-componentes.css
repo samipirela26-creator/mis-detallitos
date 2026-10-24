@@ -26,13 +26,13 @@
   margin: 1.5rem 0 .6rem;
 }
 .seccion h2 {
-  margin: 0; font-size: .72rem; font-weight: 600;
+  margin: 0; font-size: var(--t-rotulo); font-weight: 600;
   letter-spacing: .1em; text-transform: uppercase; color: var(--texto-suave);
 }
 .seccion .ver-todo {
   background: none; border: 0; cursor: pointer;
   font-family: var(--fuente-cuerpo);
-  color: var(--marca-fuerte); font-size: .8rem; font-weight: 600;
+  color: var(--marca-fuerte); font-size: var(--t-pie); font-weight: 600;
 }
 .seccion .ver-todo:hover { text-decoration: underline; }
 
@@ -43,12 +43,12 @@
   border: 1px solid var(--borde); border-radius: var(--pildora);
   background: transparent; color: var(--texto);
   font-family: var(--fuente-cuerpo);
-  font-size: .88rem; font-weight: 600; cursor: pointer;
+  font-size: var(--t-cuerpo); font-weight: 600; cursor: pointer;
   transition: background-color .15s ease, border-color .15s ease, transform .1s ease;
 }
 .btn:hover { background: var(--superficie); }
 .btn:active { transform: scale(.985); }
-.btn:focus-visible { outline: 0; box-shadow: 0 0 0 3px rgba(11, 106, 130, .45); }
+.btn:focus-visible { outline: 0; box-shadow: 0 0 0 3px var(--foco); }
 .btn:disabled { opacity: .45; cursor: not-allowed; transform: none; }
 
 /* El principal es negro: una sola acción manda por pantalla. */
@@ -77,7 +77,7 @@
 .chips-barra::-webkit-scrollbar { display: none; }
 .chip {
   flex: 0 0 auto; display: inline-flex; align-items: center; gap: .35rem;
-  min-height: 38px;
+  min-height: 44px;   /* era 38px: es el atajo que más se toca en hora pico */
   padding: 0 .9rem; border-radius: var(--pildora);
   background: transparent; border: 1px solid var(--borde);
   color: var(--texto); font-size: .8rem; font-weight: 600; cursor: pointer;
@@ -90,18 +90,18 @@
 .chip:hover:not([aria-pressed="true"]) { border-color: var(--marca); color: var(--marca-fuerte); }
 .chip:active { transform: scale(.97); }
 
-label { display: block; font-size: .72rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--texto-suave); margin-bottom: .35rem; }
+label { display: block; font-size: var(--t-rotulo); font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--texto-suave); margin-bottom: .35rem; }
 input, select, textarea {
   width: 100%; min-height: var(--toque);
   padding: .55rem .95rem;
   border: 1px solid var(--borde); border-radius: var(--r-chico);
   background: var(--superficie); color: var(--texto);
-  font-family: inherit; font-size: .92rem;
+  font-family: inherit; font-size: var(--t-dato);
   transition: border-color .15s ease, box-shadow .15s ease;
 }
 input:focus, select:focus, textarea:focus {
   outline: 0; border-color: var(--marca);
-  box-shadow: 0 0 0 3px rgba(11, 106, 130, .3);
+  box-shadow: 0 0 0 3px var(--foco);
 }
 /* Miniatura de producto (inventario, punto de venta y buscador).
    La clase se usaba desde el principio pero nunca tuvo regla: mientras ningún
@@ -137,7 +137,7 @@ input:focus, select:focus, textarea:focus {
 .buscador-limpiar {
   position: absolute; right: .45rem;
   display: flex; align-items: center; justify-content: center;
-  width: 2.1rem; height: 2.1rem; padding: 0;
+  width: 2.6rem; height: 2.6rem; padding: 0;   /* era 2.1rem (~34px) */
   border: 0; border-radius: 50%;
   background: transparent; color: var(--texto-suave);
   font-size: 1.5rem; line-height: 1; cursor: pointer;
@@ -146,7 +146,7 @@ input:focus, select:focus, textarea:focus {
 .buscador-limpiar[hidden] { display: none; }
 .pista-busqueda {
   margin: .35rem 0 0; min-height: 1.1rem;
-  font-size: .8rem; color: var(--texto-suave);
+  font-size: var(--t-pie); color: var(--texto-suave);
 }
 
 .campo { margin-bottom: .85rem; }
@@ -156,16 +156,23 @@ input:focus, select:focus, textarea:focus {
 table { width: 100%; border-collapse: collapse; }
 th, td { padding: .7rem .5rem; text-align: left; border-bottom: 1px solid var(--borde-suave); }
 tr:last-child td { border-bottom: 0; }
-th { font-family: var(--fuente-titulo); font-size: .7rem; text-transform: uppercase; letter-spacing: .08em; color: var(--texto-suave); font-weight: 600; }
+th { font-family: var(--fuente-titulo); font-size: var(--t-rotulo); text-transform: uppercase; letter-spacing: .08em; color: var(--texto-suave); font-weight: 600; }
 td.num, th.num { text-align: right; }
 
 .etiqueta {
   display: inline-flex; align-items: center; gap: .25rem;
   padding: .15rem .6rem; border-radius: var(--pildora);
-  font-size: .73rem; font-weight: 600;
+  font-size: var(--t-rotulo); font-weight: 600;
 }
-.etiqueta.ok { background: var(--verde-suave); color: #0f4e35; }
-.etiqueta.alerta { background: var(--amarillo); color: var(--texto); }
+/* El texto de una etiqueta va SIEMPRE en una variable que siga al fondo.
+   `.ok` llevaba el verde #0f4e35 escrito a mano: en oscuro `--verde-suave`
+   pasa a #10312a y quedaba verde oscuro sobre verde oscuro (1,45:1, ilegible).
+   Y `.alerta` llevaba `--texto`, que en oscuro es casi blanco, sobre un
+   amarillo que NO cambia: 1,46:1. Ahora 4,94 y 4,76 en claro; 8,19 y 6,93 en
+   oscuro. Ojo con `--amarillo`: es el único color igual en los dos temas, así
+   que lo que va encima tampoco puede cambiar — por eso `--sobre-amarillo`. */
+.etiqueta.ok { background: var(--verde-suave); color: var(--verde); }
+.etiqueta.alerta { background: var(--amarillo); color: var(--sobre-amarillo); }
 .etiqueta.mal { background: var(--rojo-suave); color: var(--rojo); }
 .etiqueta.info { background: var(--marca-suave); color: var(--marca-oscuro); }
 .etiqueta.acento { background: var(--amarillo-suave); color: var(--ambar); }
@@ -178,7 +185,7 @@ td.num, th.num { text-align: right; }
 .aviso {
   padding: .8rem 1.2rem; border-radius: var(--r);
   background: var(--tinta); color: var(--sobre-tinta); box-shadow: var(--sombra-alta);
-  font-size: .9rem; font-weight: 500;
+  font-size: var(--t-cuerpo); font-weight: 500;
 }
 .aviso.mal { background: var(--rojo); color: var(--sobre-tinta); }
 .aviso.ok { background: var(--verde); color: var(--sobre-tinta); }
@@ -196,10 +203,13 @@ dialog::backdrop { background: rgba(12, 30, 36, .5); }
 .sin-conexion {
   display: none;
   margin: .5rem 1.25rem 0; padding: .5rem 1rem;
-  background: var(--amarillo); color: var(--texto);
+  /* Mismo caso que `.etiqueta.alerta`: amarillo fijo, así que el texto no
+     puede ser `--texto`. Y de todos los avisos de la app este es el que más
+     importa que se lea: era el ilegible en modo oscuro. */
+  background: var(--amarillo); color: var(--sobre-amarillo);
   border: 0;
   border-radius: var(--pildora);
-  text-align: center; font-size: .8rem; font-weight: 600;
+  text-align: center; font-size: var(--t-pie); font-weight: 600;
 }
 body.offline .sin-conexion { display: block; }
 
@@ -208,10 +218,31 @@ body.offline .sin-conexion { display: block; }
    campos, y aquí el texto es una frase normal que se lee de corrido. */
 .interruptor { display: flex; align-items: center; gap: .6rem; margin: .75rem 0; cursor: pointer; }
 .interruptor input[type="checkbox"] {
-  width: 1.2rem; height: 1.2rem; min-height: 0; flex: 0 0 auto; margin: 0; padding: 0;
+  /* 19px era imposible de acertar con el dedo. La etiqueta entera ya es
+     clicable, pero la casilla también tiene que serlo. */
+  width: 1.5rem; height: 1.5rem; min-height: 0; flex: 0 0 auto; margin: 0; padding: .4rem;
+  box-sizing: content-box;
   accent-color: var(--marca);
 }
 .interruptor span {
   font-size: .95rem; font-weight: 600; letter-spacing: 0;
   text-transform: none; color: var(--texto);
 }
+
+/* Estados, como clases y no como un ternario repetido en cada pantalla.
+   El JS dice en qué estado está algo (`estadoMargen`); el color lo pone aquí,
+   que es lo único que sabe de temas claro y oscuro. */
+.estado-perdida { color: var(--rojo); }
+.estado-flojo   { color: var(--ambar); }
+.estado-bueno   { color: var(--verde); }
+.estado-sin-dato { color: var(--texto-suave); }
+
+/* La tabla del cierre Z: cuatro montos en un diálogo de 460px. Sin reparto
+   fijo, un bolívar de siete cifras empuja a las demás y la columna de la
+   diferencia —la única que de verdad se mira— queda aplastada. */
+.tabla-cierre { table-layout: fixed; width: 100%; font-size: var(--t-pie); }
+.tabla-cierre th, .tabla-cierre td { padding: .4rem .25rem; }
+.tabla-cierre th:first-child, .tabla-cierre td:first-child { width: 22%; }
+.tabla-cierre .num { font-size: var(--t-pie); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* La diferencia no se comprime ni se recorta: es la razón de esta pantalla. */
+.tabla-cierre th:last-child, .tabla-cierre td:last-child { width: 28%; overflow: visible; }

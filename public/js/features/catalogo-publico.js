@@ -99,14 +99,14 @@ registrar('catalogo', {
           el('div', { style: 'display:flex;gap:.75rem;align-items:flex-start' }, [
             img,
             el('div', { style: 'flex:1;min-width:0' }, [
-              el('div', { style: 'font-weight:700;font-size:.95rem', html: esc(p.nombre) }),
-              el('div', { style: 'font-size:.78rem;color:var(--texto-suave);margin-top:.15rem' }, [
+              el('div', { style: 'font-weight:700;font-size:var(--t-cuerpo)', html: esc(p.nombre) }),
+              el('div', { style: 'font-size:var(--t-pie);color:var(--texto-suave);margin-top:.15rem' }, [
                 el('span', { texto: p.categoria || 'Papelería' }),
                 el('span', { texto: ` · ${p.unidad || 'unidad'}` }),
               ]),
               el('div', { style: 'margin-top:.4rem;display:flex;flex-wrap:wrap;align-items:baseline;gap:.4rem' }, [
                 el('span.cifra', { style: 'font-weight:700;font-size:1.2rem;color:var(--texto)', texto: formatear(p.precioUSD) }),
-                conversionesBsCop ? el('span', { style: 'font-size:.78rem;color:var(--texto-suave)', texto: conversionesBsCop }) : null,
+                conversionesBsCop ? el('span', { style: 'font-size:var(--t-pie);color:var(--texto-suave)', texto: conversionesBsCop }) : null,
               ]),
             ]),
           ]),
@@ -124,7 +124,7 @@ registrar('catalogo', {
                   }),
                 ])
               : el('button.btn.principal.ancho', {
-                  style: 'min-height:38px;font-size:.85rem', texto: 'Agregar al Pedido',
+                  style: 'min-height:38px;font-size:var(--t-pie)', texto: 'Agregar al Pedido',
                   onclick: () => {
                     borradorPedido.push({
                       productoId: p.id,
@@ -158,7 +158,7 @@ registrar('catalogo', {
           bottom: calc(1rem + env(safe-area-inset-bottom));
           width: min(92vw, 440px);
           padding: .75rem 1.15rem;
-          background: #1e6f4e; color: #ffffff;
+          background: var(--verde); color: var(--sobre-tinta);
           border-radius: var(--pildora);
           display: flex; align-items: center; justify-content: space-between;
           box-shadow: 0 12px 30px rgba(0,0,0,0.3);
@@ -168,10 +168,10 @@ registrar('catalogo', {
       }, [
         el('div', {}, [
           el('div', { style: 'font-weight:700;font-size:1.05rem', texto: `Mi Pedido (${totalCant})` }),
-          el('div', { style: 'font-size:.8rem;opacity:.9', texto: `Total: ${formatear(totalUSD)}` }),
+          el('div', { style: 'font-size:var(--t-pie);opacity:.9', texto: `Total: ${formatear(totalUSD)}` }),
         ]),
         el('button.btn', {
-          style: 'background:#ffffff;color:#1e6f4e;border:0;font-weight:700;padding:0 1rem;min-height:38px',
+          style: 'background:var(--superficie);color:var(--verde);border:0;font-weight:700;padding:0 1rem;min-height:44px',
           texto: 'Ver Pedido 📲',
         }),
       ]);
@@ -223,8 +223,8 @@ function abrirModalPedido(cb1, cb2) {
         style: 'display:flex;align-items:center;justify-content:space-between;padding:.6rem 0;border-bottom:1px solid var(--borde)',
       }, [
         el('div', { style: 'flex:1;min-width:0;padding-right:.5rem' }, [
-          el('div', { style: 'font-weight:600;font-size:.9rem', html: esc(item.nombre) }),
-          el('div', { style: 'font-size:.8rem;color:var(--texto-suave)', texto: `${formatear(item.precioUSD)} c/u` }),
+          el('div', { style: 'font-weight:600;font-size:var(--t-cuerpo)', html: esc(item.nombre) }),
+          el('div', { style: 'font-size:var(--t-pie);color:var(--texto-suave)', texto: `${formatear(item.precioUSD)} c/u` }),
         ]),
         el('div.fila', { style: 'align-items:center;gap:.4rem;flex:0 0 auto' }, [
           el('button.btn.plano', {

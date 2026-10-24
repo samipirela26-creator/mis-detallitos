@@ -339,7 +339,7 @@ function abrirDetalle(producto) {
     el('div.bloque-precio', {}, [
       el('div', { style: 'display:flex;align-items:baseline;gap:.5rem' }, [
         el('span.grande', { texto: formatear(producto.precioUSD) }),
-        el('span', { style: 'font-size:.85rem;color:var(--texto-suave)', texto: `por ${producto.unidad || 'unidad'}` }),
+        el('span', { style: 'font-size:var(--t-pie);color:var(--texto-suave)', texto: `por ${producto.unidad || 'unidad'}` }),
       ]),
       ...eqRenglones,
       eqRenglones.length ? el('p.nota-tasa', { texto: 'Tasa del día. El monto final se confirma por WhatsApp.' }) : null,
@@ -488,17 +488,17 @@ function abrirModalPedido() {
 
   pegar(d,
     el('h2', { texto: 'Tu pedido' }),
-    el('p', { style: 'margin:.1rem 0 0;font-size:.85rem;color:var(--texto-suave)', texto: `${unidadesPedido()} ${unidadesPedido() === 1 ? 'producto' : 'productos'}` }),
+    el('p', { style: 'margin:.1rem 0 0;font-size:var(--t-pie);color:var(--texto-suave)', texto: `${unidadesPedido()} ${unidadesPedido() === 1 ? 'producto' : 'productos'}` }),
     listaEl,
     totalEl,
     el('div', { style: 'margin-top:1rem;display:flex;flex-direction:column;gap:.35rem' }, [
-      el('label', { for: 'cat-nombre', style: 'font-size:.8rem;color:var(--texto-suave)', texto: 'Nombre y apellido' }),
+      el('label', { for: 'cat-nombre', style: 'font-size:var(--t-pie);color:var(--texto-suave)', texto: 'Nombre y apellido' }),
       inputNombre,
-      el('label', { for: 'cat-nota', style: 'font-size:.8rem;color:var(--texto-suave);margin-top:.4rem', texto: 'Nota para el pedido' }),
+      el('label', { for: 'cat-nota', style: 'font-size:var(--t-pie);color:var(--texto-suave);margin-top:.4rem', texto: 'Nota para el pedido' }),
       inputNota,
     ]),
     enviar,
-    el('p', { style: 'margin:.5rem 0 0;text-align:center;font-size:.74rem;color:var(--texto-suave)', texto: 'Confirmamos disponibilidad y el monto final antes de cobrar.' }),
+    el('p', { style: 'margin:.5rem 0 0;text-align:center;font-size:var(--t-pie);color:var(--texto-suave)', texto: 'Confirmamos disponibilidad y el monto final antes de cobrar.' }),
     el('button.btn.plano.ancho', { type: 'button', style: 'margin-top:.6rem', texto: 'Seguir viendo productos', onclick: () => d.close() })
   );
 }

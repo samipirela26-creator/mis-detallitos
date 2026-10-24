@@ -62,7 +62,7 @@ export function montarEntrar(nodo) {
       pegar(form,
         el('h1', { texto: 'Crear mi cuenta' }),
         el('p', {
-          style: 'color:var(--texto-suave);font-size:.92rem;margin-top:-.5rem',
+          style: 'color:var(--texto-suave);font-size:var(--t-cuerpo);margin-top:-.5rem',
           texto: 'Crea tu cuenta y avísale al dueño para que te dé acceso. Hasta que él te habilite no vas a ver nada.',
         }),
         campo('nombre', '¿Cómo te llamas?', { autocomplete: 'name', placeholder: 'Tu nombre' }),
@@ -131,7 +131,7 @@ export function montarEnEspera(nodo, usuario, alSalir) {
           texto: 'Tu cuenta quedó creada, pero el dueño todavía no te ha dado acceso. Avísale y vuelve a abrir la app.',
         }),
         el('p', {
-          style: 'text-align:center;color:var(--texto-suave);font-size:.85rem',
+          style: 'text-align:center;color:var(--texto-suave);font-size:var(--t-pie)',
           texto: usuario.email,
         }),
         el('button.btn.plano.ancho', {

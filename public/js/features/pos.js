@@ -18,7 +18,7 @@ import { el, esc, $, abrirDialogo, pegar } from '../ui/html.js';
 import { avisar, avisarOk, avisarMal, confirmar } from '../ui/avisos.js';
 import { pedirMonto, pedirCantidad } from '../ui/teclado.js';
 import { pedirAutorizacion } from '../ui/pin.js';
-import { buscar, sinResultados } from '../data/busqueda.js';
+import { buscar, sinResultados, buscarClientes } from '../data/busqueda.js';
 import { recordarBusqueda, aprenderDe } from '../data/sinonimos.js';
 import { productos as catalogo } from '../data/catalogo.js';
 import { pintarFoto } from '../data/fotos.js';
@@ -169,17 +169,57 @@ registrar('vender', {
       clearTimeout(temporizador);
       temporizador = setTimeout(() => pintarResultados(q.value), 120);
     });
+    // Cuál de los resultados está resaltado. -1 = ninguno todavía.
+    let resaltado = -1;
+
+    /**
+     * Mueve el resaltado con ↑ ↓ y cobra el resaltado con Enter.
+     *
+     * Antes Enter se llevaba SIEMPRE el primer resultado, a ciegas: si lo que
+     * querías era el segundo, había que soltar el teclado e ir al ratón. En la
+     * laptop eso es parar en cada línea. (El README ya prometía las flechas.)
+     */
+    function moverResaltado(paso, total) {
+      if (!total) return;
+      resaltado = resaltado < 0
+        ? (paso > 0 ? 0 : total - 1)
+        : (resaltado + paso + total) % total;
+      pintarResaltado();
+    }
+
+    function pintarResaltado() {
+      const filas = [...cajaResultados.querySelectorAll('li')];
+      filas.forEach((li, i) => {
+        const activa = i === resaltado;
+        li.classList.toggle('resaltado', activa);
+        if (activa) li.scrollIntoView({ block: 'nearest' });
+      });
+    }
+
     q.addEventListener('keydown', (ev) => {
-      if (ev.key === 'Enter') {
-        const r = buscar(q.value, catalogo());
-        if (r.length) { elegir(r[0]); ev.preventDefault(); }
+      const r = buscar(q.value, catalogo());
+      const total = sinResultados(r) ? 0 : r.length;
+
+      if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp') {
+        ev.preventDefault();                       // que no mueva el cursor del input
+        moverResaltado(ev.key === 'ArrowDown' ? 1 : -1, total);
+        return;
       }
-      if (ev.key === 'Escape') { q.value = ''; pintarResultados(''); }
+      if (ev.key === 'Enter') {
+        // Sin resaltar, Enter sigue tomando el primero: es lo que hace quien
+        // escribe el nombre completo y no mira la lista.
+        if (total) { elegir(r[resaltado < 0 ? 0 : resaltado]); ev.preventDefault(); }
+        return;
+      }
+      if (ev.key === 'Escape') { q.value = ''; resaltado = -1; pintarResultados(''); }
     });
 
     function pintarResultados(texto) {
       recordarBusqueda(texto);
       const r = buscar(texto, catalogo());
+      // Lista nueva, resaltado a cero: si no, el índice apunta a un producto
+      // que ya no está en pantalla y Enter cobra cualquier cosa.
+      resaltado = -1;
       cajaResultados.innerHTML = '';
       if (!texto.trim()) return;
 
@@ -187,7 +227,7 @@ registrar('vender', {
         cajaResultados.appendChild(el('div.tarjeta', { style: 'margin-top:.75rem;text-align:center' }, [
           el('p', { texto: `No encontré nada con "${texto}".` }),
           el('p', {
-            style: 'font-size:.9rem;color:var(--texto-suave)',
+            style: 'font-size:var(--t-cuerpo);color:var(--texto-suave)',
             texto: 'Prueba con otra palabra, o cóbralo como venta libre.',
           }),
           el('button.btn.acento', { texto: 'Cobrarlo como venta libre', onclick: () => ventaLibre(texto) }),
@@ -205,7 +245,7 @@ registrar('vender', {
           el('div', { style: 'flex:1;min-width:0' }, [
             el('div', { style: 'font-weight:600', html: esc(p.nombre) }),
             el('div', {
-              style: 'font-size:.82rem;color:var(--texto-suave)',
+              style: 'font-size:var(--t-pie);color:var(--texto-suave)',
               html: `${esc(p.categoria || 'Sin categoría')}${p.tipo === 'servicio' ? '' : ` · ${p.stock} ${esc(p.unidad || 'u')}`}`,
             }),
           ]),
@@ -326,8 +366,10 @@ registrar('vender', {
           style: 'display:flex;gap:.5rem;align-items:center;padding:.6rem 0;border-bottom:1px solid var(--borde);flex-wrap:wrap',
         }, [
           el('div', { style: 'flex:1 1 140px;min-width:0;cursor:pointer', onclick: () => editarLinea(i) }, [
-            el('div', { style: 'font-weight:600', html: esc(l.nombre) }),
-            el('div', { style: 'font-size:.82rem;color:var(--texto-suave)' }, [
+            // Tope de dos renglones: un nombre largo hacía la fila altísima y
+            // en un carrito de seis líneas había que scrollear para ver el total.
+            el('div', { style: 'font-weight:600;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden', html: esc(l.nombre) }),
+            el('div', { style: 'font-size:var(--t-pie);color:var(--texto-suave)' }, [
               el('span', { texto: formatear(l.precioUSD) + ' c/u' }),
               l.precioEditado ? el('span.etiqueta.alerta', { style: 'margin-left:.4rem', texto: 'precio cambiado' }) : null,
               l.fueraDeCatalogo ? el('span.etiqueta.info', { style: 'margin-left:.4rem', texto: 'venta libre' }) : null,
@@ -339,7 +381,7 @@ registrar('vender', {
             texto: String(l.cantidad),
           }),
           botonCantidad('+', 1, `Agregar otro de ${l.nombre}`),
-          el('div.cifra', { style: 'font-weight:700;min-width:5ch;text-align:right', texto: formatear(Math.round(l.cantidad * l.precioUSD)) }),
+          el('div.cifra', { style: 'font-weight:700;min-width:5ch;text-align:right;flex:0 0 auto;white-space:nowrap', texto: formatear(Math.round(l.cantidad * l.precioUSD)) }),
           el('button.btn.plano', {
             type: 'button', 'aria-label': `Quitar ${l.nombre} de la venta`, title: 'Quitar',
             style: 'min-width:44px;min-height:44px;padding:0;flex:0 0 auto', html: icono('trash'),
@@ -354,7 +396,7 @@ registrar('vender', {
           el('span.cifra-gigante', { texto: formatear(t.totalUSD) }),
         ]),
         el('div', {
-          style: 'color:var(--texto-suave);font-size:.95rem;text-align:right',
+          style: 'color:var(--texto-suave);font-size:var(--t-cuerpo);text-align:right',
           texto: Object.keys(MONEDAS)
             .filter((m) => m !== 'USD' && tasas[m])
             .map((m) => formatear(desdeUSD(t.totalUSD, m, tasas[m]), m))
@@ -414,12 +456,34 @@ registrar('vender', {
       );
     }
 
+    /**
+     * En la laptop la mano está en el teclado, no en el pulgar: "/" salta al
+     * buscador desde donde sea. Solo cuando NO se está escribiendo en un
+     * campo, para que se pueda teclear una barra con normalidad.
+     */
+    const atajoBuscar = (ev) => {
+      if (ev.key !== '/' || ev.ctrlKey || ev.metaKey || ev.altKey) return;
+      const a = document.activeElement;
+      const escribiendo = a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.isContentEditable);
+      if (escribiendo || document.querySelector('dialog[open]')) return;
+      ev.preventDefault();
+      q.focus();
+      q.select();
+    };
+    document.addEventListener('keydown', atajoBuscar);
+
     const dejarDeObservar = observar('carrito', pintarCarrito);
     // El catálogo llega después de montar la pantalla (lo trae el listener de
     // Firestore): sin esto los atajos se pintan vacíos y ahí se quedan.
     const dejarDeObservarProductos = observar('productos', pintarAtajos);
     q.focus();
-    return () => { dejarDeObservar(); dejarDeObservarProductos(); };
+    return () => {
+      dejarDeObservar();
+      dejarDeObservarProductos();
+      // Sin esto el atajo se queda escuchando en todas las demás pantallas y
+      // se acumula uno nuevo cada vez que se vuelve a Vender.
+      document.removeEventListener('keydown', atajoBuscar);
+    };
   },
 });
 
@@ -511,7 +575,7 @@ function pedirVentaLibre(nombreSugerido = '') {
     pegar(d,
       el('h2', { texto: 'Venta libre' }),
       el('p', {
-        style: 'color:var(--texto-suave);font-size:.9rem',
+        style: 'color:var(--texto-suave);font-size:var(--t-cuerpo)',
         texto: 'Para lo que no está en el catálogo: una deuda vieja que te pagaron, '
              + 'un trabajo hecho a mano, algo suelto. No toca el inventario.',
       }),
@@ -519,7 +583,7 @@ function pedirVentaLibre(nombreSugerido = '') {
       botonMonto,
       botonGanancia,
       el('p', {
-        style: 'color:var(--texto-suave);font-size:.8rem;margin:.4rem 0 0',
+        style: 'color:var(--texto-suave);font-size:var(--t-pie);margin:.4rem 0 0',
         texto: 'La ganancia es estimada: sirve para que el reporte del mes no cuente '
              + 'como ganancia una plata que ya te había costado.',
       }),
@@ -580,19 +644,19 @@ async function cobrar() {
     const ajuste = ajusteUSD();
     pegar(resumen,
       el('div', { style: 'text-align:center' }, [
-        el('div', { style: 'color:var(--texto-suave);font-size:.85rem', texto: 'TOTAL A COBRAR' }),
+        el('div', { style: 'color:var(--texto-suave);font-size:var(--t-pie)', texto: 'TOTAL A COBRAR' }),
         el('div.cifra-gigante', { texto: formatear(montoCobrado, monedaMonto) }),
         // Las otras monedas, debajo y en chico: sirven para decir el precio,
         // no para cobrar en dos monedas a la vez.
         el('div', {
-          style: 'color:var(--texto-suave);font-size:.9rem',
+          style: 'color:var(--texto-suave);font-size:var(--t-cuerpo)',
           texto: Object.keys(MONEDAS)
             .filter((m) => m !== monedaMonto && (m === 'USD' || tasas[m]))
             .map((m) => formatear(m === 'USD' ? totalUSD() : desdeUSD(totalUSD(), m, tasas[m]), m))
             .join('   ·   '),
         }),
         ajuste ? el('div', {
-          style: `font-size:.85rem;font-weight:600;color:${ajuste < 0 ? 'var(--ambar)' : 'var(--verde)'}`,
+          style: `font-size:var(--t-pie);font-weight:600;color:${ajuste < 0 ? 'var(--ambar)' : 'var(--verde)'}`,
           texto: `${ajuste < 0 ? 'Rebajado' : 'Subido'} ${formatear(Math.abs(enMoneda(t.totalUSD) - montoCobrado), monedaMonto)}`
                + (ajustadoPor ? ` · autorizó ${ajustadoPor}` : ''),
         }) : null,
@@ -613,7 +677,7 @@ async function cobrar() {
         onclick: () => terminar(codigo, enEsa),
       }, [
         el('span', { style: 'font-weight:700', texto: MONEDAS[codigo].nombre }),
-        el('span', { style: 'font-size:.85rem;color:var(--texto-suave)', texto: formatear(enEsa, codigo) }),
+        el('span', { style: 'font-size:var(--t-pie);color:var(--texto-suave)', texto: formatear(enEsa, codigo) }),
       ]));
     }
   }
@@ -675,7 +739,7 @@ async function cobrar() {
     el('button.btn.callado.ancho', {
       style: 'margin-top:.5rem', texto: 'Ajustar el monto', onclick: ajustar,
     }),
-    el('p', { style: 'color:var(--texto-suave);font-size:.85rem;margin-top:1rem', texto: '¿Con qué te pagó?' }),
+    el('p', { style: 'color:var(--texto-suave);font-size:var(--t-pie);margin-top:1rem', texto: '¿Con qué te pagó?' }),
     botonesMoneda,
     el('button.btn.plano.ancho', {
       style: 'margin-top:.25rem', texto: 'Dejarlo fiado',
@@ -695,11 +759,11 @@ function elegirCliente() {
   return new Promise(async (resolver) => {
     const clientes = await listarClientes().catch(() => []);
     const d = abrirDialogo('');
-    const entrada = el('input', { placeholder: 'Nombre del cliente' });
+    const entrada = el('input', { placeholder: 'Nombre o teléfono' });
     const lista = el('div', { style: 'max-height:40vh;overflow:auto;margin:.75rem 0' });
     const pintar = (filtro = '') => {
       lista.innerHTML = '';
-      for (const c of clientes.filter((c) => c.nombre.toLowerCase().includes(filtro.toLowerCase()))) {
+      for (const c of buscarClientes(clientes, filtro)) {
         lista.appendChild(el('button.btn.plano.ancho', {
           style: 'justify-content:space-between;margin-bottom:.4rem',
           onclick: () => { d.close(); resolver(c); },

@@ -196,3 +196,17 @@ test('un monto grande da la vuelta completa sin perder un centavo', () => {
     assert.equal(vuelta, menores, `${texto} (${moneda}) no sobrevivió la ida y vuelta`);
   }
 });
+
+test('el estado del margen es uno solo, y no un ternario copiado', () => {
+  assert.equal(d.estadoMargen(null), 'sin-dato');
+  assert.equal(d.estadoMargen(undefined), 'sin-dato');
+  assert.equal(d.estadoMargen(NaN), 'sin-dato');
+  assert.equal(d.estadoMargen(-0.1), 'perdida');     // vender por debajo del costo
+  assert.equal(d.estadoMargen(-30), 'perdida');
+  assert.equal(d.estadoMargen(0), 'flojo');          // ni gana ni pierde
+  assert.equal(d.estadoMargen(14.9), 'flojo');
+  assert.equal(d.estadoMargen(d.MARGEN_FLOJO), 'bueno');   // el umbral ya es bueno
+  assert.equal(d.estadoMargen(60), 'bueno');
+  // El umbral se puede mover sin tocar ninguna pantalla.
+  assert.equal(d.estadoMargen(20, 30), 'flojo');
+});
