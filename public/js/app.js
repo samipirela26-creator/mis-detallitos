@@ -24,11 +24,11 @@ import './features/productos-crud.js';
 import './features/importar-excel.js';
 import './features/estudio-fotos.js';
 import './features/caja.js';
+import './features/ventas.js';
 import './features/gastos.js';
 import './features/mi-dinero.js';
 import './features/clientes.js';
 import './features/config.js';
-import './features/catalogo-publico.js';
 import './reports/panel.js';
 import { icono } from './ui/iconos.js';
 import { aplicarTema } from './ui/tema.js';
@@ -60,11 +60,20 @@ registrar('panel', {
         const costos = Object.fromEntries(catalogo().map((p) => [p.id, p.costoUSD || 0]));
         const r = resumen(ventas, gastos, costos);
         kpis.innerHTML = '';
+        const ventasHoy = kpi('Ventas hoy', String(r.cantidad));
+        // Se toca y se ven las de hoy, una por una. El número solo no sirve de
+        // nada si no se puede abrir para mirar qué se hizo.
+        ventasHoy.style.cursor = 'pointer';
+        ventasHoy.setAttribute('role', 'button');
+        ventasHoy.setAttribute('tabindex', '0');
+        ventasHoy.title = 'Ver las ventas de hoy, una por una';
+        ventasHoy.onclick = () => ir('ventas');
+        ventasHoy.onkeydown = (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); ir('ventas'); } };
         pegar(kpis, 
           kpi('Vendido hoy', formatear(r.vendidoUSD)),
           kpi('Ganancia hoy', formatear(r.gananciaBrutaUSD), r.gananciaBrutaUSD >= 0 ? 'bueno' : 'malo'),
           kpi('Por cobrar', formatear(r.porCobrarUSD), r.porCobrarUSD ? 'acento' : ''),
-          kpi('Ventas hoy', String(r.cantidad))
+          ventasHoy
         );
       })
       .catch(() => {
@@ -137,6 +146,7 @@ registrar('panel', {
     // --- atajos ---
     nodo.appendChild(el('div.seccion', {}, [el('h2', { texto: 'Atajos' })]));
     nodo.appendChild(el('div.atajos-grid', {}, [
+      atajo('cart', 'Ventas', 'Una por una: qué se vendió, quién la cobró y a quién.', 'ventas'),
       atajo('chart', 'Reportes', 'Ganancia por producto y margen flojo.', 'reportes'),
       atajo('handshake', 'Deudores', 'Quién te debe, cuánto y desde cuándo.', 'clientes'),
       atajo('wallet', 'Mi dinero', 'Cuánto gané y cuánto puedo sacar.', 'mi-dinero'),

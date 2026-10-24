@@ -156,6 +156,11 @@ export async function esperadoDelTurno(turno) {
   const delTurno = (lista) => lista.filter(enElTurno);
 
   const mias = delTurno(ventas);
+  // Las ventas de la calle (sin caja abierta) NO dejaron plata en el
+  // mostrador: está con quien vendió. Se siguen contando como ventas del
+  // período —se vendieron— pero no se le piden a la gaveta, porque reclamar
+  // ahí lo que está en un bolsillo es inventar un faltante.
+  const enLaGaveta = mias.filter((v) => (v.lugar || LUGAR_VENTAS) === LUGAR_VENTAS);
   const misGastos = delTurno(gastos).filter(deLaGaveta);
   const misRetiros = delTurno(retiros).filter(deLaGaveta);
   const misIngresos = delTurno(ingresos).filter(deLaGaveta);
@@ -178,9 +183,15 @@ export async function esperadoDelTurno(turno) {
   // Vendido y COBRADO no son lo mismo: una venta fiada se vendió y no entró
   // ningún billete. El arqueo se compara contra lo cobrado.
   let cobradoUSD = 0;
+  // Lo vendido es lo vendido, venga de donde venga: eso es el reporte del dueño.
   for (const v of mias) {
     totalUSD += v.totalUSD;
     gananciaUSD += v.gananciaUSD || 0;
+  }
+  // Lo COBRADO que se le pide a la gaveta es solo lo que cayó en ella.
+  let vendidoAfueraUSD = 0;
+  for (const v of mias) {
+    if (!enLaGaveta.includes(v)) { vendidoAfueraUSD += v.totalUSD || 0; continue; }
     for (const p of v.pagos || []) {
       cobradoUSD += p.montoUSD || 0;
       siEsDeLaGaveta(p.moneda, p.monto);
@@ -225,7 +236,7 @@ export async function esperadoDelTurno(turno) {
 
   return {
     esperado, totalUSD, cobradoUSD, gananciaUSD, gastosUSD, retiradoUSD,
-    vueltoUSD, ingresadoUSD, abonadoUSD, trasladadoUSD,
+    vueltoUSD, ingresadoUSD, abonadoUSD, trasladadoUSD, vendidoAfueraUSD,
     cantidad: mias.length, ventas: mias,
   };
 }

@@ -192,7 +192,71 @@ test('cobrado de ventas: lo fiado no entra en la caja', () => {
 test('sin movimientos no hay plata, pero los sitios existen', () => {
   const d = a.dineroPorLugar();
   assert.equal(d.totalUSD, 0);
-  assert.deepEqual(d.porLugar.map((l) => l.lugar), ['Caja', 'Caja fuerte']);
+  assert.deepEqual(d.porLugar.map((l) => l.lugar), ['Caja', 'Caja fuerte', 'Conmigo']);
+});
+
+// --- las ventas de la calle --------------------------------------------------
+// Vender con la caja cerrada es normal (las ventas rápidas de afuera se hacen
+// así). Esa plata está con quien vendió, no en la gaveta: cargársela a la
+// gaveta era pedirle al siguiente arqueo una plata que no estaba en el
+// mostrador, y el cierre cantaba un faltante inventado.
+
+test('venta con la caja cerrada: la plata queda Conmigo, no en la gaveta', () => {
+  const venta = {
+    totalUSD: 500, lugar: 'Conmigo',
+    pagos: [{ moneda: 'COP', monto: 16000, tasa: 3200, montoUSD: 500 }],
+  };
+  const d = a.dineroPorLugar({ ventas: [venta] });
+  assert.equal(d.saldos.Conmigo, 500);
+  assert.equal(d.saldos.Caja, 0);
+  assert.equal(d.totalUSD, 500);          // la plata del negocio es la misma
+
+  const e = a.efectivoPorLugar({ ventas: [venta] });
+  assert.equal(e.Conmigo.COP, 16000);
+  assert.equal(e.Caja.COP, 0);
+});
+
+test('venta de la calle pagada por móvil: los bolívares no van al bolsillo', () => {
+  // El pago móvil llega al teléfono esté quien sea donde esté.
+  const venta = {
+    totalUSD: 500, lugar: 'Conmigo',
+    pagos: [{ moneda: 'VES', monto: 496605, tasa: 99321, montoUSD: 500 }],
+  };
+  const e = a.efectivoPorLugar({ ventas: [venta] });
+  assert.equal(e['Caja fuerte'].VES, 496605);
+  assert.equal(e.Conmigo.VES, 0);
+});
+
+test('entregar lo que andabas cargando es un traslado, no plata nueva', () => {
+  const venta = {
+    totalUSD: 500, lugar: 'Conmigo',
+    pagos: [{ moneda: 'COP', monto: 16000, tasa: 3200, montoUSD: 500 }],
+  };
+  const d = a.dineroPorLugar({
+    ventas: [venta],
+    traslados: [{ desde: 'Conmigo', hacia: 'Caja', moneda: 'COP', monto: 16000, montoUSD: 500 }],
+  });
+  assert.equal(d.saldos.Conmigo, 0);
+  assert.equal(d.saldos.Caja, 500);
+  assert.equal(d.totalUSD, 500);
+});
+
+test('la venta normal sigue cayendo en la gaveta', () => {
+  const d = a.dineroPorLugar({
+    ventas: [{ totalUSD: 500, pagos: [{ moneda: 'USD', monto: 500, montoUSD: 500 }] }],
+  });
+  assert.equal(d.saldos.Caja, 500);
+  assert.equal(d.saldos.Conmigo, 0);
+});
+
+test('venta fiada de la calle: lo cobrado se le acredita a quien vendió', () => {
+  // Sin pagos detallados (una venta vieja o fiada en parte) el monto va al
+  // sitio de la venta, no por defecto a la gaveta.
+  const d = a.dineroPorLugar({
+    ventas: [{ totalUSD: 1000, saldoUSD: 600, pagos: [], lugar: 'Conmigo' }],
+  });
+  assert.equal(d.saldos.Conmigo, 400);
+  assert.equal(d.saldos.Caja, 0);
 });
 
 // --- efectivo de verdad, moneda por moneda -----------------------------------

@@ -144,6 +144,15 @@ async function montarReportes(nodo) {
       return;
     }
 
+    // De los totales a las ventas. Esta pantalla contesta "cuánto" y "a qué le
+    // gano poco"; "qué se hizo" se contesta mirando las ventas una por una, y
+    // sin este botón no había cómo llegar a ellas.
+    caja.appendChild(el('button.btn.plano.ancho', {
+      style: 'margin-top:.85rem',
+      texto: ventas.length === 1 ? 'Ver la venta' : `Ver las ${ventas.length} ventas, una por una`,
+      onclick: () => ir('ventas', { rango: rango === 'mes30' ? 'mes' : rango }),
+    }));
+
     if (estimado) {
       caja.appendChild(el('p', {
         style: 'color:var(--texto-suave);font-size:var(--t-pie);margin-top:.75rem',

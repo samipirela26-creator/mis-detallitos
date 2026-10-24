@@ -73,6 +73,11 @@ const HOJA = 30;          // resma de 500 en 15.000
 const OPALINA = 400;
 const FOTOGRAFICO = 1000;
 const VINILO = 2000;   // la hoja, corregido por Samuel el 19/10
+// Papel fotográfico imantado: la hoja con el imán detrás, la que se pega en la
+// nevera. Dato de Samuel del 24/10/2026: **10 hojas en 30.000** = 3.000 cada
+// una. Es tres veces la hoja fotográfica normal, y es el papel —no la tinta—
+// lo que manda en este margen.
+const IMANTADO = 3000;
 const MICA_CARNET_USD = 5;   // las 100
 const MICA_CARTA_USD = 21;   // las 100
 
@@ -160,6 +165,22 @@ const SERVICIOS = [
     precioCOP: 15000, minimoCOP: 15000,
     costoCOP: FOTOGRAFICO + TINTA_LLENA, estimado: true,
     alias: ['papel fotografico full color', 'foto full color'],
+  },
+  {
+    // La hoja imantada se imprime como la fotográfica (Epson, tinta a full) y
+    // encima lleva el imán: 3.080 la hoja contra 1.080 la fotográfica full
+    // color. El costo ya es de factura; sigue `estimado` solo por los 80 de
+    // tinta, igual que todas las que imprimen.
+    //
+    // Precio de Samuel, 24/10/2026: 20.000, y el mínimo es el precio mismo
+    // (cualquier rebaja pasa por el PIN), como en todas menos la B/N carta.
+    // Deja 16.920 por hoja, 3.000 más que la fotográfica full color: por
+    // debajo de 17.000 ganaría MENOS que ella costando tres veces el papel.
+    nombre: 'Impresión en papel fotográfico imantado',
+    precioCOP: 20000, minimoCOP: 20000,
+    costoCOP: IMANTADO + TINTA_LLENA, estimado: true,
+    alias: ['imantado', 'iman', 'foto con iman', 'papel imantado',
+      'foto imantada', 'magnetico', 'foto para la nevera'],
   },
   {
     nombre: 'Impresión de stickers',

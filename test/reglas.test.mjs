@@ -153,9 +153,11 @@ describe('reglas de seguridad', { skip: hayEmulador ? false : 'el emulador de Fi
     }, como(sesion));
     assert.equal(comoDebe.status, 200, 'registrarse sí');
 
-    // Y mientras esté apagado, no ve absolutamente nada del negocio.
-    assert.equal((await leer('productos_venta/prueba-reglas', como(sesion))).status, 403, 'no ve el catálogo');
+    // Y mientras esté apagado, no ve nada del negocio. El catálogo sí: ese es
+    // público a propósito, para que el cliente vea los precios sin entrar.
     assert.equal((await leer('clientes', como(sesion))).status, 403, 'no ve los clientes');
+    assert.equal((await leer('ventas', como(sesion))).status, 403, 'no ve las ventas');
+    assert.equal((await leer('equipo/pin', como(sesion))).status, 403, 'no ve el PIN del equipo');
     assert.equal((await leer(`usuarios/${sesion.uid}`, como(sesion))).status, 200, 'pero sí su propia solicitud');
 
     // No puede encenderse solo.
@@ -163,7 +165,7 @@ describe('reglas de seguridad', { skip: hayEmulador ? false : 'el emulador de Fi
 
     // El dueño lo habilita y ahí sí entra.
     assert.equal((await fusionar(`usuarios/${sesion.uid}`, { activo: { booleanValue: true } }, como(dueno))).status, 200);
-    assert.equal((await leer('productos_venta/prueba-reglas', como(sesion))).status, 200, 'ya habilitado, vende');
+    assert.equal((await leer('clientes', como(sesion))).status, 200, 'ya habilitado, trabaja');
     assert.equal((await leer('productos/prueba-reglas', como(sesion))).status, 403, 'pero los costos siguen siendo del dueño');
   });
 
@@ -191,10 +193,15 @@ describe('reglas de seguridad', { skip: hayEmulador ? false : 'el emulador de Fi
     }, como(sesion))).status, 403, 'crear la solicitud de otro: tampoco');
   });
 
-  test('sin sesión no se lee absolutamente nada', async () => {
+  test('sin sesión solo se lee el catálogo público', async () => {
     const sinCabecera = { 'Content-Type': 'application/json' };
-    assert.notEqual((await leer('productos_venta/prueba-reglas', sinCabecera)).status, 200);
-    assert.notEqual((await leer('ventas', sinCabecera)).status, 200);
+    // Esto es lo que ve el cliente desde el link del catálogo.
+    assert.equal((await leer('productos_venta/prueba-reglas', sinCabecera)).status, 200, 'el catálogo sí');
+    // Todo lo demás, no. Ojo con `productos`: ese lleva el costo.
+    for (const ruta of ['productos/prueba-reglas', 'ventas', 'clientes', 'cajas', 'ingresos',
+                        'retiros', 'gastos', 'auditoria', 'equipo/pin', 'secretos/mercadolibre']) {
+      assert.notEqual((await leer(ruta, sinCabecera)).status, 200, `sin sesión NO se lee ${ruta}`);
+    }
   });
 
   test('las tasas las pone el dueño, no el empleado', async () => {
@@ -204,10 +211,15 @@ describe('reglas de seguridad', { skip: hayEmulador ? false : 'el emulador de Fi
     assert.equal(r2.status, 200);
   });
 
-  test('el empleado no puede leer las fotos para escribirlas, pero sí verlas', async () => {
+  test('las fotos las toma el equipo; de afuera solo se ven', async () => {
+    const sinCabecera = { 'Content-Type': 'application/json' };
     await escribir('fotos/prueba-reglas', { datos: { stringValue: 'data:image/webp;base64,xx' } }, comoAdmin);
     assert.equal((await leer('fotos/prueba-reglas', como(empleado))).status, 200, 'verlas sí');
-    assert.equal((await escribir('fotos/prueba-reglas', { datos: { stringValue: 'otra' } }, como(empleado))).status, 403, 'cambiarlas no');
+    // El empleado es el que está en el mostrador con el producto en la mano.
+    assert.equal((await escribir('fotos/prueba-reglas', { datos: { stringValue: 'otra' } }, como(empleado))).status, 200,
+      'el empleado sí toma fotos');
+    assert.equal((await escribir('fotos/prueba-reglas', { datos: { stringValue: 'ajena' } }, sinCabecera)).status, 403,
+      'pero de afuera nadie las cambia');
   });
   test('el empleado puede vender: descuenta stock, pero no toca precios ni ve costos', async () => {
     // Al cobrar, la app graba la venta Y descuenta el stock en el MISMO lote.

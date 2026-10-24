@@ -4,11 +4,11 @@
 // MARGEN. Un producto con margen bajo o negativo se ve de lejos, en rojo.
 
 import { registrar, ir } from '../core/router.js';
-import { el, esc, $, abrirDialogo } from '../ui/html.js';
+import { el, esc, $, abrirDialogo, fecha } from '../ui/html.js';
 import { avisarOk, avisarMal, confirmar } from '../ui/avisos.js';
 import { productos as catalogo, categorias } from '../data/catalogo.js';
 import { guardarProducto, desactivarProducto } from '../data/productos.js';
-import { registrarMovimientos, bajoMinimo, TIPOS } from '../data/inventario.js';
+import { registrarMovimientos, movimientosDe, bajoMinimo, TIPOS } from '../data/inventario.js';
 import { pintarFoto } from '../data/fotos.js';
 import { anotar } from '../data/auditoria.js';
 import { buscar } from '../data/busqueda.js';
@@ -88,7 +88,11 @@ registrar('inventario', {
         tarjetaKpi('Stock bajo', String(bajoMinimo(todos).length), bajoMinimo(todos).length ? 'malo' : ''),
         tarjetaKpi(
           todos.some((p) => p.costoEstimado) ? 'Valor del inventario (aprox.)' : 'Valor del inventario',
-          formatear(todos.reduce((t, p) => t + (p.costoUSD || 0) * (p.stock || 0), 0))),
+          // Lo que no lleva stock no vale nada en el estante: una impresión no
+          // está guardada en ninguna gaveta. Si un producto con existencias
+          // pasa a "no lleva stock", su número viejo se queda escrito (solo lo
+          // mueve el ledger) y sin este filtro seguiría sumando aquí.
+          formatear(todos.reduce((t, p) => t + (p.tipo === 'servicio' ? 0 : (p.costoUSD || 0) * (p.stock || 0)), 0))),
       ]));
 
       const caja = $('#lista', nodo);
@@ -134,7 +138,7 @@ registrar('inventario', {
           el('div', { style: 'text-align:right;font-size:var(--t-pie)' }, [
             el('div.cifra', { style: 'font-weight:700;font-size:1rem', texto: formatear(p.precioUSD) }),
             el(`div.estado-${estado}`, { style: 'font-weight:600', texto: m === null ? 'sin costo' : `${m.toFixed(0)}% margen` }),
-            el('div', { style: 'color:var(--texto-suave)', texto: p.tipo === 'servicio' ? 'servicio' : `${p.stock} ${esc(p.unidad || 'u')}` }),
+            el('div', { style: 'color:var(--texto-suave)', texto: p.tipo === 'servicio' ? 'sin stock que contar' : `${p.stock} ${esc(p.unidad || 'u')}` }),
           ]),
         ]);
         soltarFotoEn(fila, p);
@@ -219,16 +223,16 @@ export function formulario(p = null) {
         <input name="alias" value="${esc((p?.alias || []).join(', '))}" placeholder="mongol, lapis, lápiz negro">
         <small style="color:var(--texto-suave)">Esto es lo que hace que aparezca aunque lo escriban mal o le digan de otra forma.</small></div>
 
-      <div class="fila">
-        <div class="campo" style="flex:2"><label>Categoría</label>
-          <input name="categoria" list="cats" value="${esc(p?.categoria || '')}">
-          <datalist id="cats">${categorias().map((c) => `<option value="${esc(c)}">`).join('')}</datalist></div>
-        <div class="campo"><label>Tipo</label>
-          <select name="tipo">
-            <option value="producto" ${p?.tipo !== 'servicio' ? 'selected' : ''}>Producto (lleva stock)</option>
-            <option value="servicio" ${p?.tipo === 'servicio' ? 'selected' : ''}>Servicio (no lleva stock)</option>
-          </select></div>
-      </div>
+      <div class="campo"><label>Categoría</label>
+        <input name="categoria" list="cats" value="${esc(p?.categoria || '')}">
+        <datalist id="cats">${categorias().map((c) => `<option value="${esc(c)}">`).join('')}</datalist></div>
+
+      <div class="campo"><label>¿Le llevas la cuenta de cuántos quedan?</label>
+        <select name="tipo">
+          <option value="producto" ${p?.tipo !== 'servicio' ? 'selected' : ''}>Sí, se descuenta al vender</option>
+          <option value="servicio" ${p?.tipo === 'servicio' ? 'selected' : ''}>No lleva stock</option>
+        </select>
+        <small style="color:var(--texto-suave)">Las impresiones, el plastificado y los servicios no llevan stock: nunca salen "agotado", no entran en el aviso de stock bajo ni en el valor del inventario.</small></div>
 
       <div class="campo"><label>Precio</label>
         <select name="tipoPrecio">
@@ -254,7 +258,7 @@ export function formulario(p = null) {
           <input name="unidad" value="${esc(p?.unidad || 'unidad')}"></div>
       </div>
 
-      <div class="fila">
+      <div class="fila" id="caja-stock">
         <div class="campo"><label>Stock</label>
           <input name="stock" inputmode="decimal" value="${p?.stock ?? 0}" ${esNuevo ? '' : 'readonly'}>
           ${esNuevo ? '' : '<small style="color:var(--texto-suave)">Se cambia con "Ajustar stock".</small>'}</div>
@@ -286,6 +290,18 @@ export function formulario(p = null) {
 
   const f = $('#f', d);
   const cajaEscalas = $('#escalas', d);
+
+  // Si no lleva stock, los dos campos de stock no pintan nada y confundían:
+  // decir "no lleva stock" arriba y seguir pidiendo "avisar cuando baje de"
+  // abajo es lo que hacía dudar de si la opción había servido de algo.
+  const verStock = () => {
+    const sin = f.tipo.value === 'servicio';
+    $('#caja-stock', d).style.display = sin ? 'none' : '';
+    const ajustar = $('#ajustar', d);          // no existe en un producto nuevo
+    if (ajustar) ajustar.style.display = sin ? 'none' : '';
+  };
+  f.tipo.addEventListener('change', verStock);
+  verStock();
 
   // El tramo se escribe en PESOS, igual que el precio de la etiqueta. Pedirlo
   // en dólares era la otra mitad del desfase: el dueño pone 10.000 arriba y
@@ -371,6 +387,7 @@ export function formulario(p = null) {
     const costo = parsearCosto(f.costo.value);
     const precioCop = aMenores(f.precioCop.value, 'COP') || 0;
     const tasaCop = (leer('tasas') || {}).COP || 0;
+    const sinStock = f.tipo.value === 'servicio';
 
     try {
       await guardarProducto({
@@ -390,8 +407,13 @@ export function formulario(p = null) {
         costoPaquete: costo.paquete,
         precioMinimoUSD: aMenores(f.minimo.value) || 0,
         unidad: f.unidad.value,
-        stock: esNuevo ? Number(f.stock.value) || 0 : p.stock,
-        stockMinimo: Number(f.stockMinimo.value) || 0,
+        // El stock de uno que ya existe NO se toca aquí ni para ponerlo en
+        // cero: eso solo pasa por "Ajustar stock", que deja rastro en el
+        // ledger. Lo que sí se limpia es el mínimo, que no es una existencia
+        // sino un aviso, y dejarlo puesto en algo que no lleva stock no
+        // significa nada.
+        stock: esNuevo ? (sinStock ? 0 : Number(f.stock.value) || 0) : p.stock,
+        stockMinimo: sinStock ? 0 : Number(f.stockMinimo.value) || 0,
         codigoBarras: f.codigoBarras.value,
         sku: f.sku.value,
         escalas,
@@ -430,8 +452,10 @@ export function ajustarStock(p) {
         <button type="button" class="btn plano" id="cancelar">Cancelar</button>
         <button type="submit" class="btn principal">Guardar</button>
       </div>
-    </form>`);
+    </form>
+    <div id="historial" style="margin-top:1rem"></div>`);
   const f = $('#f', d);
+  mostrarHistorial($('#historial', d), p);
   const refrescar = () => {
     $('#lbl', d).textContent = f.tipo.value === 'ajuste' ? 'Dejar el stock en…' : 'Cantidad';
     $('#caja-costo', d).style.display = f.tipo.value === 'compra' ? '' : 'none';
@@ -480,4 +504,55 @@ export function ajustarStock(p) {
       avisarMal('No se pudo ajustar: ' + (e.message || e));
     }
   });
+}
+
+/**
+ * Los últimos movimientos del producto, aquí mismo donde se ajusta el stock.
+ *
+ * El ledger se venía guardando desde el principio pero no había ninguna
+ * pantalla que lo mostrara: cuando el número de la gaveta no cuadraba con el
+ * de la pantalla no se podía ver quién lo movió ni por qué. Se lee aparte y
+ * después del cuadro, para que el formulario no espere a Firebase.
+ */
+async function mostrarHistorial(caja, p) {
+  caja.appendChild(el('div', {
+    style: 'color:var(--texto-suave);font-size:var(--t-pie)',
+    texto: 'Buscando los últimos movimientos…',
+  }));
+  let movs;
+  try {
+    movs = await movimientosDe(p.id, 10);
+  } catch {
+    caja.innerHTML = '';
+    return;                 // sin internet no se avisa de nada: no era lo pedido
+  }
+  caja.innerHTML = '';
+  if (!movs.length) {
+    caja.appendChild(el('div', {
+      style: 'color:var(--texto-suave);font-size:var(--t-pie)',
+      texto: 'Todavía no se ha movido nunca.',
+    }));
+    return;
+  }
+  caja.appendChild(el('h3', { style: 'font-size:var(--t-pie);margin:0 0 .3rem', texto: 'Últimos movimientos' }));
+  const lista = el('div.tarjeta', { style: 'padding:.3rem .5rem' });
+  for (const m of movs) {
+    lista.appendChild(el('div', {
+      style: 'display:flex;gap:.5rem;align-items:baseline;padding:.3rem 0;border-bottom:1px solid var(--borde);font-size:var(--t-pie)',
+    }, [
+      el('span.cifra', {
+        style: `font-weight:700;min-width:3.2rem;text-align:right;color:var(--${m.cantidad < 0 ? 'rojo' : 'verde'})`,
+        texto: `${m.cantidad > 0 ? '+' : ''}${m.cantidad}`,
+      }),
+      el('span', { style: 'flex:1;min-width:0' }, [
+        el('div', { texto: TIPOS[m.tipo]?.etiqueta || m.tipo }),
+        m.nota ? el('div', { style: 'color:var(--texto-suave)', html: esc(m.nota) }) : null,
+      ]),
+      el('span', {
+        style: 'color:var(--texto-suave);text-align:right',
+        texto: `${fecha(m.ts)}${m.nombreUsuario ? ' · ' + m.nombreUsuario : ''}`,
+      }),
+    ]));
+  }
+  caja.appendChild(lista);
 }

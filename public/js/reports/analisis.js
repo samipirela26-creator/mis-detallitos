@@ -9,7 +9,7 @@
 // costo que tenía ese día aunque el proveedor haya subido el precio después.
 
 import { margenPct, LUGARES, LUGAR_VENTAS, MONEDAS } from '../core/dinero.js';
-import { lugarDeLaMoneda } from '../core/sitios.js';
+import { lugarDeLaMoneda, lugarDelPago } from '../core/sitios.js';
 
 /** Costo de una línea: el que guardó la venta, o el del catálogo si faltaba. */
 export function costoLinea(l, costos = {}) {
@@ -245,10 +245,11 @@ export function efectivoPorLugar({ ingresos = [], retiros = [], traslados = [], 
   }
   for (const v of ventas) {
     // Cada moneda a su sitio: los bolívares entran por pago móvil y nunca
-    // pasan por la gaveta (ver core/sitios.js).
-    for (const p of v.pagos || []) mover(lugarDeLaMoneda(p.moneda), p.moneda, p.monto || 0);
+    // pasan por la gaveta, y lo que se vendió afuera se queda con quien vendió
+    // (ver core/sitios.js).
+    for (const p of v.pagos || []) mover(lugarDelPago(p.moneda, v.lugar), p.moneda, p.monto || 0);
     const vuelto = vueltoDeVenta(v);
-    if (vuelto) mover(lugarDeLaMoneda(vuelto.moneda), vuelto.moneda, -(vuelto.monto || 0));
+    if (vuelto) mover(lugarDelPago(vuelto.moneda, v.lugar), vuelto.moneda, -(vuelto.monto || 0));
   }
 
   return saldos;
@@ -278,12 +279,12 @@ export function dineroPorLugar({ ingresos = [], retiros = [], traslados = [], ve
   for (const v of ventas) {
     const pagos = v.pagos || [];
     if (!pagos.length) {
-      sumar(LUGAR_VENTAS, (v.totalUSD || 0) - Math.max(0, v.saldoUSD || 0));
+      sumar(v.lugar || LUGAR_VENTAS, (v.totalUSD || 0) - Math.max(0, v.saldoUSD || 0));
       continue;
     }
-    for (const p of pagos) sumar(lugarDeLaMoneda(p.moneda), p.montoUSD || 0);
+    for (const p of pagos) sumar(lugarDelPago(p.moneda, v.lugar), p.montoUSD || 0);
     const vuelto = vueltoDeVenta(v);
-    if (vuelto) sumar(lugarDeLaMoneda(vuelto.moneda), -(vuelto.montoUSD || 0));
+    if (vuelto) sumar(lugarDelPago(vuelto.moneda, v.lugar), -(vuelto.montoUSD || 0));
   }
   // Los abonos de los fiados son PLATA QUE ENTRA. Faltaban: una deuda cobrada
   // no aparecía en ninguna parte y el total del negocio salía por debajo de lo

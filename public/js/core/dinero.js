@@ -25,8 +25,17 @@ export const MONEDA_BASE = 'USD';
 //
 // `Caja` es la gaveta del día: ahí caen las ventas en efectivo y de ahí salen
 // los gastos. `Caja fuerte` es lo guardado.
-export const LUGARES = ['Caja', 'Caja fuerte'];
+//
+// Y `Conmigo` es la plata que anda en el bolsillo del que vendió. No es un
+// invento contable: Samuel hace ventas rápidas fuera del negocio, con la caja
+// cerrada, y esa plata existe —está con él— pero NO está en la gaveta. Antes
+// se le cargaba a la gaveta igual, así que el arqueo la reclamaba como si
+// estuviera en el mostrador y el cierre cantaba un faltante del tamaño de todo
+// lo que se vendió afuera. Cuando llega al negocio, se pasa a la caja o a la
+// caja fuerte con un traslado, que es lo que de verdad pasó.
+export const LUGARES = ['Caja', 'Caja fuerte', 'Conmigo'];
 export const LUGAR_VENTAS = 'Caja';
+export const LUGAR_AFUERA = 'Conmigo';
 
 
 function cfg(moneda) {

@@ -139,6 +139,16 @@ async function montarCaja(nodo) {
       ]));
     }
     tarjeta.appendChild(desglose);
+    // Lo vendido afuera se nombra aquí aunque no se le pida a la gaveta: si no
+    // se dice, el dueño ve "ventas 12" y "cobrado 3" y cree que falta plata.
+    if (datos.vendidoAfueraUSD) {
+      tarjeta.appendChild(el('p', {
+        style: 'font-size:var(--t-pie);color:var(--texto-suave);margin-top:.75rem',
+        texto: `De las ventas de este período, ${formatear(datos.vendidoAfueraUSD)} se vendieron `
+             + 'con la caja cerrada: esa plata no entró a la gaveta, está con quien vendió, y no '
+             + 'se cuenta en este arqueo.',
+      }));
+    }
     tarjeta.appendChild(el('p', {
       style: 'color:var(--texto-suave);font-size:var(--t-pie);margin-top:.75rem',
       texto: 'Incluye el fondo con el que abriste. Esto es el reporte X: míralo las veces que quieras, no cierra nada.',

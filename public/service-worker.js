@@ -8,10 +8,10 @@
 //  - El SDK de Firebase (gstatic): stale-while-revalidate, también cacheado.
 //  - Los datos NO pasan por aquí: de eso se encarga el caché propio de Firestore.
 
-const CACHE_NAME = 'detallitos-v60';
+const CACHE_NAME = 'detallitos-v68';
 // Huella de todo lo que se cachea. La pone `npm run precache`: si no coincide,
 // sube CACHE_NAME solo. No se edita a mano.
-const HUELLA = '118907fe5c18';
+const HUELLA = 'df658eef6d4e';
 
 const PRECACHE_URLS = [
   './',
@@ -72,6 +72,7 @@ const PRECACHE_URLS = [
   'js/data/tasas.js',
   'js/data/traslados.js',
   'js/data/ventas.js',
+  'js/core/cambio-moneda.js',
   'js/core/dinero.js',
   'js/core/estado.js',
   'js/core/firebase-config.js',
@@ -84,7 +85,6 @@ const PRECACHE_URLS = [
   'js/features/caja.js',
   'js/features/clientes.js',
   'js/features/config.js',
-  'js/features/catalogo-publico.js',
   'js/features/escaner.js',
   'js/features/estudio-fotos.js',
   'js/features/gastos.js',
@@ -92,6 +92,7 @@ const PRECACHE_URLS = [
   'js/features/mi-dinero.js',
   'js/features/pos.js',
   'js/features/productos-crud.js',
+  'js/features/ventas.js',
 ];
 
 const SDK = 'https://www.gstatic.com/firebasejs/';

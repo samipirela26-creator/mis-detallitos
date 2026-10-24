@@ -13,11 +13,12 @@
 
 import { db, ref, refNuevo, col } from '../core/firebase.js';
 import {
-  writeBatch, serverTimestamp, getDocs, query, where, orderBy, limit, Timestamp, increment,
+  writeBatch, serverTimestamp, getDoc, getDocs, setDoc, query, where, orderBy, limit,
+  Timestamp, increment,
 } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js';
 import { usuarioActual, esDueno } from '../core/sesion.js';
 import { registrarMovimientos } from './inventario.js';
-import { totalesVenta, totalPagadoUSD } from '../core/dinero.js';
+import { totalesVenta, totalPagadoUSD, LUGAR_VENTAS, LUGAR_AFUERA } from '../core/dinero.js';
 import { anotar } from './auditoria.js';
 import { escribir, leer } from '../core/estado.js';
 
@@ -52,6 +53,11 @@ export async function registrarVenta({
       precioEditado: !!l.precioEditado,
       precioOriginalUSD: Math.round(l.precioOriginalUSD || l.precioUSD),
       autorizadoPor: l.autorizadoPor || null,
+      // Si esta línea mueve stock o no. Se guarda porque al ANULAR hay que
+      // devolver al inventario lo que se descontó, y una fotocopia no
+      // descontó nada: sin la marca, anular una venta con servicios le
+      // inventaba stock a un producto que no lleva stock.
+      esServicio: !!l.esServicio,
       // Venta libre: no salió del catálogo y su ganancia la estimó el dueño a
       // ojo. Queda escrito en la venta para poder separarlas en los reportes:
       // sin la marca, un mes con muchas ventas libres parece un mes de margen
@@ -83,6 +89,21 @@ export async function registrarVenta({
     // Se vendió sin caja abierta: queda escrito en la venta para poder
     // encontrarlas después. Sin esta marca son invisibles.
     sinTurno: !!sinTurno,
+    // Y DÓNDE QUEDÓ ESA PLATA. Vender con la caja cerrada es normal —las
+    // ventas rápidas de la calle se hacen así y no se puede contar una gaveta
+    // que no está abierta—, pero entonces el efectivo no está en el mostrador.
+    //
+    // Quién vende decide dónde cae, y no es un tecnicismo: son dos situaciones
+    // distintas. El DUEÑO sin caja abierta está vendiendo afuera, con la plata
+    // en el bolsillo: cargársela a la gaveta hace que el siguiente arqueo
+    // reclame un dinero que no está ahí. El EMPLEADO está en el mostrador —la
+    // gaveta la tiene al lado, abierta o no—, así que su plata sí cae en la
+    // caja; marcarla como "conmigo" sería mandarla a un sitio que él no puede
+    // mover, porque Mi dinero es del dueño.
+    //
+    // Lo que queda Conmigo se entrega con un traslado desde Mi dinero, y
+    // mientras tanto ningún arqueo lo pide.
+    lugar: sinTurno && esDueno() ? LUGAR_AFUERA : LUGAR_VENTAS,
     clienteId,
     nota,
     estado: 'ok',
@@ -196,8 +217,14 @@ export async function anularVenta(ventaId, motivo, venta) {
     }, { merge: true });
   }
 
-  // Devolver al inventario lo que se había descontado.
-  const conStock = (venta?.lineas || []).filter((l) => l.productoId);
+  // Devolver al inventario lo que se había descontado. Solo eso: los servicios
+  // no descontaron stock al vender (`registrarVenta`), así que devolvérselo les
+  // pondría unidades encima a algo que no lleva ninguna. Las ventas viejas no
+  // traen la marca `esServicio`, así que para esas se mira el catálogo.
+  const servicios = new Set((leer('productos') || [])
+    .filter((p) => p.tipo === 'servicio').map((p) => p.id));
+  const conStock = (venta?.lineas || []).filter((l) => l.productoId
+    && !l.esServicio && !servicios.has(l.productoId));
   if (conStock.length) {
     await registrarMovimientos(
       conStock.map((l) => ({
@@ -229,20 +256,56 @@ export async function pedirAnulacion(ventaId, motivo) {
  * solo le dejan leer SUS ventas, y una consulta que pida más se rechaza
  * COMPLETA. Sin este filtro, el empleado no podía ver su reporte X ni cerrar
  * su propio turno: el arqueo fallaba entero y en silencio.
+ *
+ * Las anuladas se van por omisión: ninguna cuenta las puede sumar. Pero la
+ * pantalla de ventas las pide (`incluirAnuladas`), porque una venta anulada es
+ * justo lo que hay que poder mirar cuando algo no cuadra — si desaparece de la
+ * lista, no hay manera de saber qué se deshizo ni quién lo deshizo.
  */
-export async function ventasEntre(desde, hasta) {
+export async function ventasEntre(desde, hasta, { incluirAnuladas = false } = {}) {
   const d = Timestamp.fromDate(new Date(`${desde}T00:00:00`));
   const h = Timestamp.fromDate(new Date(`${hasta}T23:59:59.999`));
   const u = usuarioActual();
   const soloMias = !esDueno() && u?.uid ? [where('uid', '==', u.uid)] : [];
   const snap = await getDocs(query(
     col('ventas'), ...soloMias, where('ts', '>=', d), where('ts', '<=', h), orderBy('ts', 'desc')));
-  return snap.docs.map((x) => ({ id: x.id, ...x.data() })).filter((v) => v.estado !== 'anulada');
+  const todas = snap.docs.map((x) => ({ id: x.id, ...x.data() }));
+  return incluirAnuladas ? todas : todas.filter((v) => v.estado !== 'anulada');
 }
 
 export async function ultimasVentas(cuantas = 20) {
   const snap = await getDocs(query(col('ventas'), orderBy('ts', 'desc'), limit(cuantas)));
   return snap.docs.map((x) => ({ id: x.id, ...x.data() }));
+}
+
+/** Una venta sola. Sirve para abrir la que menciona una solicitud de anulación,
+ *  que casi nunca es de los días que están en pantalla. */
+export async function ventaPorId(id) {
+  const s = await getDoc(ref('ventas', id));
+  return s.exists() ? { id: s.id, ...s.data() } : null;
+}
+
+/**
+ * Lo que el empleado pidió anular y nadie ha mirado.
+ *
+ * Sin esta consulta, `pedirAnulacion` escribía en una colección que no leía
+ * nadie: el empleado veía "pedido enviado" y el pedido no llegaba a ninguna
+ * pantalla. Se ordena en memoria a propósito: filtrar por `estado` y ordenar
+ * por `ts` en Firestore pediría un índice compuesto, y son cuatro documentos.
+ */
+export async function anulacionesPendientes() {
+  const snap = await getDocs(query(col('anulaciones'), where('estado', '==', 'pendiente')));
+  return snap.docs.map((x) => ({ id: x.id, ...x.data() }))
+    .sort((a, b) => (b.ts?.seconds || 0) - (a.ts?.seconds || 0));
+}
+
+/** Cerrar el pedido: 'aprobada' si se anuló, 'rechazada' si la venta se queda. */
+export async function resolverAnulacion(id, estado) {
+  const u = usuarioActual();
+  await setDoc(ref('anulaciones', id), {
+    estado, resueltaPor: u?.nombre || '', resueltaTs: serverTimestamp(),
+  }, { merge: true });
+  anotar('anulacion-' + estado, { anulacionId: id });
 }
 
 export const hoyISO = () => new Date().toISOString().slice(0, 10);

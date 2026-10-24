@@ -10,9 +10,16 @@ service firebase.storage {
                    && request.resource.size < 600 * 1024
                    && request.resource.contentType.matches('image/.*');
     }
+    // Igual que productos. Antes esto decía `allow read, write` con un truco
+    // (`request.method == 'get'`) para saltarse el límite en las lecturas, y de
+    // paso se saltaba la revisión del tipo de archivo: con una cuenta recién
+    // registrada —que nace apagada y no puede leer nada en Firestore— se podía
+    // subir aquí cualquier cosa, no solo una imagen.
     match /gastos/{archivo} {
-      allow read, write: if request.auth != null
-                   && (request.method == 'get' || request.resource.size < 600 * 1024);
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+                   && request.resource.size < 600 * 1024
+                   && request.resource.contentType.matches('image/.*');
     }
     match /{allPaths=**} {
       allow read, write: if false;

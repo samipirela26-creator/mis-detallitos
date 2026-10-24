@@ -107,6 +107,26 @@ Por eso el formato vive en `core/respaldo-formato.js`, sin tocar Firebase, y
 `test/respaldo.test.mjs` lo exporta, lo pasa por JSON y lo trae de vuelta
 comprobando que no se perdió ni un centavo ni un id ni un nanosegundo.
 
+## Los tres sitios donde está la plata (octubre 2026)
+
+`core/dinero.js` → `LUGARES`. No es contabilidad, es dónde están los billetes:
+
+| Sitio | Qué es | Quién lo cuenta |
+|---|---|---|
+| `Caja` | La gaveta del mostrador | El arqueo del turno, billete por billete |
+| `Caja fuerte` | Lo guardado, y TODO el pago móvil en bolívares | El dueño, a mano |
+| `Conmigo` | La plata de las ventas de la calle, en el bolsillo | Nadie: se entrega con un traslado |
+
+`Conmigo` existe porque vender con la caja cerrada es normal —Samuel hace ventas rápidas
+fuera del negocio y no hay gaveta que contar— y esa plata no está en el mostrador.
+Mientras diga `Conmigo`, ningún arqueo la pide; cuando se entrega, un traslado la pasa a
+`Caja` o a `Caja fuerte` y las cuentas quedan en su sitio. La venta guarda el sitio en
+`lugar`, y `core/sitios.js` → `lugarDelPago()` es quien decide: el pago móvil nunca va al
+bolsillo, llega al teléfono igual.
+
+Quién vende decide el sitio (`data/ventas.js`): el dueño sin caja abierta está afuera; el
+empleado está en el mostrador con la gaveta al lado, así que lo suyo cae en `Caja`.
+
 ## Decisiones técnicas y por qué
 
 - **Módulos ES sin bundler.** No hay paso de compilación que se pueda romper.

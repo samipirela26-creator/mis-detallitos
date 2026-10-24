@@ -4,7 +4,7 @@
 import { db, col, ref } from './core/firebase.js';
 import { onSnapshot, query, where, getDoc } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js';
 import { el, esc, $, abrirDialogo, pegar } from './ui/html.js';
-import { avisarOk } from './ui/avisos.js';
+import { avisar, avisarOk } from './ui/avisos.js';
 import { MONEDAS, desdeUSD, formatear } from './core/dinero.js';
 import { normalizar } from './core/texto.js';
 
@@ -13,7 +13,12 @@ let tasas = {};
 let whatsappNumero = '';
 let borradorPedido = [];
 let catElegida = '';
+let datosCliente = { nombre: '', nota: '' };
 const fotos = new Map();   // productoId -> dataURL (se piden una sola vez)
+
+// El pedido a medio armar vive en el teléfono del cliente: cerrar la pestaña
+// sin querer, o entrar a WhatsApp y volver, ya no le borra lo que escogió.
+const CLAVE_PEDIDO = 'detallitos-pedido-v1';
 
 const contenedor = $('#contenido');
 
@@ -44,11 +49,15 @@ function iniciar() {
   $('#q-cat').oninput = () => pintarProductos();
   $('#btn-pedido-cabecera').onclick = abrirModalPedido;
 
+  recuperarPedido();
   pintarBarraFlotante();
+  tasasListas = escucharTasas();
   escucharProductos();
-  escucharTasas();
   obtenerWhatsApp();
 }
+
+let primeraCarga = true;
+let tasasListas = Promise.resolve();
 
 function escucharProductos() {
   const q = query(col('productos_venta'), where('activo', '==', true));
@@ -60,6 +69,14 @@ function escucharProductos() {
       .filter((p) => p.precioUSD > 0 || p.tipoPrecio === 'variable');
     pintarCategorias();
     pintarProductos();
+    if (primeraCarga) {
+      primeraCarga = false;
+      sincronizarPedidoConCatalogo();
+      // La ficha que pide el enlace se abre cuando ya hay tasa: si se abre
+      // antes, sale sin bolívares ni pesos y así se queda (el cuadro ya está
+      // pintado). Es justo la pantalla que ve quien llega desde WhatsApp.
+      tasasListas.then(abrirLoQuePideElEnlace);
+    }
   }, (e) => console.warn('[catalogo] error:', e));
 }
 
@@ -109,10 +126,27 @@ function obtenerWhatsApp() {
 
 /* ---- Fotos ------------------------------------------------------------- */
 
-/** Pide la foto una sola vez por producto y la coloca cuando llega. */
-function ponerFoto(caja, producto) {
-  if (!producto.tieneFoto) return;
+/**
+ * Un solo observador para todas las miniaturas de la rejilla.
+ *
+ * Las fotos son dataURL guardadas en Firestore, una lectura por producto. Con
+ * el catálogo entero eso es pedir ~170 documentos con imagen adentro al abrir,
+ * con los datos del teléfono del cliente, para una pantalla que a lo mejor no
+ * baja. Se piden cuando la tarjeta está por asomarse (300 px antes).
+ */
+const observadorFotos = ('IntersectionObserver' in window)
+  ? new IntersectionObserver((entradas, obs) => {
+      for (const entrada of entradas) {
+        if (!entrada.isIntersecting) continue;
+        obs.unobserve(entrada.target);
+        const producto = productos.find((p) => p.id === entrada.target.dataset.producto);
+        if (producto) traerFoto(entrada.target, producto);
+      }
+    }, { rootMargin: '300px' })
+  : null;
 
+/** Pide la foto una sola vez por producto y la coloca cuando llega. */
+function traerFoto(caja, producto) {
   const pintar = (datos) => {
     if (!datos) return;
     caja.innerHTML = '';
@@ -131,11 +165,19 @@ function ponerFoto(caja, producto) {
   }).catch(() => fotos.set(producto.id, null));
 }
 
-function cajaFoto(producto, clase = 'foto') {
+/** `inmediato` para las que ya se están mirando: el detalle y el pedido. */
+function cajaFoto(producto, clase = 'foto', { inmediato = false } = {}) {
   const caja = el(`div.${clase}`, {}, [
     el('span.sin-foto', { html: ICONO_FOTO }),
   ]);
-  ponerFoto(caja, producto);
+  if (!producto.tieneFoto) return caja;
+
+  if (inmediato || fotos.has(producto.id) || !observadorFotos) {
+    traerFoto(caja, producto);
+  } else {
+    caja.dataset.producto = producto.id;
+    observadorFotos.observe(caja);
+  }
   return caja;
 }
 
@@ -206,6 +248,63 @@ function equivalentes(producto) {
     .join(' · ');
 }
 
+/* ---- El pedido guardado ------------------------------------------------ */
+
+function guardarPedido() {
+  try {
+    localStorage.setItem(CLAVE_PEDIDO, JSON.stringify({
+      items: borradorPedido,
+      nombre: datosCliente.nombre,
+      nota: datosCliente.nota,
+    }));
+  } catch (e) {
+    // Navegación privada o almacenamiento lleno: el pedido vive solo en la
+    // memoria de la pestaña. No es motivo para romper el catálogo.
+  }
+}
+
+function recuperarPedido() {
+  try {
+    const crudo = localStorage.getItem(CLAVE_PEDIDO);
+    if (!crudo) return;
+    const guardado = JSON.parse(crudo) || {};
+    if (Array.isArray(guardado.items)) {
+      borradorPedido = guardado.items.filter((x) => x && x.productoId && x.cantidad > 0);
+    }
+    datosCliente = {
+      nombre: String(guardado.nombre || '').slice(0, 120),
+      nota: String(guardado.nota || '').slice(0, 500),
+    };
+  } catch (e) {
+    localStorage.removeItem(CLAVE_PEDIDO);
+  }
+}
+
+/**
+ * Pone el pedido guardado al día con el catálogo de ahora.
+ *
+ * Un pedido de ayer puede traer un producto que ya no se vende o un precio
+ * viejo; enviarlo así por WhatsApp le promete al cliente un monto que no es.
+ * Lo que ya no está en el catálogo se cae, y lo demás toma nombre y precio
+ * del catálogo.
+ */
+function sincronizarPedidoConCatalogo() {
+  if (!borradorPedido.length) return;
+  const antes = borradorPedido.length;
+
+  borradorPedido = borradorPedido.flatMap((item) => {
+    const p = productos.find((x) => x.id === item.productoId);
+    if (!p) return [];
+    return [{ ...item, nombre: p.nombre, precioUSD: p.precioUSD, unidad: p.unidad || 'unidad' }];
+  });
+
+  if (borradorPedido.length !== antes) {
+    avisar('Quitamos del pedido lo que ya no está en el catálogo');
+  }
+  guardarPedido();
+  pintarBarraFlotante();
+}
+
 function enPedido(productoId) {
   const item = borradorPedido.find((x) => x.productoId === productoId);
   return item ? item.cantidad : 0;
@@ -224,6 +323,7 @@ function agregar(producto) {
       unidad: producto.unidad || 'unidad',
     });
   }
+  guardarPedido();
   pintarProductos();
   pintarBarraFlotante();
 }
@@ -311,8 +411,55 @@ function cambiarCantidad(productoId, delta) {
   if (borradorPedido[idx].cantidad <= 0) {
     borradorPedido.splice(idx, 1);
   }
+  guardarPedido();
   pintarProductos();
   pintarBarraFlotante();
+}
+
+/* ---- Enlaces compartibles ---------------------------------------------- */
+
+/** El enlace de un producto: `catalogo.html?p=<id>` abre su ficha. */
+function enlaceDe(producto) {
+  return `${location.origin}${location.pathname}?p=${encodeURIComponent(producto.id)}`;
+}
+
+/**
+ * Lo que traiga la dirección al abrir: `?p=` una ficha, `?cat=` una categoría.
+ *
+ * Así un producto se manda por WhatsApp o se pega en un estado, y quien lo
+ * abre cae en la ficha con su foto y su precio, no en la primera pantalla del
+ * catálogo buscándolo.
+ */
+function abrirLoQuePideElEnlace() {
+  const params = new URLSearchParams(location.search);
+
+  const cat = params.get('cat');
+  if (cat && obtenerCategorias().some((c) => c.toLowerCase() === cat.toLowerCase())) {
+    elegirCategoria(obtenerCategorias().find((c) => c.toLowerCase() === cat.toLowerCase()));
+  }
+
+  const id = params.get('p');
+  if (!id) return;
+  const producto = productos.find((p) => p.id === id);
+  if (producto) abrirDetalle(producto);
+  else avisar('Ese producto ya no está en el catálogo');
+}
+
+/** Comparte el producto con la hoja del teléfono; si no hay, copia el enlace. */
+async function compartir(producto) {
+  const url = enlaceDe(producto);
+  const texto = `${producto.nombre} · ${formatear(producto.precioUSD)} — Mis Detallitos`;
+  try {
+    if (navigator.share) {
+      await navigator.share({ title: producto.nombre, text: texto, url });
+      return;
+    }
+    await navigator.clipboard.writeText(`${texto}\n${url}`);
+    avisarOk('Enlace copiado');
+  } catch (e) {
+    // Cancelar la hoja de compartir no es un error que haya que avisarle.
+    if (e?.name !== 'AbortError') avisar('No se pudo compartir el enlace');
+  }
 }
 
 /* ---- Detalle del producto --------------------------------------------- */
@@ -331,7 +478,7 @@ function abrirDetalle(producto) {
     ]));
 
   pegar(d,
-    cajaFoto(producto, 'foto-grande'),
+    cajaFoto(producto, 'foto-grande', { inmediato: true }),
     el('span.etiqueta.info', { texto: producto.categoria || 'Papelería' }),
     el('h2', { texto: producto.nombre }),
     producto.descripcion ? el('p', { style: 'margin:.35rem 0 0;color:var(--texto-suave);line-height:1.5', texto: producto.descripcion }) : null,
@@ -349,6 +496,10 @@ function abrirDetalle(producto) {
       type: 'button',
       texto: enPedido(producto.id) ? 'Agregar otra al pedido' : 'Agregar al pedido',
       onclick: () => { agregar(producto); avisarOk('Agregado a tu pedido'); d.close(); },
+    }),
+    el('button.btn.plano.ancho', {
+      type: 'button', style: 'margin-top:.5rem', texto: 'Compartir este producto',
+      onclick: () => compartir(producto),
     }),
     el('button.btn.plano.ancho', {
       type: 'button', style: 'margin-top:.5rem', texto: 'Seguir viendo productos',
@@ -402,8 +553,16 @@ function abrirModalPedido() {
   const d = abrirDialogo('');
   d.className = 'cat-hoja';
 
-  const inputNombre = el('input', { id: 'cat-nombre', type: 'text', placeholder: 'Para identificar tu pedido' });
-  const inputNota = el('textarea', { id: 'cat-nota', placeholder: 'Nota o dirección de entrega (opcional)', style: 'min-height:62px' });
+  const inputNombre = el('input', {
+    id: 'cat-nombre', type: 'text', placeholder: 'Para identificar tu pedido',
+    value: datosCliente.nombre,
+    oninput: (ev) => { datosCliente.nombre = ev.target.value; guardarPedido(); },
+  });
+  const inputNota = el('textarea', {
+    id: 'cat-nota', placeholder: 'Nota o dirección de entrega (opcional)', style: 'min-height:62px',
+    oninput: (ev) => { datosCliente.nota = ev.target.value; guardarPedido(); },
+  });
+  inputNota.value = datosCliente.nota;
 
   const listaEl = el('div', { style: 'max-height:38vh;overflow:auto;margin-top:.75rem' });
   const totalEl = el('div.cat-total');
@@ -413,7 +572,7 @@ function abrirModalPedido() {
     for (const item of borradorPedido) {
       const producto = productos.find((p) => p.id === item.productoId);
       listaEl.appendChild(el('div.cat-renglon', {}, [
-        producto ? cajaFoto(producto, 'mini') : el('div.mini', { html: ICONO_FOTO }),
+        producto ? cajaFoto(producto, 'mini', { inmediato: true }) : el('div.mini', { html: ICONO_FOTO }),
         el('div.texto', {}, [
           el('div.nom', { texto: item.nombre }),
           el('div.det', { texto: `${item.cantidad} × ${item.unidad} · ${formatear(item.precioUSD)} c/u` }),
@@ -423,6 +582,7 @@ function abrirModalPedido() {
           type: 'button', 'aria-label': `Quitar ${esc(item.nombre)} del pedido`, html: ICONO_PAPELERA,
           onclick: () => {
             borradorPedido = borradorPedido.filter((x) => x.productoId !== item.productoId);
+            guardarPedido();
             pintarProductos();
             pintarBarraFlotante();
             if (!borradorPedido.length) d.close();

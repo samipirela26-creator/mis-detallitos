@@ -725,7 +725,11 @@ async function cobrar() {
       sonidoCobrar();
       if (fiadoA) avisarOk(`Queda fiado a ${fiadoA.nombre}`);
       else if (turno) avisarOk('Venta registrada');
-      else avisar('Venta registrada SIN caja abierta: no va a entrar en ningún arqueo. Abre la caja para que cuadre.');
+      // Vender con la caja cerrada es normal: las ventas rápidas de la calle
+      // se hacen así y no hay gaveta que contar. Lo que hace falta decir no es
+      // "abre la caja" sino DÓNDE quedó esa plata, para que se pueda entregar.
+      else avisar('Venta registrada con la caja cerrada: esa plata queda contigo, no en la gaveta. '
+                + 'Cuando llegues, pásala a la caja en Mi dinero → Mover.');
       recibo({ id, venta, tasas, alCerrar: () => $('#q')?.focus() });
     } catch (e) {
       sonidoAlerta();

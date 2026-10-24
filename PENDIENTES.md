@@ -73,6 +73,13 @@ y hay que corregirlo a mano (el respaldo para deshacer todo es
 
 ## Por hacer
 
+- [ ] **Crear la impresión en papel fotográfico imantado** (24/10/2026). Es el servicio
+      número 13 y ya está completo en `scripts/servicios-impresion.mjs` con tus números:
+      te cuesta **3.080** (10 hojas en 30.000 = 3.000, más 80 de tinta a full) y se vende
+      en **20.000**, que deja 16.920 por hoja. Falta correrlo contra Firebase:
+      `node scripts/servicios-impresion.mjs` para verlo en seco y `--aplicar` para
+      crearlo. Solo crea el que falta; los 12 que ya están no los toca.
+
 - [ ] **Correr `scripts/fotos-de-carpeta.mjs` contra Firebase.** Las 48 fotos emparejadas
       están en el código pero no en producción: hoy el catálogo no muestra ninguna.
 
@@ -124,6 +131,18 @@ hace lo que quiera" sigue abierta.)
 
 ## Hecho el 23/10/2026
 
+- **Vender con la caja cerrada dejó de descuadrar nada.** Las ventas rápidas de afuera se
+  hacen con la caja cerrada y no hay gaveta que contar: eso no se toca. Lo que estaba mal
+  era que esa plata se le cargaba a la gaveta igual, así que el siguiente arqueo la
+  reclamaba como si estuviera en el mostrador. Ahora hay un sitio más, **`Conmigo`**: la
+  venta guarda dónde quedó su plata (`lugar`), el arqueo solo pide lo que de verdad cayó en
+  la gaveta, el reporte X dice cuánto se vendió afuera, y Mi dinero muestra "andas cargando
+  X" con un botón que deja el traslado apuntado para cuando la entregues. El aviso al
+  cobrar ya no dice "abre la caja": dice dónde quedó la plata.
+  Quién vende decide el sitio, porque son dos casos distintos: el **dueño** sin caja
+  abierta está en la calle con la plata en el bolsillo; el **empleado** está en el
+  mostrador, con la gaveta al lado, así que la suya sigue cayendo en la caja (y Mi dinero,
+  que es del dueño, no es sitio para algo que él no puede mover).
 - **La caja entiende los cambios de moneda.** El descuadre más común no era plata perdida:
   la venta es en pesos, el cliente paga con un dólar y el vuelto sale en pesos (o al
   revés). Como el cobro no anota el billete con que pagaron —y está bien que no lo haga—,

@@ -20,7 +20,7 @@ import { ventasEntre } from '../data/ventas.js';
 import { abonosEntre } from '../data/clientes.js';
 import { gastosEntre } from '../data/gastos.js';
 import { productos as catalogo } from '../data/catalogo.js';
-import { MONEDAS, LUGARES, aMenores, aUSD, formatear } from '../core/dinero.js';
+import { MONEDAS, LUGARES, LUGAR_VENTAS, LUGAR_AFUERA, aMenores, aUSD, formatear } from '../core/dinero.js';
 import { leer } from '../core/estado.js';
 import { resumen, resumenRetiros, disponible, dineroPorLugar, efectivoPorLugar } from '../reports/analisis.js';
 import { icono } from '../ui/iconos.js';
@@ -416,6 +416,47 @@ async function montarMiDinero(nodo) {
       kpi('HAY EN TOTAL', formatear(caja.totalUSD), caja.totalUSD >= 0 ? 'bueno' : 'malo'),
       ...caja.porLugar.map((l) => kpi(l.lugar, formatear(l.montoUSD), l.montoUSD < 0 ? 'malo' : '')),
     ]));
+    // La plata de las ventas de la calle: existe, está en el bolsillo, y si no
+    // se entrega se queda ahí hasta que nadie se acuerde. El botón lleva al
+    // traslado ya apuntado, porque el trabajo es entregarla, no buscar la
+    // pantalla.
+    const conmigo = (efectivo[LUGAR_AFUERA] || {});
+    const algoConmigo = Object.values(conmigo).some((x) => x > 0);
+    if (algoConmigo) {
+      const linea = Object.entries(conmigo)
+        .filter(([, monto]) => monto > 0)
+        .map(([moneda, monto]) => formatear(monto, moneda)).join('  ·  ');
+      cajaNodo.appendChild(el('div.tarjeta', {
+        style: 'background:var(--ambar-suave);border:1px solid var(--ambar);margin-top:.75rem',
+      }, [
+        el('strong', { texto: 'Andas cargando plata de ventas con la caja cerrada' }),
+        el('div', { style: 'font-weight:700;margin:.3rem 0 .5rem', texto: linea }),
+        el('div', {
+          style: 'font-size:var(--t-pie);color:var(--texto-suave);margin-bottom:.6rem',
+          texto: 'Mientras esté aquí no se le pide a ningún arqueo. Pásala a la caja o a la '
+               + 'caja fuerte cuando la entregues, y las cuentas quedan en su sitio.',
+        }),
+        el('button.btn.principal', {
+          texto: 'Pasarla a la caja',
+          onclick: () => {
+            formActivo = 'mover';
+            marcarForm();
+            const f = $('#f-mover', nodo);
+            f.desde.value = LUGAR_AFUERA;
+            f.hacia.value = LUGAR_VENTAS;
+            // Apuntado a la moneda que más se cargó: es la que se va a entregar.
+            const mayor = Object.entries(conmigo).filter(([, x]) => x > 0)
+              .sort((a, b) => b[1] - a[1])[0];
+            if (mayor) {
+              f.moneda.value = mayor[0];
+              f.monto.value = String(mayor[1] / Math.pow(10, MONEDAS[mayor[0]].decimales));
+            }
+            f.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          },
+        }),
+      ]));
+    }
+
     const porCobrar = venTodo.reduce((t, v) => t + Math.max(0, v.saldoUSD || 0), 0);
     cajaNodo.appendChild(el('p', {
       style: 'color:var(--texto-suave);font-size:var(--t-pie);margin-top:.75rem',

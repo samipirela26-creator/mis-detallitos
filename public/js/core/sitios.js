@@ -17,7 +17,7 @@
 // Si algún día se reciben bolívares en efectivo, se cambia aquí y en un solo
 // sitio: el arqueo, el conteo y las cuentas del dueño lo leen todos de aquí.
 
-import { LUGARES, LUGAR_VENTAS } from './dinero.js';
+import { LUGARES, LUGAR_VENTAS, LUGAR_AFUERA } from './dinero.js';
 
 const GUARDADO = LUGARES.find((l) => l !== LUGAR_VENTAS) || LUGAR_VENTAS;
 
@@ -33,3 +33,20 @@ export const lugarDeLaMoneda = (moneda) => LUGAR_DE_LA_MONEDA[moneda] || LUGAR_V
 
 /** ¿Hay que contar esta moneda al cerrar la gaveta? */
 export const entraALaGaveta = (moneda) => lugarDeLaMoneda(moneda) === LUGAR_VENTAS;
+
+/**
+ * Dónde cae ESTE pago, sabiendo dónde se hizo la venta.
+ *
+ * Una venta hecha fuera del negocio (sin caja abierta) deja el efectivo en el
+ * bolsillo del que vendió, no en la gaveta: `lugarVenta` manda. Pero el pago
+ * móvil no cambia de sitio por eso —los bolívares llegan al teléfono igual,
+ * esté quien sea donde esté—, así que esos se quedan donde dice su moneda.
+ */
+export function lugarDelPago(moneda, lugarVenta) {
+  const propio = lugarDeLaMoneda(moneda);
+  if (propio !== LUGAR_VENTAS) return propio;          // pago móvil: no es billete
+  if (!lugarVenta || !LUGARES.includes(lugarVenta)) return propio;
+  return lugarVenta;
+}
+
+export { LUGAR_AFUERA };

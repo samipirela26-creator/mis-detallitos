@@ -66,6 +66,14 @@ export async function movimientosDe(productoId, cuantos = 50) {
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 }
 
-/** Productos por debajo de su mínimo. */
+/**
+ * Productos por debajo de su mínimo.
+ *
+ * Sin mínimo puesto el mínimo es cero: estar agotado (o en negativo, que es
+ * señal de que algo no cuadra) es stock bajo igual. Antes, como la importación
+ * de Excel deja `stockMinimo` en 0, un producto agotado no aparecía en ninguna
+ * parte y el aviso de "stock bajo" decía 0 con la gaveta vacía.
+ */
 export const bajoMinimo = (productos) =>
-  productos.filter((p) => p.tipo !== 'servicio' && p.stockMinimo > 0 && p.stock <= p.stockMinimo);
+  productos.filter((p) => p.tipo !== 'servicio'
+    && (p.stockMinimo > 0 ? p.stock <= p.stockMinimo : p.stock <= 0));
