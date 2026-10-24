@@ -18,7 +18,7 @@
 // Regla que no se rompe: nunca se pierde el disparo. Si la foto no se puede
 // leer, o el navegador no da el recorte, se devuelve la original tal cual.
 
-import { el, esc, pegar } from './html.js';
+import { el, esc, pegar, recordarCuadro, olvidarCuadro } from './html.js';
 
 export const RAZONES = [
   { id: '1:1', etiqueta: '1:1', valor: 1 },
@@ -87,7 +87,7 @@ function abrir(img, original, { titulo, razon }) {
     }
 
     const d = el('dialog', { style: 'max-width:min(560px,94vw);width:100%' });
-    d.addEventListener('close', () => { d.remove(); if (!resuelto) { resuelto = true; listo(null); } });
+    d.addEventListener('close', () => { d.remove(); olvidarCuadro(d); if (!resuelto) { resuelto = true; listo(null); } });
     d.addEventListener('cancel', (ev) => ev.preventDefault());   // sin salidas accidentales
 
     pegar(d,
@@ -210,6 +210,7 @@ function abrir(img, original, { titulo, razon }) {
 
     document.body.appendChild(d);
     d.showModal();
+    recordarCuadro(d);
     pintar();
     // El canvas ya tiene tamaño en pantalla: el marco se repinta con la medida real.
     requestAnimationFrame(pintar);

@@ -1,4 +1,6 @@
 // avisos.js — mensajitos y confirmaciones. Nada de alert() ni confirm().
+import { recordarCuadro, olvidarCuadro } from './html.js';
+
 let caja = null;
 function contenedor() {
   if (!caja) {
@@ -36,10 +38,13 @@ export function confirmar(titulo, { detalle = '', aceptar = 'Sí', cancelar = 'N
     const [bNo, bSi] = d.querySelectorAll('button');
     bNo.textContent = cancelar;
     bSi.textContent = aceptar;
-    bNo.onclick = () => { d.close(); resolver(false); };
-    bSi.onclick = () => { d.close(); resolver(true); };
-    d.addEventListener('close', () => d.remove());
+    let respuesta = false;
+    bNo.onclick = () => d.close();
+    bSi.onclick = () => { respuesta = true; d.close(); };
+    // Cerrar con "atrás" o con Esc es lo mismo que decir que no.
+    d.addEventListener('close', () => { d.remove(); olvidarCuadro(d); resolver(respuesta); });
     document.body.appendChild(d);
     d.showModal();
+    recordarCuadro(d);
   });
 }

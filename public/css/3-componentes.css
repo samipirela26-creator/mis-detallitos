@@ -194,8 +194,15 @@ dialog {
   width: min(94vw, 460px); border: 0; border-radius: var(--r-bloque);
   padding: 1.5rem; box-shadow: var(--sombra-alta);
   background: var(--superficie);
+  /* Un cuadro largo (el de un producto) se desliza por dentro. Antes se salía
+     de la pantalla y el dedo terminaba moviendo la lista de atrás. */
+  max-height: 90dvh; overflow-y: auto; overscroll-behavior: contain;
 }
 dialog::backdrop { background: rgba(12, 30, 36, .5); }
+
+/* Con un cuadro abierto, la pantalla de atrás se queda quieta. */
+html.con-cuadro, html.con-cuadro body { overflow: hidden; touch-action: none; }
+html.con-cuadro dialog { touch-action: auto; }
 
 .vacio { text-align: center; color: var(--texto-suave); padding: 2.5rem 1rem; }
 .cargando { text-align: center; color: var(--texto-suave); padding: 2rem; font-family: var(--fuente-titulo); }
