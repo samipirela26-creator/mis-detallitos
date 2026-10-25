@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { deudaDe, debe } from '../public/js/core/dinero.js';
+import { deudaDe, debe, abonoEnPesos } from '../public/js/core/dinero.js';
 
 // La deuda se fija en PESOS, como la etiqueta. El dólar se deriva con la tasa
 // del día y no al revés: si fuera al revés, mover el dólar movería lo que la
@@ -45,4 +45,51 @@ test('debe: mira el peso cuando lo hay, y el dólar en los clientes viejos', () 
   assert.equal(debe({ saldoUSD: 630 }), true);                 // viejo, solo dólares
   assert.equal(debe({ saldoUSD: 0 }), false);
   assert.equal(debe({}), false);
+});
+
+// --- El abono -----------------------------------------------------------------
+// Cuánto le baja un abono a la deuda, en pesos. Esta cuenta vivía dentro del
+// botón "Registrar abono" y ahí nadie la podía probar: una `tasas` que era un
+// objeto donde el código llamaba `tasas()` dejó el botón muerto —se escribía el
+// monto, se tocaba y no pasaba nada— y no había prueba que lo cantara.
+
+test('abono: lo que paga en pesos baja pesos, exactos', () => {
+  const pagos = [{ moneda: 'COP', monto: 5000, montoUSD: 158 }];
+  assert.equal(abonoEnPesos(pagos, { COP: 20000, USD: 630, enPesos: true }, TASAS), 5000);
+});
+
+test('abono: lo que paga en otra moneda se pasa a pesos con la tasa de hoy', () => {
+  const pagos = [{ moneda: 'USD', monto: 100, montoUSD: 100 }];
+  // 1 dólar a 3.174 pesos por dólar.
+  assert.equal(abonoEnPesos(pagos, { COP: 20000, USD: 630, enPesos: true }, TASAS), 3174);
+});
+
+test('abono: si paga todo, la deuda en pesos se cierra en lo acordado', () => {
+  // 20.000 pesos en la etiqueta son 630 centavos; pagados en dólares y
+  // convertidos de vuelta darían 19.996 y dejarían 4 pesos colgando.
+  const pagos = [{ moneda: 'USD', monto: 630, montoUSD: 630 }];
+  assert.equal(abonoEnPesos(pagos, { COP: 20000, USD: 630, enPesos: true }, TASAS), 20000);
+});
+
+test('abono: pagar de más tampoco deja saldo a favor en pesos', () => {
+  const pagos = [{ moneda: 'COP', monto: 25000, montoUSD: 788 }];
+  assert.equal(abonoEnPesos(pagos, { COP: 20000, USD: 630, enPesos: true }, TASAS), 20000);
+});
+
+test('abono: mezcla de billetes, cada uno por su lado', () => {
+  const pagos = [
+    { moneda: 'COP', monto: 10000, montoUSD: 315 },
+    { moneda: 'USD', monto: 100, montoUSD: 100 },
+  ];
+  assert.equal(abonoEnPesos(pagos, { COP: 50000, USD: 1575, enPesos: true }, TASAS), 13174);
+});
+
+test('abono: sin tasa del peso no se inventa un peso para el resto', () => {
+  const pagos = [{ moneda: 'USD', monto: 100, montoUSD: 100 }];
+  assert.equal(abonoEnPesos(pagos, { COP: null, USD: 630, enPesos: false }, {}), 0);
+});
+
+test('abono: un cliente viejo, sin deuda en pesos, no cierra un peso que no existe', () => {
+  const pagos = [{ moneda: 'USD', monto: 630, montoUSD: 630 }];
+  assert.equal(abonoEnPesos(pagos, { COP: null, USD: 630, enPesos: false }, TASAS), 19996);
 });

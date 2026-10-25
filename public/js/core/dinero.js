@@ -197,6 +197,33 @@ export function deudaDe(cliente, tasas = {}) {
   return { COP: cop, USD: tasas.COP ? aUSD(cop, 'COP', tasas.COP) : usd, enPesos: true };
 }
 
+/**
+ * Cuántos PESOS le baja un abono a la deuda.
+ *
+ * El peso es el número que las dos personas acordaron, así que el abono tiene
+ * que bajarlo EN PESOS y no en dólares convertidos de vuelta. Lo que pagó en
+ * pesos baja peso por peso; lo que entró en otra moneda se pasa a pesos con la
+ * tasa de hoy, que es lo mejor que se puede hacer con un billete que no es de
+ * la moneda de la deuda.
+ *
+ * Y si paga TODO, la deuda en pesos se cierra en el número exacto que se
+ * acordó: sumar conversiones dejaría tres pesos colgando, y un cliente que
+ * debe tres pesos sigue saliendo en la lista de deudores como si debiera algo.
+ *
+ * Vive aquí, y no en la pantalla, porque es aritmética pura y es la que decide
+ * cuánto se le perdona a alguien: tiene que poder probarse sin abrir un cuadro.
+ */
+export function abonoEnPesos(pagos = [], deuda = { USD: 0, COP: 0 }, tasas = {}) {
+  if (deuda.COP && totalPagadoUSD(pagos) >= deuda.USD) return deuda.COP;
+  const enPesos = pagos
+    .filter((p) => p.moneda === 'COP')
+    .reduce((t, p) => t + (p.monto || 0), 0);
+  const restoUSD = pagos
+    .filter((p) => p.moneda !== 'COP')
+    .reduce((t, p) => t + (p.montoUSD || 0), 0);
+  return enPesos + (tasas.COP && restoUSD ? desdeUSD(restoUSD, 'COP', tasas.COP) : 0);
+}
+
 // --- Precios -----------------------------------------------------------------
 
 /**

@@ -20,7 +20,7 @@ import { avisarOk, avisarMal } from '../ui/avisos.js';
 import {
   listarClientes, guardarCliente, registrarAbono, abonosDe, ventasFiadasDe, deudaDe, debe,
 } from '../data/clientes.js';
-import { MONEDAS, formatear, crearPago, totalPagadoUSD, aMenores } from '../core/dinero.js';
+import { MONEDAS, formatear, crearPago, totalPagadoUSD, abonoEnPesos, aMenores } from '../core/dinero.js';
 import { leer } from '../core/estado.js';
 import { buscarClientes } from '../data/busqueda.js';
 
@@ -297,7 +297,12 @@ registrar('clientes', {
 
     /** `inicial` llena los campos con el saldo completo: lo normal es pagar todo. */
     function abonar(c, inicial = 0) {
-      const tasas = leer('tasas') || {};
+      // `tasasHoy`, no `tasas`: ahí arriba `tasas` es una FUNCIÓN que lee las
+      // del momento, y llamar a una y usar la otra ya rompió este botón una
+      // vez —`tasas()` sobre este objeto tira "no es una función" y el abono no
+      // se registraba—. Aquí hace falta la foto del momento en que se abrió el
+      // cuadro, que es la tasa con la que se armaron los pagos que se ven.
+      const tasasHoy = leer('tasas') || {};
       let pagos = [];
       const d = abrirDialogo('');
       const resumen = el('div');
@@ -320,14 +325,14 @@ registrar('clientes', {
       };
 
       const campos = Object.values(MONEDAS)
-        .filter((m) => m.codigo === 'USD' || tasas[m.codigo])
+        .filter((m) => m.codigo === 'USD' || tasasHoy[m.codigo])
         .map((m) => {
           const entrada = el('input', {
             inputmode: 'decimal', placeholder: '0',
             oninput: (ev) => {
               const monto = aMenores(ev.target.value, m.codigo) || 0;
               pagos = pagos.filter((p) => p.moneda !== m.codigo);
-              if (monto) pagos.push(crearPago(m.codigo, monto, tasas));
+              if (monto) pagos.push(crearPago(m.codigo, monto, tasasHoy));
               pintarResumen();
             },
           });
@@ -340,9 +345,9 @@ registrar('clientes', {
         const campo = campos.find((x) => x.moneda.codigo === 'USD') || campos[0];
         if (campo) {
           const m = campo.moneda.codigo;
-          const monto = m === 'USD' ? inicial : Math.round((inicial * tasas[m]) / 100);
+          const monto = m === 'USD' ? inicial : Math.round((inicial * tasasHoy[m]) / 100);
           campo.entrada.value = String(monto / Math.pow(10, campo.moneda.decimales)).replace('.', ',');
-          pagos = [crearPago(m, monto, tasas)];
+          pagos = [crearPago(m, monto, tasasHoy)];
         }
       }
       pintarResumen();
@@ -356,16 +361,9 @@ registrar('clientes', {
           el('button.btn.principal', { texto: 'Registrar abono', onclick: async () => {
             const montoUSD = totalPagadoUSD(pagos);
             if (!montoUSD) return avisarMal('Escribe cuánto está abonando.');
-            // Lo que abona también baja la deuda en PESOS. Si pagó en pesos, se
-            // descuentan esos pesos exactos; si pagó en otra moneda, se pasa a
-            // pesos con la tasa de hoy. Y si paga todo, se cierra la deuda en
-            // cero en vez de dejar 3 pesos colgando por el redondeo.
-            const d0 = deuda(c);
-            const enPesos = pagos.filter((p) => p.moneda === 'COP').reduce((t, p) => t + p.monto, 0);
-            const resto = pagos.filter((p) => p.moneda !== 'COP').reduce((t, p) => t + p.montoUSD, 0);
-            const tasaCOP = tasas().COP || 0;
-            let montoCOP = enPesos + (tasaCOP ? Math.round((resto * tasaCOP) / 100) : 0);
-            if (montoUSD >= d0.USD && d0.COP) montoCOP = d0.COP;
+            // Lo que abona también baja la deuda en PESOS, que es la moneda en
+            // la que se fijó. La cuenta está en `abonoEnPesos` (core/dinero.js).
+            const montoCOP = abonoEnPesos(pagos, deuda(c), tasasHoy);
             try {
               await registrarAbono({ clienteId: c.id, montoUSD, montoCOP, pagos });
               d.close();
