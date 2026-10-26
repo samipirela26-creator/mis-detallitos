@@ -27,6 +27,15 @@
 
   <!-- Un solo script: el resto entra por imports de módulos ES. -->
   <script type="module" src="js/app.js"></script>
+  <script>
+    // Si la red titubea o el service worker está cambiando, dar salida visual rápida
+    setTimeout(() => {
+      const cargando = document.querySelector('#app > .cargando');
+      if (cargando) {
+        cargando.innerHTML = 'Abriendo…<br><button onclick="location.reload()" style="margin-top:1.2rem;padding:.6rem 1.2rem;font-size:var(--t-cuerpo,1rem);font-weight:600;border-radius:.6rem;border:1px solid var(--borde,#ccc);background:var(--blanco,#fff);color:var(--texto,#222);cursor:pointer">Toca aquí para refrescar</button>';
+      }
+    }, 3500);
+  </script>
   <noscript>Esta app necesita JavaScript.</noscript>
 </body>
 </html>

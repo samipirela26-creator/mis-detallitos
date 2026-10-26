@@ -13,7 +13,7 @@ import {
   updateProfile,
   signOut,
 } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js';
-import { getDoc, setDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js';
+import { getDoc, getDocFromCache, setDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js';
 
 let usuario = null;        // { uid, email, nombre, rol }
 const oyentes = new Set();
@@ -92,11 +92,19 @@ export function iniciar() {
       if (!cuenta) {
         usuario = null;
       } else {
-        // El doc de usuario puede venir del caché: la app abre offline.
+        // El doc de usuario puede venir del caché: la app abre offline e instantánea.
         let datos = {};
         try {
-          const snap = await getDoc(ref('usuarios', cuenta.uid));
-          datos = snap.exists() ? snap.data() : {};
+          const snapCache = await getDocFromCache(ref('usuarios', cuenta.uid)).catch(() => null);
+          if (snapCache?.exists()) {
+            datos = snapCache.data();
+          } else {
+            const snap = await Promise.race([
+              getDoc(ref('usuarios', cuenta.uid)),
+              new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 3000)),
+            ]).catch(() => null);
+            datos = snap?.exists() ? snap.data() : {};
+          }
         } catch (e) {
           console.warn('[sesion] no se pudo leer el usuario, se asume empleado', e);
         }
