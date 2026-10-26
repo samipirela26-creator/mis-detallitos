@@ -163,13 +163,18 @@ registrar('panel', {
     // --- atajos ---
     nodo.appendChild(el('div.seccion', {}, [el('h2', { texto: 'Atajos' })]));
     nodo.appendChild(el('div.atajos-grid', {}, [
+      atajo('cart', 'Vender', 'Terminal de venta, cobros en monedas y vuelto.', 'vender'),
+      atajo('search', 'Buscar productos', 'Buscador rápido de artículos y precios.', 'buscar'),
+      atajo('box', 'Inventario', 'Catálogo completo, precios, costos y stock.', 'inventario'),
       atajo('cart', 'Ventas', 'Una por una: qué se vendió, quién la cobró y a quién.', 'ventas'),
       atajo('chart', 'Reportes', 'Ganancia por producto y margen flojo.', 'reportes'),
       atajo('handshake', 'Deudores', 'Quién te debe, cuánto y desde cuándo.', 'clientes'),
       atajo('wallet', 'Mi dinero', 'Cuánto gané y cuánto puedo sacar.', 'mi-dinero'),
-      atajo('expense', 'Gastos', 'Salidas de caja por categoría.', 'gastos-dueno'),
+      atajo('expense', 'Gastos y salidas', 'Salidas de caja por categoría.', 'gastos-dueno'),
       atajo('cash', 'Caja', 'Abrir turno, reporte X y cierre Z.', 'caja-dueno'),
-      atajo('settings', 'Configuración', 'Tasas del día, PIN y sinónimos.', 'config'),
+      atajo('camera', 'Estudio de fotos', 'Toma fotos directas a los productos.', 'fotos'),
+      atajo('upload', 'Importar Excel', 'Sube catálogo masivo desde hojas de cálculo.', 'importar'),
+      atajo('settings', 'Configuración', 'Tasas del día, PIN, usuarios y sinónimos.', 'config'),
     ]));
 
     return dejarDeMirarTasas;
