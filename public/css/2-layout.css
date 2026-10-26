@@ -127,29 +127,6 @@
 .nav button.destacado:hover { filter: brightness(1.2); }
 .nav button.destacado:active { transform: scale(.97); }
 
-/* La barra va partida: a la izquierda las acciones, a la derecha las tareas.
-   El separador es una raya de 1px del mismo borde de la píldora — no hay color
-   nuevo ni pieza nueva, solo el aire que hace que se lean como dos grupos. */
-.nav .nav-separador {
-  /* La raya se dibuja con el borde y no con el fondo: el ancho de la caja es
-     el aire entre los dos grupos, y pintarlo de color daba un bloque gordo. */
-  flex: 0 0 11px;
-  align-self: center;
-  height: 26px;
-  border-left: 1px solid var(--borde);
-}
-/* Los botones de tarea son botones de la píldora, iguales a los demás; solo
-   necesitan ser el ancla de su chapita. */
-.nav button.nav-tarea { position: relative; }
-.nav .nav-chapita {
-  position: absolute; top: 1px; right: 2px;
-  min-width: 18px; height: 18px; padding: 0 5px;
-  box-sizing: border-box;
-  background: var(--rojo); color: #ffffff;
-  border-radius: var(--pildora);
-  font-size: 11px; font-weight: 700; line-height: 18px; text-align: center;
-}
-
 .rejilla { display: grid; gap: 1rem; }
 @media (min-width: 760px) {
   .rejilla.dos { grid-template-columns: 1fr 1fr; }

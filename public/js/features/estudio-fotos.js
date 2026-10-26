@@ -24,7 +24,7 @@ import { normalizar } from '../core/texto.js';
 registrar('fotos', {
   // El empleado entra: es quien está en el mostrador con el producto en la
   // mano, y la pantalla no enseña ni costos ni ganancias.
-  titulo: 'Fotos', icono: '📷', seccion: 'Los productos', orden: 30,
+  titulo: 'Fotos', icono: '📷', menu: true, seccion: 'Los productos', orden: 40,
   montar(nodo) {
     let pendientes = [];
     let i = 0;

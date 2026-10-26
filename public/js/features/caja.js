@@ -18,7 +18,7 @@ import { leer } from '../core/estado.js';
 import { esDueno, usuarioActual } from '../core/sesion.js';
 
 registrar('caja', {
-  titulo: 'Mi caja', icono: '💵', soloEmpleado: true, seccion: 'La plata', orden: 10,
+  titulo: 'Mi caja', icono: '💵', menu: true, soloEmpleado: true, seccion: 'La plata', orden: 40,
   montar: montarCaja,
 });
 registrar('caja-dueno', { titulo: 'Caja', icono: '💵', soloDueno: true, seccion: 'La plata', orden: 20, montar: montarCaja });

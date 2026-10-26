@@ -25,7 +25,7 @@ const RANGOS = {
 };
 
 registrar('reportes', {
-  titulo: 'Reportes', icono: '📊', soloDueno: true, seccion: 'Las ventas', orden: 40,
+  titulo: 'Reportes', icono: '📊', menu: true, soloDueno: true, seccion: 'Las ventas', orden: 45,
   montar: montarReportes,
 });
 

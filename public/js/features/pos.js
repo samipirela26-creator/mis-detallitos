@@ -97,7 +97,7 @@ const vaciar = () => ponerCarrito([]);
 
 // --- pantalla ---------------------------------------------------------------
 registrar('vender', {
-  titulo: 'Vender', icono: '🧾', menu: true, seccion: 'Las ventas', orden: 25,
+  titulo: 'Vender', icono: '🧾', menu: true, seccion: 'Las ventas', orden: 30,
   montar(nodo) {
     nodo.innerHTML = `
       <div class="buscador-pos">

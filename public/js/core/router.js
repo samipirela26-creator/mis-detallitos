@@ -18,40 +18,11 @@ export function registrar(id, def) {
 /** Si el que entró puede abrirla. */
 const alcanza = (p) => (!p.soloDueno || esDueno()) && (!p.soloEmpleado || !esDueno());
 
-/** Las ACCIONES de la barra de abajo: lo que se toca a cada rato.
- *  Son tres o cuatro a propósito. Lo demás no se esconde: vive en la hoja de
- *  Todo (`pantallasDeTodo`), que sí tiene sitio para las doce. */
+/** Las 5 pantallas de la barra de navegación según el rol */
 export const pantallasDeMenu = () =>
   [...pantallas.values()]
     .filter((p) => p.menu && alcanza(p))
     .sort((a, b) => (a.orden ?? 99) - (b.orden ?? 99));
-
-/**
- * TODAS las pantallas que el que entró puede abrir, agrupadas por sección.
- *
- * Esto es lo que arregla el problema de fondo: antes una pantalla sin
- * `menu: true` no tenía botón en ninguna parte y solo se llegaba si alguien se
- * acordaba de que existía (Mi dinero, Caja, Deudores y Gastos solo se abrían
- * desde los atajos del Panel; Mis ventas, desde dentro de Mi caja). Aquí sale
- * el registro completo, así que una pantalla nueva aparece por el solo hecho
- * de registrarse con su `seccion`.
- */
-const ORDEN_SECCIONES = ['Las ventas', 'La plata', 'Los productos', 'El negocio'];
-
-export function pantallasDeTodo() {
-  const grupos = new Map();
-  for (const p of [...pantallas.values()].sort((a, b) => (a.orden ?? 99) - (b.orden ?? 99))) {
-    if (!p.seccion || !p.titulo || !alcanza(p)) continue;
-    if (!grupos.has(p.seccion)) grupos.set(p.seccion, []);
-    grupos.get(p.seccion).push(p);
-  }
-  // Las secciones van en el orden del negocio —primero vender, después la
-  // plata—, no en el que se hayan registrado las pantallas.
-  const puesto = (s) => (ORDEN_SECCIONES.indexOf(s) + 1 || 99);
-  return [...grupos.entries()]
-    .sort(([a], [b]) => puesto(a) - puesto(b))
-    .map(([seccion, items]) => ({ seccion, items }));
-}
 
 export function ir(id, params = {}) {
   const query = new URLSearchParams(params).toString();
