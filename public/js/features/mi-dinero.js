@@ -19,6 +19,7 @@ import { registrarTraslado, trasladosEntre, borrarTraslado } from '../data/trasl
 import { ventasEntre } from '../data/ventas.js';
 import { abonosEntre } from '../data/clientes.js';
 import { gastosEntre } from '../data/gastos.js';
+import { pasadas, CACHE } from '../data/lectura.js';
 import { productos as catalogo } from '../data/catalogo.js';
 import { MONEDAS, LUGARES, LUGAR_VENTAS, LUGAR_AFUERA, aMenores, aUSD, formatear } from '../core/dinero.js';
 import { leer } from '../core/estado.js';
@@ -169,7 +170,7 @@ async function montarMiDinero(nodo) {
   for (const [clave, r] of Object.entries(RANGOS)) {
     barraRangos.appendChild(el('button.btn.plano', {
       'data-r': clave, style: 'min-height:40px;font-size:var(--t-cuerpo)', texto: r.titulo,
-      onclick: () => { rango = clave; marcarRango(); cargar(); },
+      onclick: () => { rango = clave; marcarRango(); pasadas(cargar); },
     }));
   }
   const marcarRango = () => {
@@ -307,7 +308,7 @@ async function montarMiDinero(nodo) {
       }
       for (const campo of $$('[data-moneda]', cajaMonedas)) campo.value = '';
       avisarOk('Ajuste anotado: la cuenta quedó igual a lo que contaste.');
-      cargar();
+      pasadas(cargar);
     } catch (e) {
       avisarMal('No se pudo guardar: ' + (e.message || e));
     }
@@ -336,7 +337,7 @@ async function montarMiDinero(nodo) {
         await guardar(plata);
         f.reset();
         avisarOk(exito);
-        cargar();
+        pasadas(cargar);
       } catch (e) {
         avisarMal('No se pudo guardar: ' + (e.message || e));
       }
@@ -360,12 +361,20 @@ async function montarMiDinero(nodo) {
     ...plata, desde: fMover.desde.value, hacia: fMover.hacia.value, porque: fMover.porque.value,
   }), 'Dinero movido');
 
-  async function cargar() {
+  /**
+   * `fuente` la pone `pasadas` (ver data/lectura.js): las cuentas salen al
+   * instante con lo que ya está en el teléfono y se rehacen cuando contesta el
+   * servidor. Son seis consultas: esperarlas todas era lo que hacía que tocar
+   * un rango se sintiera trancado.
+   */
+  async function cargar(fuente) {
     const cajaNodo = $('#caja', nodo);
     const cuentas = $('#cuentas', nodo);
     const lista = $('#lista', nodo);
-    cuentas.innerHTML = '<div class="cargando">Sacando las cuentas…</div>';
-    lista.innerHTML = '<div class="cargando">Cargando…</div>';
+    if (fuente !== CACHE) {
+      cuentas.innerHTML = '<div class="cargando">Sacando las cuentas…</div>';
+      lista.innerHTML = '<div class="cargando">Cargando…</div>';
+    }
 
     const desde = RANGOS[rango].desde();
     const hasta = RANGOS[rango].hasta();
@@ -376,24 +385,30 @@ async function montarMiDinero(nodo) {
       // La plata que hay es histórica; la ganancia, del período elegido.
       [todo, delPeriodo] = await Promise.all([
         Promise.all([
-          ingresosEntre(INICIO, hoy), retirosEntre(INICIO, hoy), trasladosEntre(INICIO, hoy),
-          ventasEntre(INICIO, hoy), gastosEntre(INICIO, hoy),
+          ingresosEntre(INICIO, hoy, { fuente }), retirosEntre(INICIO, hoy, { fuente }),
+          trasladosEntre(INICIO, hoy, { fuente }),
+          ventasEntre(INICIO, hoy, { fuente }), gastosEntre(INICIO, hoy, { fuente }),
           // Los fiados cobrados son plata que entró: sin ellos el total del
           // negocio salía por debajo de lo que de verdad había en la gaveta.
-          abonosEntre(INICIO, hoy).catch(() => []),
+          abonosEntre(INICIO, hoy, { fuente }).catch(() => []),
         ]),
         Promise.all([
-          ventasEntre(desde, hasta), gastosEntre(desde, hasta),
-          retirosEntre(desde, hasta), ingresosEntre(desde, hasta), trasladosEntre(desde, hasta),
+          ventasEntre(desde, hasta, { fuente }), gastosEntre(desde, hasta, { fuente }),
+          retirosEntre(desde, hasta, { fuente }), ingresosEntre(desde, hasta, { fuente }),
+          trasladosEntre(desde, hasta, { fuente }),
         ]),
       ]);
     } catch (e) {
+      if (fuente === CACHE) return false;   // la caché no sabe: que conteste el servidor
       cajaNodo.innerHTML = '';
       cuentas.innerHTML = '';
       lista.innerHTML = '';
       cajaNodo.appendChild(el('div.vacio', { texto: 'No se pudieron cargar las cuentas (¿sin internet?).' }));
       return;
     }
+    // Una caché sin NADA del negocio entero no es un negocio en cero: es que
+    // no sabe. Mejor el "Sacando las cuentas…" que un cero que asusta.
+    if (fuente === CACHE && !todo.some((x) => x.length)) return false;
 
     const [ingTodo, retTodo, traTodo, venTodo, gasTodo, aboTodo] = todo;
     const [ventas, gastos, retiros, ingresos, traslados] = delPeriodo;
@@ -541,7 +556,7 @@ async function montarMiDinero(nodo) {
             if (!await confirmar('¿Borrar este movimiento?', { detalle: 'Las cuentas de la plata se recalculan.', peligro: true, aceptar: 'Borrar' })) return;
             const borrar = { ingreso: borrarIngreso, retiro: borrarRetiro, traslado: borrarTraslado }[m.tipo];
             await borrar(m.id);
-            cargar();
+            pasadas(cargar);
           },
         }),
       ]));
@@ -549,7 +564,7 @@ async function montarMiDinero(nodo) {
     lista.appendChild(tarjeta);
   }
 
-  cargar();
+  pasadas(cargar);
 }
 
 function kpi(rotulo, valor, clase = '') {

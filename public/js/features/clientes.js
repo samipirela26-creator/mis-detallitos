@@ -23,6 +23,7 @@ import {
 import { MONEDAS, formatear, crearPago, totalPagadoUSD, abonoEnPesos, aMenores } from '../core/dinero.js';
 import { leer } from '../core/estado.js';
 import { buscarClientes } from '../data/busqueda.js';
+import { pasadas, CACHE } from '../data/lectura.js';
 
 /** Hace cuántos días es esa fecha. Null si no hay fecha. */
 function diasDesde(ts) {
@@ -47,8 +48,14 @@ registrar('clientes', {
   async montar(nodo) {
     nodo.innerHTML = '<div class="cargando">Cargando deudores…</div>';
     let clientes = [];
-    try { clientes = await listarClientes(); }
-    catch { nodo.innerHTML = ''; return nodo.appendChild(el('div.vacio', { texto: 'No se pudo cargar (¿sin internet?).' })); }
+    // La lista que ya está en el teléfono sale al instante; la del servidor
+    // repinta encima cuando llegue (ver data/lectura.js).
+    try { clientes = await listarClientes({ fuente: CACHE }); } catch { /* caché fría */ }
+    const deLaCache = clientes.length > 0;
+    if (!deLaCache) {
+      try { clientes = await listarClientes(); }
+      catch { nodo.innerHTML = ''; return nodo.appendChild(el('div.vacio', { texto: 'No se pudo cargar (¿sin internet?).' })); }
+    }
 
     const tasas = () => leer('tasas') || {};
     const deuda = (c) => deudaDe(c, tasas());
@@ -187,7 +194,14 @@ registrar('clientes', {
       return tarjeta;
     }
 
-    const recargar = async () => { clientes = await listarClientes(); pintar(); };
+    const recargar = async () => {
+      await pasadas(async (fuente) => {
+        const lista = await listarClientes({ fuente });
+        if (fuente === CACHE && !lista.length) return false;
+        clientes = lista;
+        pintar();
+      });
+    };
 
     function formulario(c = null) {
       const d = abrirDialogo(`
@@ -244,55 +258,64 @@ registrar('clientes', {
         el('button.btn.plano.ancho', { style: 'margin-top:1rem', texto: 'Cerrar', onclick: () => d.close() })
       );
 
-      const [fiadas, abonos] = await Promise.all([
-        ventasFiadasDe(c.id).catch(() => []),
-        abonosDe(c.id).catch(() => []),
-      ]);
-      const caja = $('#movimientos', d);
-      caja.className = '';
-      caja.innerHTML = '';
+      async function movimientos(fuente) {
+        const [fiadas, abonos] = await Promise.all([
+          ventasFiadasDe(c.id, { fuente }).catch(() => []),
+          abonosDe(c.id, { fuente }).catch(() => []),
+        ]);
+        if (fuente === CACHE && !fiadas.length && !abonos.length) return false;
+        const caja = $('#movimientos', d);
+        if (!caja) return;                 // el cuadro se cerró mientras cargaba
+        caja.className = '';
+        caja.innerHTML = '';
 
-      const fila = (izq, der, nota, color) => el('div', {
-        style: 'display:flex;justify-content:space-between;gap:.5rem;padding:.4rem 0;border-bottom:1px solid var(--borde);font-size:var(--t-cuerpo)',
-      }, [
-        el('div', { style: 'min-width:0' }, [
-          el('div', { texto: izq }),
-          nota ? el('div', { style: 'font-size:var(--t-pie);color:var(--texto-suave)', html: nota }) : null,
-        ]),
-        el('strong.cifra', { style: color ? `color:${color}` : '', texto: der }),
-      ]);
+        const fila = (izq, der, nota, color) => el('div', {
+          style: 'display:flex;justify-content:space-between;gap:.5rem;padding:.4rem 0;border-bottom:1px solid var(--borde);font-size:var(--t-cuerpo)',
+        }, [
+          el('div', { style: 'min-width:0' }, [
+            el('div', { texto: izq }),
+            nota ? el('div', { style: 'font-size:var(--t-pie);color:var(--texto-suave)', html: nota }) : null,
+          ]),
+          el('strong.cifra', { style: color ? `color:${color}` : '', texto: der }),
+        ]);
 
-      caja.appendChild(el('h3', { style: 'font-size:1rem;margin:.5rem 0 .2rem', texto: 'Lo que se llevó fiado' }));
-      if (!fiadas.length) {
-        caja.appendChild(el('p', { style: 'color:var(--texto-suave);font-size:var(--t-cuerpo)', texto: 'Nada fiado todavía.' }));
-      }
-      for (const v of fiadas) {
-        caja.appendChild(fila(
-          fecha(v.ts),
-          formatear(v.totalUSD || 0),
-          (v.lineas || []).map((l) => `${l.cantidad} ${esc(l.nombre)}`).join(' · '),
-        ));
+        caja.appendChild(el('h3', { style: 'font-size:1rem;margin:.5rem 0 .2rem', texto: 'Lo que se llevó fiado' }));
+        if (!fiadas.length) {
+          caja.appendChild(el('p', { style: 'color:var(--texto-suave);font-size:var(--t-cuerpo)', texto: 'Nada fiado todavía.' }));
+        }
+        for (const v of fiadas) {
+          caja.appendChild(fila(
+            fecha(v.ts),
+            formatear(v.totalUSD || 0),
+            (v.lineas || []).map((l) => `${l.cantidad} ${esc(l.nombre)}`).join(' · '),
+          ));
+        }
+
+        caja.appendChild(el('h3', { style: 'font-size:1rem;margin:1rem 0 .2rem', texto: 'Lo que ha abonado' }));
+        if (!abonos.length) {
+          caja.appendChild(el('p', { style: 'color:var(--texto-suave);font-size:var(--t-cuerpo)', texto: 'Sin abonos todavía.' }));
+        }
+        for (const x of abonos) {
+          caja.appendChild(fila(
+            fecha(x.ts),
+            formatear(x.montoUSD || 0),
+            (x.pagos || []).map((p) => formatear(p.monto, p.moneda)).join(' + '),
+            'var(--verde)',
+          ));
+        }
+        if (abonos.length) {
+          const sumado = abonos.reduce((t, x) => t + (x.montoUSD || 0), 0);
+          caja.appendChild(el('p', {
+            style: 'text-align:right;font-weight:700;margin:.4rem 0 0',
+            texto: `Abonado en total: ${formatear(sumado)}`,
+          }));
+        }
       }
 
-      caja.appendChild(el('h3', { style: 'font-size:1rem;margin:1rem 0 .2rem', texto: 'Lo que ha abonado' }));
-      if (!abonos.length) {
-        caja.appendChild(el('p', { style: 'color:var(--texto-suave);font-size:var(--t-cuerpo)', texto: 'Sin abonos todavía.' }));
-      }
-      for (const x of abonos) {
-        caja.appendChild(fila(
-          fecha(x.ts),
-          formatear(x.montoUSD || 0),
-          (x.pagos || []).map((p) => formatear(p.monto, p.moneda)).join(' + '),
-          'var(--verde)',
-        ));
-      }
-      if (abonos.length) {
-        const sumado = abonos.reduce((t, x) => t + (x.montoUSD || 0), 0);
-        caja.appendChild(el('p', {
-          style: 'text-align:right;font-weight:700;margin:.4rem 0 0',
-          texto: `Abonado en total: ${formatear(sumado)}`,
-        }));
-      }
+      // Dos pasadas (ver data/lectura.js): lo que ya está en el teléfono se ve
+      // al instante —abrir la ficha de alguien es un toque, no una consulta— y
+      // el servidor repinta encima.
+      await pasadas(movimientos);
     }
 
     /** `inicial` llena los campos con el saldo completo: lo normal es pagar todo. */
@@ -378,5 +401,7 @@ registrar('clientes', {
     }
 
     pintar();
+    // Se pintó con la caché: ahora sí la de verdad, y repinta si cambió.
+    if (deLaCache) listarClientes().then((l) => { clientes = l; pintar(); }).catch(() => {});
   },
 });

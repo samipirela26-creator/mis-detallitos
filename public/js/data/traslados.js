@@ -6,11 +6,13 @@
 // cuenta de cada sitio cuadre sin tener que escribir dos movimientos.
 import { col, refNuevo, ref } from '../core/firebase.js';
 import {
-  setDoc, getDocs, query, where, orderBy, serverTimestamp, deleteDoc, Timestamp,
+  setDoc, query, where, orderBy, serverTimestamp, deleteDoc, Timestamp,
 } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js';
 import { usuarioActual } from '../core/sesion.js';
 import { LUGARES } from '../core/dinero.js';
 import { anotar } from './auditoria.js';
+import { encolar } from './cola.js';
+import { traer, SERVIDOR } from './lectura.js';
 
 export async function registrarTraslado({ desde, hacia, montoUSD, moneda, monto, tasa, porque = '' }) {
   if (!LUGARES.includes(desde) || !LUGARES.includes(hacia)) throw new Error('Lugar no permitido.');
@@ -19,24 +21,24 @@ export async function registrarTraslado({ desde, hacia, montoUSD, moneda, monto,
 
   const u = usuarioActual();
   const documento = refNuevo('traslados');
-  await setDoc(documento, {
+  // Sin `await`: ver data/cola.js.
+  encolar(setDoc(documento, {
     desde, hacia, montoUSD, moneda, monto, tasa,
     porque: String(porque || '').trim(),
     uid: u.uid, nombreUsuario: u.nombre,
     ts: serverTimestamp(), dia: new Date().toISOString().slice(0, 10),
-  });
+  }), 'traslado');
   anotar('traslado-registrado', { trasladoId: documento.id, desde, hacia, montoUSD });
   return documento.id;
 }
 
-export async function trasladosEntre(desde, hasta) {
+export async function trasladosEntre(desde, hasta, { fuente = SERVIDOR } = {}) {
   const d = Timestamp.fromDate(new Date(`${desde}T00:00:00`));
   const h = Timestamp.fromDate(new Date(`${hasta}T23:59:59.999`));
-  const snap = await getDocs(query(col('traslados'), where('ts', '>=', d), where('ts', '<=', h), orderBy('ts', 'desc')));
-  return snap.docs.map((x) => ({ id: x.id, ...x.data() }));
+  return traer(query(col('traslados'), where('ts', '>=', d), where('ts', '<=', h), orderBy('ts', 'desc')), fuente);
 }
 
 export async function borrarTraslado(id) {
-  await deleteDoc(ref('traslados', id));
+  encolar(deleteDoc(ref('traslados', id)), 'traslado-borrado');
   anotar('traslado-borrado', { trasladoId: id });
 }

@@ -135,13 +135,18 @@ export function aUSD(menores, moneda, tasaMenores) {
 // pago = { moneda, monto (menores), tasa (menores por USD), montoUSD (centavos) }
 
 /** Arma un pago dejando congelada la tasa usada. */
-export function crearPago(moneda, montoMenores, tasas) {
+export function crearPago(moneda, montoMenores, tasas, { montoUSD = null } = {}) {
   const tasa = moneda === MONEDA_BASE ? 100 : (tasas || {})[moneda];
   return {
     moneda,
     monto: montoMenores,
     tasa: tasa ?? null,
-    montoUSD: aUSD(montoMenores, moneda, moneda === MONEDA_BASE ? null : tasa),
+    // `montoUSD` se puede fijar cuando se sabe que este pago CUBRE la venta.
+    // Sin eso, pagar 3.000 pesos de tres cosas de 1.000 podía dar 73 centavos
+    // mientras las líneas suman 72: cada precio se redondea a centavos por su
+    // lado y los restos no se cancelan. Quedaba un saldo de un centavo a favor
+    // del cliente en una venta que se pagó completa.
+    montoUSD: montoUSD ?? aUSD(montoMenores, moneda, moneda === MONEDA_BASE ? null : tasa),
   };
 }
 
@@ -244,6 +249,26 @@ export function precioPorCantidad(producto, cantidad) {
 }
 
 /**
+ * El tramo que le toca a esa cantidad, en PESOS. Mismo recorrido que
+ * `precioPorCantidad`, pero sobre el peso, que es el número de la etiqueta.
+ *
+ * Devuelve null cuando no se puede saber: una escala vieja sin `precioCOP`
+ * guardado. Null es "no sé", y quien llama tiene que notar la diferencia entre
+ * eso y un cero.
+ */
+export function precioCOPPorCantidad(producto, cantidad) {
+  const base = producto.precioCOP || 0;
+  const escalas = (producto.escalas || [])
+    .filter((e) => Number.isFinite(e.desdeCant) && e.precioCOP > 0)
+    .sort((a, b) => a.desdeCant - b.desdeCant);
+  let precio = base;
+  for (const e of escalas) {
+    if (cantidad >= e.desdeCant) precio = e.precioCOP;
+  }
+  return precio > 0 ? precio : null;
+}
+
+/**
  * Devuelve una COPIA de la línea con la cantidad nueva y el precio que le
  * toca. No muta: el carrito compara objetos para saber si repintar.
  *
@@ -266,6 +291,12 @@ export function conCantidad(linea, cantidad) {
     : linea.precioUSD;
   nueva.precioOriginalUSD = base;
   nueva.precioUSD = precioPorCantidad({ precioUSD: base, escalas: linea.escalas }, cantidad);
+  // El peso sigue al dólar por el MISMO tramo. Si se quedara en el precio
+  // base, 200 fotocopias se cobrarían al peso de una sola: el tramo movía el
+  // dólar y el peso —que es el que se le muestra al cliente— no se enteraba.
+  nueva.precioCOP = precioCOPPorCantidad(
+    { precioCOP: linea.precioCOPOriginal ?? linea.precioCOP, escalas: linea.escalas }, cantidad,
+  ) || 0;
   return nueva;
 }
 
@@ -321,6 +352,21 @@ export function totalesLinea({ cantidad, precioUSD, costoUSD = 0 }) {
   return { totalUSD: total, costoUSD: costo, gananciaUSD: total - costo };
 }
 
+/**
+ * El total, y además el total EXACTO en pesos (`totalCOP`) cuando se puede.
+ *
+ * Por qué hace falta un número aparte y no basta con convertir `totalUSD`: el
+ * dólar se guarda en centavos, y 20.000 pesos no caben en centavos sin resto.
+ * Al volver salen 20.008. Son 8 pesos, pero el cliente mira la etiqueta que
+ * dice 20.000 y la pantalla le dice otra cosa, y esa discusión no la gana
+ * nadie. Sumando el peso de cada línea —que viaja con ella desde la etiqueta—
+ * el total es el de la etiqueta, exacto.
+ *
+ * `totalCOP` es null si UNA sola línea no sabe su peso (precio acordado a mano,
+ * producto viejo sin `precioCOP`). Sumar las que sí y convertir las que no
+ * daría un total que no es ni lo uno ni lo otro; mejor decir "no sé" y que
+ * quien llama convierta el total entero, como se hacía antes.
+ */
 export function totalesVenta(lineas = []) {
   return lineas.reduce(
     (acc, l) => {
@@ -328,9 +374,12 @@ export function totalesVenta(lineas = []) {
       acc.totalUSD += t.totalUSD;
       acc.costoUSD += t.costoUSD;
       acc.gananciaUSD += t.gananciaUSD;
+      if (acc.totalCOP !== null) {
+        acc.totalCOP = l.precioCOP > 0 ? acc.totalCOP + redondear(l.cantidad * l.precioCOP) : null;
+      }
       return acc;
     },
-    { totalUSD: 0, costoUSD: 0, gananciaUSD: 0 }
+    { totalUSD: 0, costoUSD: 0, gananciaUSD: 0, totalCOP: 0 }
   );
 }
 

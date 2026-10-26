@@ -10,6 +10,7 @@ import { setDoc, getDocs, query, where, orderBy, serverTimestamp, deleteDoc } fr
 import { usuarioActual } from '../core/sesion.js';
 import { normalizar } from '../core/texto.js';
 import { agregarAlias } from './productos.js';
+import { encolar } from './cola.js';
 
 let ultimaBusqueda = '';
 
@@ -30,7 +31,7 @@ export async function aprenderDe(producto) {
   if (conocidos.some((c) => c.includes(q) || q.includes(c))) return;
 
   try {
-    await setDoc(ref('sinonimos_pendientes', `${producto.id}__${q}`.slice(0, 1400)), {
+    encolar(setDoc(ref('sinonimos_pendientes', `${producto.id}__${q}`.slice(0, 1400)), {
       productoId: producto.id,
       nombreProducto: producto.nombre,
       busqueda: busqueda,
@@ -39,7 +40,7 @@ export async function aprenderDe(producto) {
       estado: 'pendiente',
       uid: usuarioActual()?.uid || null,
       ts: serverTimestamp(),
-    }, { merge: true });
+    }, { merge: true }), 'sinonimo');
   } catch (e) {
     console.warn('[sinonimos]', e?.code || e);
   }
@@ -57,7 +58,7 @@ export async function pendientes() {
 /** El dueño aprueba: pasa a ser alias de verdad del producto. */
 export async function aprobar(pendiente, aliasActuales = []) {
   await agregarAlias(pendiente.productoId, pendiente.busqueda, aliasActuales);
-  await deleteDoc(ref('sinonimos_pendientes', pendiente.id));
+  encolar(deleteDoc(ref('sinonimos_pendientes', pendiente.id)), 'sinonimo-aprobado');
 }
 
-export const descartar = (id) => deleteDoc(ref('sinonimos_pendientes', id));
+export const descartar = (id) => encolar(deleteDoc(ref('sinonimos_pendientes', id)), 'sinonimo-descartado');

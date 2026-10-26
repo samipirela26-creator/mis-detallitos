@@ -7,6 +7,7 @@ import { el, esc, $, diaISO, sumarDias, primerDiaDelMes } from '../ui/html.js';
 import { avisar, avisarMal } from '../ui/avisos.js';
 import { ventasEntre } from '../data/ventas.js';
 import { gastosEntre } from '../data/gastos.js';
+import { pasadas, CACHE } from '../data/lectura.js';
 import { productos as catalogo } from '../data/catalogo.js';
 import { bajoMinimo } from '../data/inventario.js';
 import { turnoAbierto } from '../data/caja.js';
@@ -41,7 +42,7 @@ async function montarReportes(nodo) {
     barraRangos.appendChild(el('button.btn.plano', {
       'data-r': clave, style: 'min-height:40px;font-size:var(--t-cuerpo)',
       texto: r.titulo,
-      onclick: () => { rango = clave; marcar(); cargar(); },
+      onclick: () => { rango = clave; marcar(); pasadas(cargar); },
     }));
   }
   const marcar = () => {
@@ -95,21 +96,32 @@ async function montarReportes(nodo) {
     ]));
   }
 
-  async function cargar() {
+  /**
+   * `fuente` la pone `pasadas` (ver data/lectura.js): primero las cuentas con
+   * lo que ya está en el teléfono —salen al instante— y después las de verdad,
+   * con lo que diga el servidor. Las dos pintan lo mismo casi siempre.
+   */
+  async function cargar(fuente) {
     avisarTurnoViejo();
     const caja = $('#cuerpo', nodo);
-    caja.innerHTML = '<div class="cargando">Sacando las cuentas…</div>';
+    if (fuente !== CACHE) caja.innerHTML = '<div class="cargando">Sacando las cuentas…</div>';
     const desde = RANGOS[rango].desde();
     const hasta = RANGOS[rango].hasta();
 
     let ventas = [], gastos = [];
     try {
-      [ventas, gastos] = await Promise.all([ventasEntre(desde, hasta), gastosEntre(desde, hasta)]);
+      [ventas, gastos] = await Promise.all([
+        ventasEntre(desde, hasta, { fuente }), gastosEntre(desde, hasta, { fuente }),
+      ]);
       avisarVentasSinTurno(ventas);
     } catch (e) {
+      if (fuente === CACHE) return false;   // la caché no sabe: que conteste el servidor
       caja.innerHTML = '';
       return caja.appendChild(el('div.vacio', { texto: 'No se pudieron cargar los reportes (¿sin internet?).' }));
     }
+    // Caché vacía no es "no hubo ventas": es que no sabe. Se deja el
+    // "Sacando las cuentas…" hasta que contesten de verdad.
+    if (fuente === CACHE && !ventas.length && !gastos.length) return false;
 
     // El empleado no guarda costos en sus ventas (no los puede leer): aquí se
     // completan con el costo actual del catálogo, que el dueño sí tiene.
@@ -164,13 +176,15 @@ async function montarReportes(nodo) {
     caja.appendChild(el('div.seccion', {}, [el('h2', { texto: 'Cómo va día por día' })]));
     const lienzo1 = el('canvas', { height: '220' });
     caja.appendChild(el('div.tarjeta', { style: 'height:280px' }, [lienzo1]));
-    import('./graficos.js').then((g) => g.lineaDiaria(lienzo1, dias)).catch(() => {});
+    // Los gráficos solo en la pasada del servidor: dibujarlos dos veces se ve
+    // como un parpadeo y no aportan nada que los números no digan ya.
+    if (fuente !== CACHE) import('./graficos.js').then((g) => g.lineaDiaria(lienzo1, dias)).catch(() => {});
 
     // --- lo que de verdad deja plata ---
     caja.appendChild(el('div.seccion', {}, [el('h2', { texto: 'Lo que más ganancia deja' })]));
     const lienzo2 = el('canvas', { height: '240' });
     caja.appendChild(el('div.tarjeta', { style: 'height:300px' }, [lienzo2]));
-    import('./graficos.js').then((g) => g.barrasProductos(lienzo2, productos)).catch(() => {});
+    if (fuente !== CACHE) import('./graficos.js').then((g) => g.barrasProductos(lienzo2, productos)).catch(() => {});
 
     // --- margen flojo: el reporte que pidió el dueño ---
     caja.appendChild(el('div.seccion', {}, [el('h2', { texto: 'A esto le estás ganando poco' })]));
@@ -213,7 +227,7 @@ async function montarReportes(nodo) {
       el('div', { style: 'height:220px' }, [lienzo3]),
       el('div', { style: 'overflow:auto;margin-top:.75rem' }, [tablaV]),
     ]));
-    import('./graficos.js').then((g) => g.donaVendedores(lienzo3, vendedores)).catch(() => {});
+    if (fuente !== CACHE) import('./graficos.js').then((g) => g.donaVendedores(lienzo3, vendedores)).catch(() => {});
 
     // --- descuentos ---
     if (regalado.length) {
@@ -271,7 +285,7 @@ async function montarReportes(nodo) {
     ]));
   }
 
-  cargar();
+  pasadas(cargar);
 }
 
 function diferenciaDias(desde, hasta) {

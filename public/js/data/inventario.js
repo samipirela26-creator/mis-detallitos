@@ -7,6 +7,7 @@ import {
 } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js';
 import { usuarioActual } from '../core/sesion.js';
 import { operacionStock } from './productos.js';
+import { encolar } from './cola.js';
 
 export const TIPOS = {
   compra: { etiqueta: 'Compra', signo: +1 },
@@ -45,7 +46,9 @@ export async function registrarMovimientos(movimientos, { lote = null, ventaId =
     operacionStock(l, m.productoId, delta);
   }
 
-  if (propio) await l.commit();
+  // Sin `await`: ver data/cola.js. Si el lote viene de afuera (una venta), lo
+  // sube quien lo armó.
+  if (propio) encolar(l.commit(), 'movimiento-de-inventario');
   return l;
 }
 

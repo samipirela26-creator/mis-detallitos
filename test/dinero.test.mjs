@@ -210,3 +210,56 @@ test('el estado del margen es uno solo, y no un ternario copiado', () => {
   // El umbral se puede mover sin tocar ninguna pantalla.
   assert.equal(d.estadoMargen(20, 30), 'flojo');
 });
+
+// --- el peso exacto: 20.000 es 20.000 ---------------------------------------
+//
+// El dólar se guarda en centavos y 20.000 pesos no caben ahí sin resto: al
+// convertir de ida y vuelta salen 20.008. El cliente leyó 20.000 en la
+// etiqueta, así que el total tiene que sumar los pesos de las líneas, no
+// convertir el dólar.
+
+test('el total en pesos sale de las etiquetas, no de convertir el dólar', () => {
+  const tasa = 4100;                                    // 4.100 pesos por dólar
+  // Tres cosas de 1.000 pesos. Cada una son 24 centavos (24,39 redondeado).
+  const lineas = [{ cantidad: 3, precioUSD: 24, precioCOP: 1000, costoUSD: 0 }];
+  const t = d.totalesVenta(lineas);
+
+  assert.equal(t.totalCOP, 3000, 'tres de mil son tres mil, no 2.952');
+  // Y así es como salía antes, que es el error que se vino a quitar:
+  assert.equal(d.desdeUSD(t.totalUSD, 'COP', tasa), 2952);
+});
+
+test('sin precio en pesos el total en pesos dice "no sé", no un número a medias', () => {
+  const lineas = [
+    { cantidad: 1, precioUSD: 100, precioCOP: 4100, costoUSD: 0 },
+    { cantidad: 1, precioUSD: 50, precioCOP: 0, costoUSD: 0 },   // acordado a mano
+  ];
+  assert.equal(d.totalesVenta(lineas).totalCOP, null);
+});
+
+test('la escala por cantidad mueve el peso igual que el dólar', () => {
+  const copia = {
+    nombre: 'Fotocopia B/N', cantidad: 1,
+    precioUSD: 10, precioOriginalUSD: 10,
+    precioCOP: 1000, precioCOPOriginal: 1000,
+    tipoPrecio: 'fijo', precioEditado: false,
+    escalas: [{ desdeCant: 200, precioUSD: 5, precioCOP: 300 }],
+  };
+  assert.equal(d.conCantidad(copia, 200).precioCOP, 300, '200 copias van al tramo, también en pesos');
+  assert.equal(d.conCantidad(copia, 199).precioCOP, 1000);
+  // Y vuelve al de arriba cuando baja la cantidad.
+  assert.equal(d.conCantidad(d.conCantidad(copia, 200), 10).precioCOP, 1000);
+});
+
+test('un pago que cubre la venta no deja saldo por el redondeo', () => {
+  const tasas = { COP: 4100 };
+  const lineas = [{ cantidad: 3, precioUSD: 24, precioCOP: 1000, costoUSD: 0 }];
+  const t = d.totalesVenta(lineas);
+  // Sin fijar el dólar, 3.000 pesos valen 73 centavos y las líneas suman 72:
+  assert.equal(d.crearPago('COP', t.totalCOP, tasas).montoUSD, 73);
+  // Fijándolo, la venta queda pagada justa.
+  const pago = d.crearPago('COP', t.totalCOP, tasas, { montoUSD: t.totalUSD });
+  assert.equal(pago.montoUSD, t.totalUSD);
+  assert.equal(pago.monto, 3000, 'y lo que entró a la gaveta siguen siendo 3.000 pesos');
+  assert.equal(d.totalPagadoUSD([pago]) - t.totalUSD, 0, 'ni debe ni le deben');
+});

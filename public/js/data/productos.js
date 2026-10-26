@@ -13,6 +13,7 @@ import { normalizar, claveProducto } from '../core/texto.js';
 import { usuarioActual } from '../core/sesion.js';
 import { escribir, leer } from '../core/estado.js';
 import { anotar } from './auditoria.js';
+import { encolar } from './cola.js';
 import { aUSD } from '../core/dinero.js';
 import { versionVenta, SECRETOS } from '../core/producto-publico.js';
 
@@ -133,7 +134,9 @@ export async function guardarProducto(datos, id = null) {
   const lote = writeBatch(db);
   lote.set(documento, { ...limpio, actualizado: serverTimestamp() }, { merge: !!id });
   lote.set(ref('productos_venta', productoId), { ...versionVenta(limpio), actualizado: serverTimestamp() }, { merge: !!id });
-  await lote.commit();
+  // Sin `await`: ver data/cola.js. Los dos documentos van en el mismo lote, así
+  // que el espejo del empleado no puede quedarse atrás aunque se suba después.
+  encolar(lote.commit(), 'producto');
 
   anotar(id ? 'producto-editado' : 'producto-creado', {
     productoId,
@@ -239,7 +242,7 @@ export async function desactivarProducto(id) {
   const lote = writeBatch(db);
   lote.set(ref('productos', id), { activo: false, actualizado: serverTimestamp() }, { merge: true });
   lote.set(ref('productos_venta', id), { activo: false, actualizado: serverTimestamp() }, { merge: true });
-  await lote.commit();
+  encolar(lote.commit(), 'producto-desactivado');
   anotar('producto-desactivado', { productoId: id });
 }
 
@@ -247,7 +250,7 @@ export async function reactivarProducto(id) {
   const lote = writeBatch(db);
   lote.set(ref('productos', id), { activo: true }, { merge: true });
   lote.set(ref('productos_venta', id), { activo: true }, { merge: true });
-  await lote.commit();
+  encolar(lote.commit(), 'producto-reactivado');
 }
 
 /** Agrega un sinónimo y lo deja listo para buscar. */
@@ -257,7 +260,7 @@ export async function agregarAlias(id, alias, aliasPrevios = []) {
   const campos = { alias: alias2, aliasNorm: alias2.map(normalizar) };
   lote.set(ref('productos', id), campos, { merge: true });
   lote.set(ref('productos_venta', id), campos, { merge: true });
-  await lote.commit();
+  encolar(lote.commit(), 'alias');
   anotar('alias-agregado', { productoId: id, alias });
 }
 
@@ -267,7 +270,7 @@ export async function marcarFoto(id, tiene = true) {
   const campos = { tieneFoto: tiene, fotoPendiente: !tiene };
   lote.set(ref('productos', id), campos, { merge: true });
   lote.set(ref('productos_venta', id), campos, { merge: true });
-  await lote.commit();
+  encolar(lote.commit(), 'marca-de-foto');
 }
 
 /**

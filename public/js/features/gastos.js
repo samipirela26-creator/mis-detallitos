@@ -23,6 +23,7 @@ import { registrar } from '../core/router.js';
 import { el, esc, $, fecha, diaISO, primerDiaDelMes } from '../ui/html.js';
 import { avisarOk, avisarMal, confirmar } from '../ui/avisos.js';
 import { CATEGORIAS, registrarGasto, gastosEntre, borrarGasto } from '../data/gastos.js';
+import { pasadas, CACHE } from '../data/lectura.js';
 import {
   CATEGORIAS as CAT_RETIRO, registrarRetiro, retirosEntre, borrarRetiro,
 } from '../data/retiros.js';
@@ -141,21 +142,24 @@ async function montarGastos(nodo) {
       proponerLugar();
       refrescar();
       avisarOk(clase === 'retiro' ? 'Retiro registrado' : 'Gasto registrado');
-      cargar();
+      pasadas(cargar);
     } catch (e) {
       avisarMal('No se pudo guardar: ' + (e.message || e));
     }
   });
 
-  async function cargar() {
+  /** `fuente` la pone `pasadas`: ver data/lectura.js. */
+  async function cargar(fuente) {
     const caja = $('#lista', nodo);
     try {
       // Las dos clases de salida, juntas y en orden: si se anota un retiro y la
       // lista de abajo solo trae gastos, parece que no se guardó nada.
       const [gastos, retiros] = await Promise.all([
-        gastosEntre(primerDiaDelMes(), diaISO()),
-        dueno ? retirosEntre(primerDiaDelMes(), diaISO()).catch(() => []) : [],
+        gastosEntre(primerDiaDelMes(), diaISO(), { fuente }),
+        dueno ? retirosEntre(primerDiaDelMes(), diaISO(), { fuente }).catch(() => []) : [],
       ]);
+      // Caché vacía no es "no hubo salidas": es que no sabe.
+      if (fuente === CACHE && !gastos.length && !retiros.length) return false;
       const lista = [
         ...gastos.map((x) => ({ ...x, clase: 'gasto' })),
         ...retiros.map((x) => ({ ...x, clase: 'retiro', nota: x.porque })),
@@ -201,16 +205,17 @@ async function montarGastos(nodo) {
               if (!await confirmar(`¿Borrar este ${que}?`, { peligro: true, aceptar: 'Borrar' })) return;
               if (g.clase === 'retiro') await borrarRetiro(g.id);
               else await borrarGasto(g.id);
-              cargar();
+              pasadas(cargar);
             },
           }) : null,
         ]));
       }
       caja.appendChild(tarjeta);
     } catch (e) {
+      if (fuente === CACHE) return false;   // la caché no sabe: que conteste el servidor
       caja.innerHTML = '';
       caja.appendChild(el('div.vacio', { texto: 'No se pudieron cargar los gastos (¿sin internet?).' }));
     }
   }
-  cargar();
+  pasadas(cargar);
 }

@@ -13,6 +13,7 @@ import { getDoc, writeBatch, deleteDoc, serverTimestamp } from 'https://www.gsta
 import { guardar, leer as leerIdb, borrar as borrarIdb, ALMACENES } from './idb.js';
 import { marcarFoto } from './productos.js';
 import { aWebp } from './webp.js';
+import { encolar } from './cola.js';
 
 export const LADO_MAX = 800;
 export const CALIDAD = 0.72;
@@ -74,7 +75,9 @@ export async function guardarFoto(productoId, dataUrl) {
   lote.set(ref('fotos', productoId), { datos: dataUrl, bytes, ts: serverTimestamp() });
   lote.set(ref('productos', productoId), campos, { merge: true });
   lote.set(ref('productos_venta', productoId), campos, { merge: true });
-  await lote.commit();
+  // Sin `await`: ver data/cola.js. En el disco del teléfono sí se espera, que
+  // es de donde la pantalla la va a leer en el renglón siguiente.
+  encolar(lote.commit(), 'foto');
   await guardar(ALMACENES.FOTOS, productoId, dataUrl);
 }
 
@@ -94,7 +97,7 @@ export async function obtenerFoto(productoId) {
 }
 
 export async function borrarFoto(productoId) {
-  await deleteDoc(ref('fotos', productoId));
+  encolar(deleteDoc(ref('fotos', productoId)), 'foto-borrada');
   await borrarIdb(ALMACENES.FOTOS, productoId);
   await marcarFoto(productoId, false);
 }

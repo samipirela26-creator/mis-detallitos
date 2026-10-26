@@ -7,11 +7,13 @@
 // Igual que los retiros, las categorías son FIJAS.
 import { col, refNuevo, ref } from '../core/firebase.js';
 import {
-  setDoc, getDocs, query, where, orderBy, serverTimestamp, deleteDoc, Timestamp,
+  setDoc, query, where, orderBy, serverTimestamp, deleteDoc, Timestamp,
 } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js';
 import { usuarioActual } from '../core/sesion.js';
 import { LUGARES } from '../core/dinero.js';
 import { anotar } from './auditoria.js';
+import { encolar } from './cola.js';
+import { traer, SERVIDOR } from './lectura.js';
 
 // 'Ajuste de conteo' lo escribe el cuadre: se contó la plata y sobraba. Es la
 // única forma honesta de dejar un sobrante anotado sin disfrazarlo de aporte.
@@ -25,24 +27,24 @@ export async function registrarIngreso({ categoria, lugar, montoUSD, moneda, mon
 
   const u = usuarioActual();
   const documento = refNuevo('ingresos');
-  await setDoc(documento, {
+  // Sin `await`: ver data/cola.js.
+  encolar(setDoc(documento, {
     categoria, lugar, montoUSD, moneda, monto, tasa,
     porque: String(porque).trim(), paraQue: String(paraQue || '').trim(),
     uid: u.uid, nombreUsuario: u.nombre,
     ts: serverTimestamp(), dia: new Date().toISOString().slice(0, 10),
-  });
+  }), 'ingreso');
   anotar('ingreso-registrado', { ingresoId: documento.id, categoria, lugar, montoUSD });
   return documento.id;
 }
 
-export async function ingresosEntre(desde, hasta) {
+export async function ingresosEntre(desde, hasta, { fuente = SERVIDOR } = {}) {
   const d = Timestamp.fromDate(new Date(`${desde}T00:00:00`));
   const h = Timestamp.fromDate(new Date(`${hasta}T23:59:59.999`));
-  const snap = await getDocs(query(col('ingresos'), where('ts', '>=', d), where('ts', '<=', h), orderBy('ts', 'desc')));
-  return snap.docs.map((x) => ({ id: x.id, ...x.data() }));
+  return traer(query(col('ingresos'), where('ts', '>=', d), where('ts', '<=', h), orderBy('ts', 'desc')), fuente);
 }
 
 export async function borrarIngreso(id) {
-  await deleteDoc(ref('ingresos', id));
+  encolar(deleteDoc(ref('ingresos', id)), 'ingreso-borrado');
   anotar('ingreso-borrado', { ingresoId: id });
 }

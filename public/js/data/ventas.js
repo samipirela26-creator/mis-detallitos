@@ -14,13 +14,15 @@
 import { db, ref, refNuevo, col } from '../core/firebase.js';
 import {
   writeBatch, serverTimestamp, getDoc, getDocs, setDoc, query, where, orderBy, limit,
-  Timestamp, increment,
+  Timestamp, increment, arrayUnion,
 } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js';
 import { usuarioActual, esDueno } from '../core/sesion.js';
 import { registrarMovimientos } from './inventario.js';
 import { totalesVenta, totalPagadoUSD, LUGAR_VENTAS, LUGAR_AFUERA } from '../core/dinero.js';
 import { anotar } from './auditoria.js';
-import { escribir, leer } from '../core/estado.js';
+import { leer } from '../core/estado.js';
+import { encolar } from './cola.js';
+import { traer, SERVIDOR } from './lectura.js';
 
 /**
  * lineas = [{ productoId, nombre, cantidad, precioUSD, costoUSD, precioEditado,
@@ -146,10 +148,7 @@ export async function registrarVenta({
   }
 
   // No se espera: si no hay señal, Firestore la encola y la sube después.
-  const subida = lote.commit()
-    .then(() => escribir('pendientes', Math.max(0, (leer('pendientes') || 1) - 1)))
-    .catch((e) => console.warn('[ventas] quedó en cola:', e?.code || e));
-  escribir('pendientes', (leer('pendientes') || 0) + 1);
+  const subida = encolar(lote.commit(), 'venta');
 
   if (ajuste) {
     anotar('total-ajustado-en-venta', {
@@ -201,6 +200,160 @@ export function deudaEnPesos(venta) {
   return Math.round((pesos * venta.saldoUSD) / venta.totalUSD);
 }
 
+/**
+ * CORREGIR UNA VENTA YA COBRADA. Solo el dueño.
+ *
+ * Hasta ahora el único camino para arreglar una venta mal cobrada era anularla
+ * y volver a cobrarla. Eso está bien cuando el cliente devolvió la mercancía,
+ * pero no es lo que pasa casi siempre: lo que pasa es que el precio quedó mal
+ * —se cobraron 10.000 y eran 6.000— y la mercancía sí se la llevó. Anular eso
+ * le devuelve al inventario dos llaveros que no están en la gaveta, y obliga a
+ * rehacer la venta entera con el cliente ya en la calle.
+ *
+ * Entonces se corrige en su sitio, pero NADA se borra:
+ *  - las líneas de antes quedan guardadas en `correcciones`, con quién y
+ *    cuándo, para que el arqueo de ese día se pueda explicar;
+ *  - si cambió la cantidad, el inventario se mueve con un `ajuste` que deja su
+ *    propio renglón en el ledger;
+ *  - lo que se le había sumado al cliente por fiado se corrige por la
+ *    diferencia, no se vuelve a escribir desde cero.
+ *
+ * El pago se reescribe cuando la venta se pagó COMPLETA de un solo golpe: lo
+ * que de verdad entró a la gaveta son los 6.000, no los 10.000, y si el pago se
+ * quedara como estaba el arqueo cantaría un faltante de 4.000 todos los días.
+ * Si hubo varios pagos o quedó algo debiendo, los pagos se dejan quietos y la
+ * diferencia aparece como saldo: ahí no se puede adivinar qué billete volvió.
+ */
+export async function corregirVenta(ventaId, venta, { lineas, motivo = '' }) {
+  const u = usuarioActual();
+  if (!esDueno()) throw new Error('Solo el dueño puede corregir una venta.');
+  if (!lineas?.length) throw new Error('La venta corregida se quedó sin productos.');
+  if (venta?.estado === 'anulada') throw new Error('Esa venta está anulada: no hay nada que corregir.');
+
+  const totales = totalesVenta(lineas);
+  const nuevas = lineas.map((l) => ({
+    productoId: l.productoId || null,
+    nombre: l.nombre,
+    cantidad: Number(l.cantidad),
+    precioUSD: Math.round(l.precioUSD),
+    precioCOP: Math.round(l.precioCOP || 0),
+    costoUSD: Math.round(l.costoUSD || 0),
+    precioEditado: !!l.precioEditado,
+    precioOriginalUSD: Math.round(l.precioOriginalUSD || l.precioUSD),
+    autorizadoPor: l.autorizadoPor || null,
+    esServicio: !!l.esServicio,
+    fueraDeCatalogo: !!l.fueraDeCatalogo,
+    gananciaEstimada: !!l.fueraDeCatalogo,
+  }));
+
+  // El ajuste de redondeo de la venta vieja deja de valer: era el redondeo de
+  // unos precios que ya no son estos. Si no se quitara, la corrección
+  // arrastraría una rebaja que nadie volvió a autorizar.
+  const pagosViejos = venta.pagos || [];
+  const pagabaTodo = pagosViejos.length === 1 && !venta.fiado
+    && (venta.saldoUSD || 0) === 0;
+  const pagos = pagabaTodo
+    ? [{
+        ...pagosViejos[0],
+        monto: pagosViejos[0].moneda === 'COP' && totales.totalCOP != null
+          ? totales.totalCOP
+          : Math.round((totales.totalUSD * (pagosViejos[0].tasa || 100)) / 100),
+        montoUSD: totales.totalUSD,
+      }]
+    : pagosViejos;
+  const pagadoUSD = totalPagadoUSD(pagos);
+
+  const corregida = {
+    lineas: nuevas,
+    totalUSD: totales.totalUSD,
+    totalCOP: totales.totalCOP != null ? totales.totalCOP : 0,
+    ajusteUSD: 0,
+    ajustadoPor: null,
+    costoTotalUSD: totales.costoUSD,
+    gananciaUSD: totales.gananciaUSD,
+    pagos,
+    pagadoUSD,
+    saldoUSD: totales.totalUSD - pagadoUSD,
+  };
+
+  const lote = writeBatch(db);
+  lote.set(ref('ventas', ventaId), {
+    ...corregida,
+    corregida: true,
+    corregidaPor: u.nombre,
+    corregidaTs: serverTimestamp(),
+    // El antes completo, para que el día se pueda volver a cuadrar.
+    correcciones: arrayUnion({
+      motivo,
+      por: u.nombre,
+      uid: u.uid,
+      cuando: Timestamp.now(),
+      antes: {
+        lineas: venta.lineas || [],
+        totalUSD: venta.totalUSD || 0,
+        totalCOP: venta.totalCOP || 0,
+        ajusteUSD: venta.ajusteUSD || 0,
+        pagos: pagosViejos,
+        saldoUSD: venta.saldoUSD || 0,
+      },
+    }),
+  }, { merge: true });
+
+  // Inventario: solo lo que cambió de cantidad, y solo lo que lleva stock.
+  const servicios = new Set((leer('productos') || [])
+    .filter((p) => p.tipo === 'servicio').map((p) => p.id));
+  const antesPorId = new Map();
+  for (const l of venta.lineas || []) {
+    if (!l.productoId) continue;
+    antesPorId.set(l.productoId, (antesPorId.get(l.productoId) || 0) + Number(l.cantidad || 0));
+  }
+  const ahoraPorId = new Map();
+  for (const l of nuevas) {
+    if (!l.productoId) continue;
+    ahoraPorId.set(l.productoId, (ahoraPorId.get(l.productoId) || 0) + Number(l.cantidad || 0));
+  }
+  const movimientos = [];
+  for (const id of new Set([...antesPorId.keys(), ...ahoraPorId.keys()])) {
+    const linea = nuevas.find((l) => l.productoId === id)
+      || (venta.lineas || []).find((l) => l.productoId === id);
+    if (linea?.esServicio || servicios.has(id)) continue;
+    const devuelve = (antesPorId.get(id) || 0) - (ahoraPorId.get(id) || 0);
+    if (!devuelve) continue;
+    movimientos.push({
+      productoId: id,
+      nombre: linea?.nombre || '',
+      tipo: 'ajuste',                    // el signo lo trae la cantidad
+      cantidad: devuelve,
+      costoUnitUSD: linea?.costoUSD || 0,
+      nota: `Corrección de venta: ${motivo || 'sin motivo escrito'}`,
+    });
+  }
+  if (movimientos.length) await registrarMovimientos(movimientos, { lote, ventaId });
+
+  // Fiado: la deuda del cliente se mueve por la DIFERENCIA. Reescribirla
+  // completa pisaría los abonos que ya haya hecho.
+  if (venta.fiado && venta.clienteId) {
+    const antesCOP = deudaEnPesos(venta);
+    const despuesCOP = deudaEnPesos({ ...venta, ...corregida });
+    const difCOP = despuesCOP - antesCOP;
+    const difUSD = corregida.saldoUSD - (venta.saldoUSD || 0);
+    if (difCOP || difUSD) {
+      lote.set(ref('clientes', venta.clienteId), {
+        saldoCOP: increment(difCOP),
+        saldoUSD: increment(difUSD),
+      }, { merge: true });
+    }
+  }
+
+  encolar(lote.commit(), 'correccion-de-venta');
+  anotar('venta-corregida', {
+    ventaId, motivo,
+    antesUSD: venta.totalUSD || 0, despuesUSD: corregida.totalUSD,
+    antesCOP: venta.totalCOP || 0, despuesCOP: corregida.totalCOP,
+  });
+  return corregida;
+}
+
 /** Anular: el dueño lo hace directo; el empleado solo puede pedirlo. */
 export async function anularVenta(ventaId, motivo, venta) {
   const u = usuarioActual();
@@ -239,7 +392,7 @@ export async function anularVenta(ventaId, motivo, venta) {
       { lote, ventaId }
     );
   }
-  await lote.commit();
+  encolar(lote.commit(), 'anulacion');
   anotar('venta-anulada', { ventaId, motivo });
 }
 
@@ -250,7 +403,7 @@ export async function pedirAnulacion(ventaId, motivo) {
     ventaId, motivo, estado: 'pendiente',
     uid: u.uid, nombreUsuario: u.nombre, ts: serverTimestamp(),
   });
-  await lote.commit();
+  encolar(lote.commit(), 'pedido-de-anulacion');
 }
 
 /**
@@ -266,14 +419,13 @@ export async function pedirAnulacion(ventaId, motivo) {
  * justo lo que hay que poder mirar cuando algo no cuadra — si desaparece de la
  * lista, no hay manera de saber qué se deshizo ni quién lo deshizo.
  */
-export async function ventasEntre(desde, hasta, { incluirAnuladas = false } = {}) {
+export async function ventasEntre(desde, hasta, { incluirAnuladas = false, fuente = SERVIDOR } = {}) {
   const d = Timestamp.fromDate(new Date(`${desde}T00:00:00`));
   const h = Timestamp.fromDate(new Date(`${hasta}T23:59:59.999`));
   const u = usuarioActual();
   const soloMias = !esDueno() && u?.uid ? [where('uid', '==', u.uid)] : [];
-  const snap = await getDocs(query(
-    col('ventas'), ...soloMias, where('ts', '>=', d), where('ts', '<=', h), orderBy('ts', 'desc')));
-  const todas = snap.docs.map((x) => ({ id: x.id, ...x.data() }));
+  const todas = await traer(query(
+    col('ventas'), ...soloMias, where('ts', '>=', d), where('ts', '<=', h), orderBy('ts', 'desc')), fuente);
   return incluirAnuladas ? todas : todas.filter((v) => v.estado !== 'anulada');
 }
 
@@ -306,9 +458,9 @@ export async function anulacionesPendientes() {
 /** Cerrar el pedido: 'aprobada' si se anuló, 'rechazada' si la venta se queda. */
 export async function resolverAnulacion(id, estado) {
   const u = usuarioActual();
-  await setDoc(ref('anulaciones', id), {
+  encolar(setDoc(ref('anulaciones', id), {
     estado, resueltaPor: u?.nombre || '', resueltaTs: serverTimestamp(),
-  }, { merge: true });
+  }, { merge: true }), 'anulacion-resuelta');
   anotar('anulacion-' + estado, { anulacionId: id });
 }
 

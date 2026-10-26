@@ -22,15 +22,19 @@
 // deshacen con ella— y se vuelve a cobrar bien.
 
 import { registrar } from '../core/router.js';
-import { el, esc, $, fecha, diaISO, sumarDias, primerDiaDelMes, abrirDialogo, pegar } from '../ui/html.js';
+import {
+  el, esc, $, fecha, diaISO, sumarDias, primerDiaDelMes, abrirDialogo, pegar, unSoloToque,
+} from '../ui/html.js';
 import { avisarOk, avisarMal, confirmar } from '../ui/avisos.js';
 import {
   ventasEntre, ventaPorId, anularVenta, pedirAnulacion,
-  anulacionesPendientes, resolverAnulacion, deudaEnPesos,
+  anulacionesPendientes, resolverAnulacion, deudaEnPesos, corregirVenta,
 } from '../data/ventas.js';
 import { listarClientes } from '../data/clientes.js';
+import { pasadas, CACHE } from '../data/lectura.js';
 import { productos as catalogo } from '../data/catalogo.js';
-import { formatear, MONEDAS } from '../core/dinero.js';
+import { formatear, MONEDAS, desdeUSD, totalesVenta } from '../core/dinero.js';
+import { pedirMonto, pedirCantidad } from '../ui/teclado.js';
 import { leer } from '../core/estado.js';
 import { esDueno, puede } from '../core/sesion.js';
 import { normalizar } from '../core/texto.js';
@@ -79,7 +83,7 @@ async function montarVentas(nodo, params = {}) {
   for (const [clave, r] of Object.entries(RANGOS)) {
     barra.appendChild(el('button.chip', {
       'data-r': clave, type: 'button', 'aria-pressed': 'false', texto: r.titulo,
-      onclick: () => { rango = clave; dia = null; marcar(); cargar(); },
+      onclick: () => { rango = clave; dia = null; marcar(); pasadas(cargar); },
     }));
   }
   // El calendario no es un lujo: "¿qué se vendió el día que vino el proveedor?"
@@ -89,7 +93,7 @@ async function montarVentas(nodo, params = {}) {
     style: 'flex:0 0 auto;width:auto;min-height:var(--toque);padding:0 .6rem;font-size:var(--t-pie)',
     onchange: (ev) => {
       dia = ev.target.value || null;
-      if (dia) { marcar(); cargar(); }
+      if (dia) { marcar(); pasadas(cargar); }
     },
   });
   barra.appendChild(calendario);
@@ -106,27 +110,38 @@ async function montarVentas(nodo, params = {}) {
     ? { desde: dia, hasta: dia }
     : { desde: RANGOS[rango].desde(), hasta: RANGOS[rango].hasta() });
 
-  async function cargar() {
+  /**
+   * `fuente` la pone `pasadas` (ver data/lectura.js): la lista sale al
+   * instante con lo que ya está en el teléfono y se repinta cuando el servidor
+   * contesta. Tocar "Ayer" ya no se queda esperando la señal.
+   */
+  async function cargar(fuente) {
     const caja = $('#lista', nodo);
-    caja.innerHTML = '<div class="cargando">Buscando las ventas…</div>';
+    if (fuente !== CACHE) caja.innerHTML = '<div class="cargando">Buscando las ventas…</div>';
     const { desde, hasta } = limites();
+    let halladas;
     try {
       // CON las anuladas: una venta anulada es justo la que hay que poder
       // mirar cuando el día no cuadra.
-      ventas = await ventasEntre(desde, hasta, { incluirAnuladas: true });
+      halladas = await ventasEntre(desde, hasta, { incluirAnuladas: true, fuente });
     } catch (e) {
+      if (fuente === CACHE) return false;   // la caché no sabe: que conteste el servidor
       caja.innerHTML = '';
       return caja.appendChild(el('div.vacio', { texto: 'No se pudieron cargar las ventas (¿sin internet?).' }));
     }
+    // Caché vacía no es "no hubo ventas": es que no sabe. Se deja el
+    // "Buscando las ventas…" hasta que contesten de verdad.
+    if (fuente === CACHE && !halladas.length) return false;
+    ventas = halladas;
     // Los nombres de los fiados, solo si hace falta. Son del equipo, así que el
     // empleado también los puede leer.
     if (ventas.some((v) => v.clienteId) && !clientes.size) {
       try {
-        clientes = new Map((await listarClientes()).map((c) => [c.id, c.nombre]));
+        clientes = new Map((await listarClientes({ fuente })).map((c) => [c.id, c.nombre]));
       } catch { /* sin nombres se ve el "fiado" y ya; no es para tanto */ }
     }
     pintar();
-    if (esDueno()) cargarPedidos();
+    if (esDueno() && fuente !== CACHE) cargarPedidos();
   }
 
   /** Lo que el empleado pidió anular. Si esto no se mira, no sirve de nada. */
@@ -301,6 +316,7 @@ async function montarVentas(nodo, params = {}) {
       const quien = clientes.get(v.clienteId);
       m.push(eti('acento', quien ? `fiado · ${quien}` : 'fiado'));
     }
+    if (v.corregida) m.push(eti('info', 'corregida'));
     if ((v.lineas || []).some((l) => l.precioEditado)) m.push(eti('alerta', 'precio cambiado'));
     if (v.ajusteUSD) m.push(eti('alerta', 'total ajustado'));
     if ((v.lineas || []).some((l) => l.fueraDeCatalogo)) m.push(eti('info', 'venta libre'));
@@ -338,6 +354,23 @@ async function montarVentas(nodo, params = {}) {
           + `La anuló ${esc(v.anuladaPor || '—')} · ${esc(fecha(v.anuladaTs))}` }),
         el('div', { style: 'font-size:var(--t-pie);color:var(--texto-suave);margin-top:.35rem', texto:
           'No cuenta en ningún reporte y el inventario ya la deshizo.' }),
+      ]) : null,
+
+      // Una venta corregida tiene que DECIRLO en la ficha. Si no, el total de
+      // la pantalla no coincide con el recibo que el cliente se llevó y no hay
+      // manera de saber por qué.
+      v.corregida ? el('div.tarjeta', { style: 'margin-bottom:1rem;padding:.75rem' }, [
+        el('div', { style: 'font-weight:700', texto: 'Esta venta se corrigió' }),
+        el('div', { style: 'font-size:var(--t-cuerpo);margin-top:.2rem', html: (() => {
+          const c = (v.correcciones || [])[(v.correcciones || []).length - 1];
+          const antes = c?.antes;
+          const antesTexto = antes
+            ? (antes.totalCOP ? formatear(antes.totalCOP, 'COP') : formatear(antes.totalUSD || 0))
+            : null;
+          return `${esc(c?.motivo || 'Sin motivo escrito')}<br>`
+            + (antesTexto ? `Antes decía ${esc(antesTexto)}. ` : '')
+            + `La corrigió ${esc(v.corregidaPor || c?.por || '—')} · ${esc(fecha(v.corregidaTs))}`;
+        })() }),
       ]) : null,
 
       pedido ? el('div.tarjeta.amarilla', { style: 'margin-bottom:1rem' }, [
@@ -430,6 +463,16 @@ async function montarVentas(nodo, params = {}) {
         el('button.btn.callado', { texto: 'Compartir', onclick: () => compartirRecibo(v) }),
         el('button.btn.callado', { texto: 'Imprimir', onclick: () => imprimirRecibo(v) }),
       ]),
+      // CORREGIR va ANTES que anular, y a propósito. Lo que de verdad pasa
+      // nueve de cada diez veces es que el precio quedó mal y la mercancía ya
+      // se la llevaron: para eso anular es el martillo equivocado (le devuelve
+      // al inventario algo que no volvió). Anular queda para cuando el cliente
+      // devolvió de verdad.
+      anulada || !esDueno() ? null : el('button.btn.plano.ancho', {
+        style: 'margin-top:.55rem',
+        texto: 'Corregir esta venta',
+        onclick: () => corregir(v, d),
+      }),
       anulada ? null : el('button.btn.peligro.ancho', {
         style: 'margin-top:.55rem',
         texto: puede('anularVentas') ? 'Anular esta venta' : 'Pedir que la anulen',
@@ -471,6 +514,166 @@ async function montarVentas(nodo, params = {}) {
     ]);
   }
 
+  // --- corregir --------------------------------------------------------------
+  /**
+   * Arreglar una venta ya cobrada: el precio o la cantidad de cada línea.
+   *
+   * Se trabaja EN PESOS, igual que en el mostrador. El dólar se recalcula solo
+   * con la tasa que tenía la venta (no la de hoy): si se usara la de hoy, una
+   * corrección de la semana pasada movería la ganancia de aquel día por el
+   * simple hecho de haberla tocado.
+   */
+  function corregir(v, cuadroDetalle) {
+    // La tasa CONGELADA de la venta: la del pago si lo hubo, y si no, la de hoy
+    // (una venta fiada no guardó ninguna).
+    const tasaCOP = (v.pagos || []).find((p) => p.moneda === 'COP')?.tasa
+      || (leer('tasas') || {}).COP
+      || 0;
+    // Sin tasa no hay con qué pasar de pesos a dólares, y el dólar es la
+    // moneda de cuenta: dejar corregir aquí pondría todas las líneas en cero.
+    if (!tasaCOP) {
+      return avisarMal('Para corregir hace falta la tasa del peso. Ponla en Configuración.');
+    }
+    const aDolares = (pesos) => Math.round((pesos * 100) / tasaCOP);
+    const enPesos = (l) => (l.precioCOP > 0
+      ? l.precioCOP
+      : (tasaCOP ? desdeUSD(l.precioUSD, 'COP', tasaCOP) : 0));
+
+    // Copia de trabajo: nada se toca hasta que se acepte.
+    const lineas = (v.lineas || []).map((l) => ({ ...l, precioCOP: enPesos(l) }));
+    let motivo = '';
+
+    const d = abrirDialogo('');
+    const lista = el('div');
+    const resumen = el('div', { style: 'margin-top:.75rem' });
+    const campo = el('input', {
+      placeholder: 'Por qué se corrige',
+      oninput: (ev) => { motivo = ev.target.value; },
+    });
+    const MOTIVOS = ['Se cobró de más', 'Se cobró de menos', 'Precio equivocado', 'Cantidad equivocada'];
+
+    const pintarLineas = () => {
+      lista.innerHTML = '';
+      lineas.forEach((l, i) => {
+        lista.appendChild(el('div', {
+          style: 'display:flex;gap:.5rem;align-items:center;padding:.5rem 0;'
+               + 'border-bottom:1px solid var(--borde);flex-wrap:wrap',
+        }, [
+          el('div', { style: 'flex:1 1 130px;min-width:0' }, [
+            el('div', { style: 'font-weight:600;font-size:var(--t-cuerpo)', html: esc(l.nombre) }),
+            el('div', {
+              style: 'font-size:var(--t-pie);color:var(--texto-suave)',
+              texto: `antes: ${(v.lineas || [])[i]?.cantidad ?? l.cantidad} × `
+                   + `${formatear(enPesos((v.lineas || [])[i] || l), 'COP')}`,
+            }),
+          ]),
+          el('button.btn.plano', {
+            type: 'button', style: 'min-height:40px;padding:.2rem .6rem;flex:0 0 auto',
+            texto: `× ${l.cantidad}`,
+            title: `Cambiar cuántos ${l.nombre}`,
+            onclick: async () => {
+              const c = await pedirCantidad({ titulo: l.nombre, inicial: l.cantidad, unidad: l.unidad || '' });
+              if (c === null || c < 0) return;
+              l.cantidad = c;
+              pintarLineas();
+            },
+          }),
+          el('button.btn.plano', {
+            type: 'button', style: 'min-height:40px;padding:.2rem .6rem;flex:0 0 auto;border-style:dashed',
+            texto: `✎ ${formatear(l.precioCOP, 'COP')}`,
+            title: `Cambiar el precio de ${l.nombre}`,
+            onclick: async () => {
+              const r = await pedirMonto({
+                titulo: `Precio de ${l.nombre}`,
+                nota: l.cantidad > 1 ? `Es el precio de CADA UNO. Se llevó ${l.cantidad}.` : '',
+                moneda: 'COP', inicial: l.precioCOP, aceptar: 'Dejarlo en',
+              });
+              if (r === null) return;
+              l.precioCOP = r;
+              l.precioUSD = aDolares(r);
+              l.precioEditado = true;
+              pintarLineas();
+            },
+          }),
+        ]));
+      });
+      pintarResumen();
+    };
+
+    const conPesos = () => lineas.map((l) => ({ ...l, precioUSD: l.precioUSD, precioCOP: l.precioCOP }));
+
+    function pintarResumen() {
+      const t = totalesVenta(conPesos());
+      const antesCOP = v.totalCOP || (tasaCOP ? desdeUSD(v.totalUSD || 0, 'COP', tasaCOP) : 0);
+      const ahoraCOP = t.totalCOP != null ? t.totalCOP : antesCOP;
+      const dif = ahoraCOP - antesCOP;
+      resumen.innerHTML = '';
+      pegar(resumen,
+        el('div', { style: 'display:flex;justify-content:space-between;align-items:baseline;gap:.5rem' }, [
+          el('span', { style: 'color:var(--texto-suave);font-weight:600', texto: 'QUEDA EN' }),
+          el('span.cifra-gigante', { texto: formatear(ahoraCOP, 'COP') }),
+        ]),
+        el('div', {
+          style: 'text-align:right;color:var(--texto-suave);font-size:var(--t-cuerpo)',
+          texto: formatear(t.totalUSD),
+        }),
+        dif ? el('p', {
+          style: `font-size:var(--t-cuerpo);font-weight:600;margin:.35rem 0 0;`
+               + `color:${dif < 0 ? 'var(--ambar)' : 'var(--verde)'}`,
+          texto: dif < 0
+            ? `Baja ${formatear(-dif, 'COP')}: eso es lo que hay que devolverle (o lo que no entró a la gaveta).`
+            : `Sube ${formatear(dif, 'COP')}: eso es lo que falta por cobrar.`,
+        }) : null,
+      );
+    }
+
+    const aceptar = el('button.btn.principal', { type: 'button', texto: 'Guardar la corrección' });
+    aceptar.addEventListener('click', unSoloToque(async () => {
+      motivo = (motivo || campo.value || '').trim();
+      if (!motivo) return avisarMal('Escribe por qué se corrige.');
+      const usar = conPesos().filter((l) => Number(l.cantidad) > 0);
+      if (!usar.length) {
+        return avisarMal('Se quedó sin productos. Si no se vendió nada, lo que toca es anularla.');
+      }
+      const t = totalesVenta(usar);
+      if (!await confirmar(`¿Dejarla en ${formatear(t.totalCOP ?? t.totalUSD, t.totalCOP != null ? 'COP' : 'USD')}?`, {
+        detalle: 'La venta no se borra ni se duplica: se corrige, y lo que decía antes queda guardado '
+               + 'con tu nombre. El inventario y la deuda se mueven solo por lo que cambió.',
+        aceptar: 'Sí, corregir', cancelar: 'Mejor no',
+      })) return;
+      try {
+        await corregirVenta(v.id, v, { lineas: usar, motivo });
+        avisarOk('Corregida.');
+        d.close();
+        cuadroDetalle?.close();
+        pasadas(cargar);
+      } catch (e) {
+        avisarMal('No se pudo corregir: ' + (e?.message || e));
+      }
+    }, { mientras: 'Corrigiendo…' }));
+
+    pegar(d,
+      el('h2', { texto: 'Corregir esta venta' }),
+      el('p', {
+        style: 'font-size:var(--t-cuerpo);color:var(--texto-suave)',
+        texto: 'Toca el precio o la cantidad de lo que quedó mal. Lo que decía antes se guarda, '
+             + 'y el inventario se mueve solo si cambia una cantidad.',
+      }),
+      lista,
+      resumen,
+      el('div.fila', { style: 'margin:.75rem 0 .25rem;flex-wrap:wrap' }, MOTIVOS.map((m) => el('button.chip', {
+        type: 'button', style: 'flex:0 1 auto', texto: m,
+        onclick: () => { motivo = m; campo.value = m; },
+      }))),
+      el('div.campo', {}, [el('label', { texto: 'Motivo' }), campo]),
+      el('div.fila', { style: 'margin-top:.75rem' }, [
+        el('button.btn.callado', { type: 'button', texto: 'Cancelar', onclick: () => d.close() }),
+        aceptar,
+      ])
+    );
+    pintarLineas();
+  }
+
   // --- anular ----------------------------------------------------------------
   // Dos caminos distintos y hay que decirlo claro: el dueño la anula y se
   // deshace de verdad; el empleado solo la PIDE, y mientras nadie la atienda la
@@ -505,7 +708,9 @@ async function montarVentas(nodo, params = {}) {
         el('button.btn.callado', { texto: 'Mejor no', onclick: () => d.close() }),
         el('button.btn.peligro', {
           texto: soyElDueno ? 'Anular' : 'Pedirlo',
-          onclick: async () => {
+          // Un toque, una anulación: ver `unSoloToque`. Mientras esto espera
+          // señal el cuadro se queda ahí quieto, y volver a tocar escribía otra.
+          onclick: unSoloToque(async () => {
             motivo = (motivo || campo.value || '').trim();
             if (!motivo) return avisarMal('Escribe por qué se anula.');
             if (soyElDueno && !await confirmar(`¿Anular ${enSuMoneda(v)}?`, {
@@ -523,11 +728,11 @@ async function montarVentas(nodo, params = {}) {
               }
               d.close();
               cuadroDetalle?.close();
-              cargar();
+              pasadas(cargar);
             } catch (e) {
               avisarMal('No se pudo: ' + (e?.message || e));
             }
-          },
+          }, { mientras: soyElDueno ? 'Anulando…' : 'Enviando…' }),
         }),
       ])
     );
@@ -552,7 +757,7 @@ async function montarVentas(nodo, params = {}) {
     imprimir(await textoDe(v));
   }
 
-  cargar();
+  pasadas(cargar);
 }
 
 // --- cositas -----------------------------------------------------------------

@@ -25,6 +25,12 @@ teléfono en la mano. **Ninguna sesión debe inventarlos.**
 
 ## Esperan tu respuesta
 
+- [ ] **Publicar.** Lo de poder tocar el precio al vender llevaba días escrito y sin
+      publicar: la app que está en el teléfono sigue pidiendo el precio en DÓLARES, y por
+      eso no había manera de bajarlo a 6.000 pesos. Hasta que no se publique, el arreglo
+      no existe en el mostrador. `npm run publicar`.
+
+
 - [ ] **Las dos cajas que faltan.** `Resaltador Pointer` (costo $3,50) y `Marcadores para CD`
       ($1,50). Samuel dijo que el Resaltador es de creyón y que sus números son los reales,
       pero así figura vendiéndose a pérdida ($3,50 de costo contra $1,33 de precio).

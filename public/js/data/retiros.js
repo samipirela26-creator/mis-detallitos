@@ -9,11 +9,13 @@
 // uno quiera, a fin de mes no se sabe en qué se fue la plata.
 import { col, refNuevo, ref } from '../core/firebase.js';
 import {
-  setDoc, getDocs, query, where, orderBy, serverTimestamp, deleteDoc, Timestamp,
+  setDoc, query, where, orderBy, serverTimestamp, deleteDoc, Timestamp,
 } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js';
 import { usuarioActual } from '../core/sesion.js';
 import { LUGARES } from '../core/dinero.js';
 import { anotar } from './auditoria.js';
+import { encolar } from './cola.js';
+import { traer, SERVIDOR } from './lectura.js';
 
 // "Personal / familia" existe porque en un negocio familiar la plata sale así y
 // hay que poder anotarlo sin disfrazarlo de otra cosa: si se mete como "compra
@@ -35,24 +37,24 @@ export async function registrarRetiro({ categoria, lugar, montoUSD, moneda, mont
 
   const u = usuarioActual();
   const documento = refNuevo('retiros');
-  await setDoc(documento, {
+  // Sin `await`: ver data/cola.js.
+  encolar(setDoc(documento, {
     categoria, lugar, montoUSD, moneda, monto, tasa,
     porque: String(porque).trim(), paraQue: String(paraQue || '').trim(),
     uid: u.uid, nombreUsuario: u.nombre,
     ts: serverTimestamp(), dia: new Date().toISOString().slice(0, 10),
-  });
+  }), 'retiro');
   anotar('retiro-registrado', { retiroId: documento.id, categoria, lugar, montoUSD });
   return documento.id;
 }
 
-export async function retirosEntre(desde, hasta) {
+export async function retirosEntre(desde, hasta, { fuente = SERVIDOR } = {}) {
   const d = Timestamp.fromDate(new Date(`${desde}T00:00:00`));
   const h = Timestamp.fromDate(new Date(`${hasta}T23:59:59.999`));
-  const snap = await getDocs(query(col('retiros'), where('ts', '>=', d), where('ts', '<=', h), orderBy('ts', 'desc')));
-  return snap.docs.map((x) => ({ id: x.id, ...x.data() }));
+  return traer(query(col('retiros'), where('ts', '>=', d), where('ts', '<=', h), orderBy('ts', 'desc')), fuente);
 }
 
 export async function borrarRetiro(id) {
-  await deleteDoc(ref('retiros', id));
+  encolar(deleteDoc(ref('retiros', id)), 'retiro-borrado');
   anotar('retiro-borrado', { retiroId: id });
 }

@@ -27,6 +27,7 @@ import { icono } from '../ui/iconos.js';
 import { registrarVenta } from '../data/ventas.js';
 import { turnoAbierto } from '../data/caja.js';
 import { listarClientes, guardarCliente, deudaDe } from '../data/clientes.js';
+import { CACHE } from '../data/lectura.js';
 import { leer, escribir, observar } from '../core/estado.js';
 import {
   MONEDAS, formatear, desdeUSD, aUSD, crearPago,
@@ -59,6 +60,9 @@ function agregar(producto, { cantidad = 1, precioUSD = null } = {}) {
       // Derivarlo después con la tasa deja la deuda a 19.996 cuando la etiqueta
       // decía 20.000, y eso es justo lo que se discute.
       precioCOP: producto.precioCOP || 0,
+      // El peso de la etiqueta sin tramos aplicados, para poder volver a él
+      // cuando baja la cantidad. Es el gemelo de `precioOriginalUSD`.
+      precioCOPOriginal: producto.precioCOP || 0,
       precioOriginalUSD: producto.precioUSD || base,
       costoUSD: producto.costoUSD || 0,
       tipoPrecio: producto.tipoPrecio,
@@ -72,6 +76,19 @@ function agregar(producto, { cantidad = 1, precioUSD = null } = {}) {
   ponerCarrito(lineas);
   aprenderDe(producto);
   sonidoBeep();
+}
+
+/**
+ * El precio de una línea como se dice en voz alta: el PESO de la etiqueta.
+ *
+ * Mismo criterio que el total del carrito. Mostrar el dólar aquí y el peso
+ * abajo obligaba a hacer la cuenta de cabeza para saber si el precio que se
+ * está mirando es el que el cliente acaba de oír.
+ */
+function precioDeEtiqueta(linea, tasas = {}) {
+  if (linea.precioCOP > 0) return formatear(linea.precioCOP, 'COP');
+  if (tasas.COP) return formatear(desdeUSD(linea.precioUSD, 'COP', tasas.COP), 'COP');
+  return formatear(linea.precioUSD);
 }
 
 const quitar = (i) => ponerCarrito(carrito().filter((_, j) => j !== i));
@@ -280,13 +297,23 @@ registrar('vender', {
       }
 
       if (p.tipoPrecio === 'variable') {
-        const monto = await pedirMonto({
+        // El precio acordado se teclea en PESOS, que es como se acuerda en el
+        // mostrador ("son 2.000"), y se puede cambiar de moneda ahí mismo.
+        const tasas = leer('tasas') || {};
+        const monedas = ['COP', 'VES', 'USD'].filter((m) => m === 'USD' || tasas[m] > 0);
+        const enPesos = p.precioCOP > 0 ? p.precioCOP
+          : (p.precioUSD && tasas.COP ? desdeUSD(p.precioUSD, 'COP', tasas.COP) : 0);
+        const r = await pedirMonto({
           titulo: p.nombre,
-          nota: p.precioUSD ? `Lo normal es ${formatear(p.precioUSD)}` : 'Escribe el precio acordado',
-          inicial: p.precioUSD || 0,
+          nota: p.precioCOP ? `Lo normal es ${formatear(p.precioCOP, 'COP')}`
+            : p.precioUSD ? `Lo normal es ${formatear(p.precioUSD)}`
+            : 'Escribe el precio acordado',
+          inicial: monedas[0] === 'COP' ? enPesos : (p.precioUSD || 0),
+          moneda: monedas[0], monedas, tasas,
           aceptar: 'Agregar',
         });
-        if (monto === null) return;
+        if (r === null) return;
+        const monto = r.montoUSD;
         let autorizado = null;
         if (requiereAutorizacion(p, monto)) {
           autorizado = await pedirAutorizacion(`${p.nombre} a ${formatear(monto)} está por debajo del mínimo.`);
@@ -296,6 +323,12 @@ registrar('vender', {
         const l = carrito();
         l[l.length - 1].autorizadoPor = autorizado;
         l[l.length - 1].precioEditado = monto !== p.precioUSD;
+        // El peso exacto solo se sabe si se tecleó EN pesos. Si lo puso en
+        // bolívares o en dólares, el de la etiqueta ya no vale y se borra: más
+        // vale convertir el total que cobrar un peso que nadie acordó.
+        const pesoAcordado = r.moneda === 'COP' ? r.menores : 0;
+        l[l.length - 1].precioCOP = pesoAcordado;
+        l[l.length - 1].precioCOPOriginal = pesoAcordado;
         ponerCarrito(l);
       } else {
         agregar(p);
@@ -365,14 +398,31 @@ registrar('vender', {
         tabla.appendChild(el('div', {
           style: 'display:flex;gap:.5rem;align-items:center;padding:.6rem 0;border-bottom:1px solid var(--borde);flex-wrap:wrap',
         }, [
-          el('div', { style: 'flex:1 1 140px;min-width:0;cursor:pointer', onclick: () => editarLinea(i) }, [
+          el('div', { style: 'flex:1 1 140px;min-width:0' }, [
             // Tope de dos renglones: un nombre largo hacía la fila altísima y
             // en un carrito de seis líneas había que scrollear para ver el total.
-            el('div', { style: 'font-weight:600;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden', html: esc(l.nombre) }),
-            el('div', { style: 'font-size:var(--t-pie);color:var(--texto-suave)' }, [
-              el('span', { texto: formatear(l.precioUSD) + ' c/u' }),
-              l.precioEditado ? el('span.etiqueta.alerta', { style: 'margin-left:.4rem', texto: 'precio cambiado' }) : null,
-              l.fueraDeCatalogo ? el('span.etiqueta.info', { style: 'margin-left:.4rem', texto: 'venta libre' }) : null,
+            el('div', {
+              style: 'font-weight:600;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;cursor:pointer',
+              html: esc(l.nombre), onclick: () => editarLinea(i),
+            }),
+            el('div', { style: 'font-size:var(--t-pie);display:flex;align-items:center;gap:.35rem;flex-wrap:wrap;margin-top:.1rem' }, [
+              // EL PRECIO ES UN BOTÓN, y se le nota.
+              //
+              // Antes, para rebajar algo había que saber que el nombre del
+              // producto se podía tocar. Nada lo decía, y es lo que más se
+              // hace en el mostrador: "llévatelos en 6.000". Quien no lo sabía
+              // —o sea, cualquiera— no tenía cómo bajar un precio.
+              el('button.btn.plano', {
+                type: 'button',
+                title: `Cambiar el precio de ${l.nombre}`,
+                'aria-label': `Cambiar el precio de ${l.nombre}`,
+                style: 'min-height:30px;padding:.1rem .5rem;font-size:var(--t-pie);font-weight:600;'
+                     + 'border-style:dashed;flex:0 0 auto',
+                texto: `✎ ${precioDeEtiqueta(l, leer('tasas') || {})} c/u`,
+                onclick: () => cambiarPrecio(i),
+              }),
+              l.precioEditado ? el('span.etiqueta.alerta', { texto: 'precio cambiado' }) : null,
+              l.fueraDeCatalogo ? el('span.etiqueta.info', { texto: 'venta libre' }) : null,
             ]),
           ]),
           botonCantidad('−', -1, `Quitar uno de ${l.nombre}`),
@@ -381,7 +431,17 @@ registrar('vender', {
             texto: String(l.cantidad),
           }),
           botonCantidad('+', 1, `Agregar otro de ${l.nombre}`),
-          el('div.cifra', { style: 'font-weight:700;min-width:5ch;text-align:right;flex:0 0 auto;white-space:nowrap', texto: formatear(Math.round(l.cantidad * l.precioUSD)) }),
+          el('div.cifra', {
+            style: 'font-weight:700;min-width:5ch;text-align:right;flex:0 0 auto;white-space:nowrap',
+            // En la misma moneda que el precio de arriba y que el TOTAL de
+            // abajo. Con la fila en dólares y el total en pesos, los números de
+            // la misma pantalla no sumaban y parecía que faltaba plata.
+            texto: l.precioCOP > 0
+              ? formatear(Math.round(l.cantidad * l.precioCOP), 'COP')
+              : tasas.COP
+                ? formatear(desdeUSD(Math.round(l.cantidad * l.precioUSD), 'COP', tasas.COP), 'COP')
+                : formatear(Math.round(l.cantidad * l.precioUSD)),
+          }),
           el('button.btn.plano', {
             type: 'button', 'aria-label': `Quitar ${l.nombre} de la venta`, title: 'Quitar',
             style: 'min-width:44px;min-height:44px;padding:0;flex:0 0 auto', html: icono('trash'),
@@ -390,17 +450,28 @@ registrar('vender', {
         ]));
       });
 
+      // El total GRANDE va en pesos, que es la moneda de la etiqueta, la del
+      // cuadro de cobrar y la que el cliente acaba de oír. El dólar queda
+      // debajo: es la moneda de cuenta del negocio, no la de la conversación.
+      // (En pesos se dice el de las etiquetas sumadas, no el convertido: es el
+      // mismo número que va a salir en el cobro y el que ya leyó en el estante.)
+      const totalEnPesos = tasas.COP
+        ? (t.totalCOP != null ? t.totalCOP : desdeUSD(t.totalUSD, 'COP', tasas.COP))
+        : null;
+      const totalGrande = totalEnPesos != null
+        ? formatear(totalEnPesos, 'COP')
+        : formatear(t.totalUSD);
       tabla.appendChild(el('div', { style: 'padding-top:.9rem' }, [
-        el('div', { style: 'display:flex;justify-content:space-between;align-items:baseline' }, [
+        el('div', { style: 'display:flex;justify-content:space-between;align-items:baseline;gap:.5rem' }, [
           el('span', { style: 'color:var(--texto-suave);font-weight:600', texto: 'TOTAL' }),
-          el('span.cifra-gigante', { texto: formatear(t.totalUSD) }),
+          el('span.cifra-gigante', { texto: totalGrande }),
         ]),
         el('div', {
           style: 'color:var(--texto-suave);font-size:var(--t-cuerpo);text-align:right',
-          texto: Object.keys(MONEDAS)
-            .filter((m) => m !== 'USD' && tasas[m])
-            .map((m) => formatear(desdeUSD(t.totalUSD, m, tasas[m]), m))
-            .join('   ·   ') || 'Pon las tasas del día para ver bolívares y pesos',
+          texto: [
+            totalEnPesos != null ? formatear(t.totalUSD) : null,
+            tasas.VES ? formatear(desdeUSD(t.totalUSD, 'VES', tasas.VES), 'VES') : null,
+          ].filter(Boolean).join('   ·   ') || 'Pon las tasas del día para ver bolívares y pesos',
         }),
       ]));
 
@@ -409,15 +480,61 @@ registrar('vender', {
         el('button.btn.plano', { texto: 'Vaciar', onclick: async () => {
           if (await confirmar('¿Vaciar la venta?', { aceptar: 'Sí, vaciar', peligro: true })) vaciar();
         } }),
-        el('button.btn.principal.grande', { style: 'flex:2', texto: `Cobrar ${formatear(t.totalUSD)}`, onclick: cobrar }),
+        el('button.btn.principal.grande', { style: 'flex:2', texto: `Cobrar ${totalGrande}`, onclick: cobrar }),
       ]));
+    }
+
+    /**
+     * Cambiar el precio de una línea, EN PESOS.
+     *
+     * Vive aparte de `editarLinea` porque ahora se llega aquí de dos maneras:
+     * tocando el precio en la fila (lo normal) o entrando por la ficha de la
+     * línea. Antes solo existía el segundo camino, escondido detrás del nombre.
+     *
+     * Y se pregunta en pesos porque así es como se acuerda en el mostrador:
+     * "llévatelos en 6.000". El dólar es la moneda de cuenta de adentro, no la
+     * de la conversación. Con el teclado en dólares había que traducir de
+     * cabeza a centavos, y por eso bajar un precio era imposible en la práctica.
+     */
+    async function cambiarPrecio(i) {
+      const lineas = [...carrito()];
+      const l = lineas[i];
+      if (!l) return;
+      // El peso de la línea se cambia junto con el dólar: si se quedara el de
+      // la etiqueta, rebajar una línea bajaría el total en dólares y lo dejaría
+      // igual en pesos, que es lo que el cliente está mirando.
+      const tasas = leer('tasas') || {};
+      const monedas = ['COP', 'VES', 'USD'].filter((m) => m === 'USD' || tasas[m] > 0);
+      const r = await pedirMonto({
+        titulo: `Precio de ${l.nombre}`,
+        nota: l.cantidad > 1 ? `Es el precio de CADA UNO. Se llevan ${l.cantidad}.` : '',
+        inicial: monedas[0] === 'COP' && l.precioCOP > 0 ? l.precioCOP
+          : monedas[0] === 'COP' && tasas.COP ? desdeUSD(l.precioUSD, 'COP', tasas.COP)
+          : l.precioUSD,
+        moneda: monedas[0], monedas, tasas,
+      });
+      if (r === null) return;
+      const p = r.montoUSD;
+      const producto = catalogo().find((x) => x.id === l.productoId) || { costoUSD: l.costoUSD };
+      if (requiereAutorizacion(producto, p)) {
+        const quien = await pedirAutorizacion(`${l.nombre} a ${formatear(p)} está por debajo del mínimo.`);
+        if (!quien) return avisarMal('Sin autorización no se puede poner ese precio.');
+        l.autorizadoPor = quien;
+      }
+      l.precioUSD = p;
+      const pesoAcordado = r.moneda === 'COP' ? r.menores : 0;
+      l.precioCOP = pesoAcordado;
+      l.precioCOPOriginal = pesoAcordado;
+      l.precioEditado = p !== l.precioOriginalUSD;
+      lineas[i] = l;
+      ponerCarrito(lineas);
     }
 
     async function editarLinea(i) {
       const lineas = [...carrito()];
       const l = lineas[i];
       const d = abrirDialogo('');
-      pegar(d, 
+      pegar(d,
         el('h2', { html: esc(l.nombre) }),
         el('div.fila', { style: 'margin:1rem 0' }, [
           el('button.btn.plano', { texto: 'Cantidad', onclick: async () => {
@@ -436,21 +553,7 @@ registrar('vender', {
             lineas[i] = l;
             ponerCarrito(lineas);
           } }),
-          el('button.btn.plano', { texto: 'Precio', onclick: async () => {
-            d.close();
-            const p = await pedirMonto({ titulo: `Precio de ${l.nombre}`, inicial: l.precioUSD });
-            if (p === null) return;
-            const producto = catalogo().find((x) => x.id === l.productoId) || { costoUSD: l.costoUSD };
-            if (requiereAutorizacion(producto, p)) {
-              const quien = await pedirAutorizacion(`${l.nombre} a ${formatear(p)} está por debajo del mínimo.`);
-              if (!quien) return avisarMal('Sin autorización no se puede poner ese precio.');
-              l.autorizadoPor = quien;
-            }
-            l.precioUSD = p;
-            l.precioEditado = p !== l.precioOriginalUSD;
-            lineas[i] = l;
-            ponerCarrito(lineas);
-          } }),
+          el('button.btn.plano', { texto: 'Precio', onclick: () => { d.close(); cambiarPrecio(i); } }),
         ]),
         el('button.btn.plano.ancho', { texto: 'Cerrar', onclick: () => d.close() })
       );
@@ -497,9 +600,35 @@ registrar('vender', {
  */
 function pedirVentaLibre(nombreSugerido = '') {
   return new Promise((resolver) => {
-    let monto = 0;
-    let ganancia = 0;
+    // El monto se piensa en PESOS, igual que en el cobro y que en la etiqueta
+    // del estante: nadie hace una venta suelta pensando en centavos de dólar.
+    // Por dentro se guarda en dólares, como todo, pero eso no se le pide al
+    // que está en el mostrador. Y las tres monedas se ven a la vez, porque la
+    // pregunta del cliente es "¿y en bolívares?".
+    const tasas = leer('tasas') || {};
+    const MONEDAS_LIBRE = ['COP', 'VES', 'USD'].filter((m) => m === 'USD' || tasas[m] > 0);
+    let moneda = MONEDAS_LIBRE[0];
+    const enMoneda = (usd) => (moneda === 'USD' ? usd : desdeUSD(usd, moneda, tasas[moneda]));
+    const otrasMonedas = (usd) => MONEDAS_LIBRE
+      .filter((m) => m !== moneda)
+      .map((m) => formatear(m === 'USD' ? usd : desdeUSD(usd, m, tasas[m]), m))
+      .join('   ·   ');
+
+    // `monto` y `ganancia` viven en DÓLARES, que es como se guardan. Pero se
+    // muestra la cifra EXACTA que se tecleó (`montoTal`, en `moneda`): si se
+    // mostrara el dólar convertido de vuelta, 20.000 pesos se verían como
+    // 20.008 por el redondeo a centavos, y una cifra que se mueve sola no se
+    // le puede enseñar a nadie.
+    let monto = 0, montoTal = 0;
+    let ganancia = 0, gananciaTal = 0;
     let gananciaTocada = false;
+
+    /** Lo que se escribió, si sigue siendo de esta moneda; si no, el convertido. */
+    const comoSeVe = (usd, tal) => formatear(
+      tal != null && Math.abs(usd - (moneda === 'USD' ? tal : aUSD(tal, moneda, tasas[moneda]))) === 0
+        ? tal : enMoneda(usd),
+      moneda,
+    );
 
     const d = abrirDialogo('');
     const nombre = el('input', {
@@ -507,16 +636,23 @@ function pedirVentaLibre(nombreSugerido = '') {
       value: nombreSugerido || '',
     });
     const botonMonto = el('button.btn.plano.ancho', { type: 'button' });
+    const eco = el('div', {
+      style: 'text-align:center;color:var(--texto-suave);font-size:var(--t-pie);min-height:1.2em;margin-top:.25rem',
+    });
     const botonGanancia = el('button.btn.plano.ancho', { type: 'button', style: 'margin-top:.4rem' });
     const aceptar = el('button.btn.principal', { type: 'button', style: 'flex:2', texto: 'Agregar' });
 
     const pintar = () => {
-      botonMonto.textContent = monto ? `Monto: ${formatear(monto)}` : 'Pon el monto que entró';
+      botonMonto.textContent = monto
+        ? `Monto: ${comoSeVe(monto, montoTal)}`
+        : 'Pon el monto que entró';
       botonGanancia.textContent = !monto
         ? 'Ganancia: se pone después del monto'
         : ganancia >= monto
-          ? `Ganancia estimada: todo (${formatear(monto)})`
-          : `Ganancia estimada: ${formatear(ganancia)} de ${formatear(monto)}`;
+          ? `Ganancia estimada: todo (${comoSeVe(monto, montoTal)})`
+          : `Ganancia estimada: ${comoSeVe(ganancia, gananciaTal)} de ${comoSeVe(monto, montoTal)}`;
+      // La misma plata en las otras dos, para no tener que salir a calcularla.
+      eco.textContent = monto ? otrasMonedas(monto) : '';
       botonGanancia.disabled = monto ? null : true;
       aceptar.disabled = monto ? null : true;
       aceptar.style.opacity = monto ? '' : '.5';
@@ -525,25 +661,43 @@ function pedirVentaLibre(nombreSugerido = '') {
     botonMonto.addEventListener('click', async () => {
       const m = await pedirMonto({
         titulo: nombre.value.trim() || 'Venta libre',
-        nota: 'Lo que entró a la caja', inicial: monto, aceptar: 'Listo',
+        nota: 'Lo que entró a la caja', inicial: montoTal || enMoneda(monto), aceptar: 'Listo',
+        moneda, monedas: MONEDAS_LIBRE, tasas,
       });
       if (m === null) return;
-      monto = m;
+      // Si cambió de moneda allá adentro, esa se queda: es en la que está
+      // pensando el monto, y la ganancia se le pregunta en la misma.
+      const cambioMoneda = m.moneda !== moneda;
+      moneda = m.moneda;
+      monto = m.montoUSD;
+      montoTal = m.menores;
       // Mientras no la toquen, la ganancia sigue al monto. Si ya la fijaron, se
       // respeta, pero nunca por encima de lo que entró.
-      if (!gananciaTocada) ganancia = monto;
-      else ganancia = Math.min(ganancia, monto);
+      if (!gananciaTocada) { ganancia = monto; gananciaTal = montoTal; }
+      else {
+        ganancia = Math.min(ganancia, monto);
+        // Lo tecleado de la ganancia era de la moneda vieja, o quedó capado
+        // por el monto: en los dos casos deja de valer como cifra exacta.
+        gananciaTal = (cambioMoneda || ganancia === monto) ? null : gananciaTal;
+        if (ganancia === monto) gananciaTal = montoTal;
+      }
       pintar();
     });
 
     botonGanancia.addEventListener('click', async () => {
       const g = await pedirMonto({
         titulo: '¿Cuánto de eso es ganancia?',
-        nota: `Entraron ${formatear(monto)}. Si no te costó nada, déjalo completo.`,
-        inicial: ganancia, aceptar: 'Listo',
+        nota: `Entraron ${comoSeVe(monto, montoTal)}. Si no te costó nada, déjalo completo.`,
+        inicial: gananciaTal || enMoneda(ganancia), aceptar: 'Listo',
+        moneda, monedas: MONEDAS_LIBRE, tasas,
       });
       if (g === null) return;
-      ganancia = Math.min(g, monto);
+      // La ganancia se pregunta en la moneda del monto, pero si la cambian
+      // allá adentro, el monto se pasa a esa misma: los dos números se leen
+      // juntos ("500 de 20.000") y en dos monedas distintas no se leen.
+      if (g.moneda !== moneda) { moneda = g.moneda; montoTal = null; }
+      ganancia = Math.min(g.montoUSD, monto);
+      gananciaTal = ganancia === g.montoUSD ? g.menores : null;
       gananciaTocada = true;
       pintar();
     });
@@ -557,6 +711,11 @@ function pedirVentaLibre(nombreSugerido = '') {
         cantidad: 1,
         precioUSD: monto,
         precioOriginalUSD: monto,
+        // Si se tecleó en pesos, ese peso exacto viaja con la línea: es el que
+        // se cobra y el que queda si la venta se deja fiada. Si se tecleó en
+        // otra moneda no hay peso acordado, y el total se convierte.
+        precioCOP: moneda === 'COP' ? (montoTal || 0) : 0,
+        precioCOPOriginal: moneda === 'COP' ? (montoTal || 0) : 0,
         // La ganancia estimada se guarda como costo: así los reportes, el
         // margen y el cierre de caja la cuentan sin tocar nada más.
         costoUSD: Math.max(0, monto - ganancia),
@@ -581,6 +740,7 @@ function pedirVentaLibre(nombreSugerido = '') {
       }),
       el('div.campo', {}, [el('label', { texto: '¿Qué fue?' }), nombre]),
       botonMonto,
+      eco,
       botonGanancia,
       el('p', {
         style: 'color:var(--texto-suave);font-size:var(--t-pie);margin:.4rem 0 0',
@@ -630,10 +790,22 @@ async function cobrar() {
   const enMoneda = (usd) => (monedaMonto === 'USD' ? usd : desdeUSD(usd, monedaMonto, tasas[monedaMonto]));
   const aDolares = (monto) => (monedaMonto === 'USD' ? monto : aUSD(monto, monedaMonto, tasas[monedaMonto]));
 
-  let montoCobrado = enMoneda(t.totalUSD);      // en `monedaMonto`
+  // El total en pesos se SUMA de las etiquetas, no se convierte del dólar: así
+  // la pantalla dice 20.000 y no 20.008 (ver `totalesVenta`). Si alguna línea
+  // no sabe su peso —un precio acordado a mano— se convierte el total entero,
+  // que es lo que se hacía siempre.
+  let montoCobrado = (monedaMonto === 'COP' && t.totalCOP != null)
+    ? t.totalCOP
+    : enMoneda(t.totalUSD);
+  const totalDeEtiqueta = montoCobrado;        // sin ajustar, para comparar
   let ajustadoPor = null;
-  const totalUSD = () => aDolares(montoCobrado);
-  const ajusteUSD = () => totalUSD() - t.totalUSD;
+  // Si NO se tocó "Ajustar el monto", no hay ajuste que guardar. Antes se
+  // deducía comparando dólares, y al sumar pesos exactos esa resta podía dar
+  // un centavo: la venta quedaba marcada como "subida" sin que nadie la
+  // tocara, y pidiendo un autorizante que no existía.
+  let ajustado = false;
+  const totalUSD = () => (ajustado ? aDolares(montoCobrado) : t.totalUSD);
+  const ajusteUSD = () => (ajustado ? aDolares(montoCobrado) - t.totalUSD : 0);
 
   const d = abrirDialogo('');
   const resumen = el('div');
@@ -657,7 +829,9 @@ async function cobrar() {
         }),
         ajuste ? el('div', {
           style: `font-size:var(--t-pie);font-weight:600;color:${ajuste < 0 ? 'var(--ambar)' : 'var(--verde)'}`,
-          texto: `${ajuste < 0 ? 'Rebajado' : 'Subido'} ${formatear(Math.abs(enMoneda(t.totalUSD) - montoCobrado), monedaMonto)}`
+          // Lo rebajado se dice en la moneda en que se rebajó, comparando con
+          // el total de la etiqueta y no con el dólar convertido de vuelta.
+          texto: `${ajuste < 0 ? 'Rebajado' : 'Subido'} ${formatear(Math.abs(totalDeEtiqueta - montoCobrado), monedaMonto)}`
                + (ajustadoPor ? ` · autorizó ${ajustadoPor}` : ''),
         }) : null,
       ])
@@ -686,7 +860,7 @@ async function cobrar() {
   async function ajustar() {
     const nuevo = await pedirMonto({
       titulo: 'Ajustar el monto',
-      nota: `El total es ${formatear(enMoneda(t.totalUSD), monedaMonto)}. `
+      nota: `El total es ${formatear(totalDeEtiqueta, monedaMonto)}. `
           + 'Déjalo en lo que de verdad vas a cobrar.',
       moneda: monedaMonto, inicial: montoCobrado, aceptar: 'Dejarlo en',
     });
@@ -694,21 +868,43 @@ async function cobrar() {
     // Subirlo o bajarlo lo decide el dueño, o el código. Sin esto, cualquiera
     // podría rebajar una venta y nadie se enteraría.
     const quien = await pedirAutorizacion(
-      `Cambiar el total de ${formatear(enMoneda(t.totalUSD), monedaMonto)} `
+      `Cambiar el total de ${formatear(totalDeEtiqueta, monedaMonto)} `
       + `a ${formatear(nuevo, monedaMonto)}.`);
     if (!quien) return avisarMal('Sin autorización no se puede cambiar el total.');
     ajustadoPor = quien;
     montoCobrado = nuevo;
+    ajustado = true;
     pintar();
   }
 
+  // El candado del cobro. NO va por botón, va por cuadro: los tres botones de
+  // moneda y el de fiado son cuatro caminos a la MISMA venta, y el toque de más
+  // casi nunca cae dos veces en el mismo sitio.
+  //
+  // Lo que pasó el 26/10 (ver `unSoloToque`): nueve toques en "Pesos" mientras
+  // `turnoAbierto()` esperaba señal, los nueve esperando en el mismo await, y
+  // al volver la señal, nueve ventas iguales dentro de 15 milisegundos.
+  let cobrando = false;
+
   async function terminar(moneda, monto, { fiadoA = null } = {}) {
+    if (cobrando) return;
+    cobrando = true;
+    // Que se VEA que está cobrando, o el que atiende vuelve a tocar con razón.
+    for (const b of d.querySelectorAll('button')) b.disabled = true;
+    const aviso = el('p', {
+      style: 'text-align:center;color:var(--texto-suave);font-size:var(--t-cuerpo);margin:.6rem 0 0',
+      texto: fiadoA ? 'Anotando el fiado…' : 'Cobrando…',
+    });
+    d.append(aviso);
     try {
       const turno = await turnoAbierto().catch(() => null);
       // Pagó justo: se cobra el total en la moneda que se tocó. No se anota
       // ningún billete ni ningún vuelto, porque lo que queda en la gaveta al
       // final del día es el total igual.
-      const pagos = fiadoA ? [] : [crearPago(moneda, monto, tasas)];
+      // Los botones de moneda pagan la venta ENTERA, así que este pago la
+      // cubre: su valor en dólares es el de la venta, no uno recalculado que
+      // puede caer a un centavo y dejar un saldo que nadie debe.
+      const pagos = fiadoA ? [] : [crearPago(moneda, monto, tasas, { montoUSD: totalUSD() })];
       const { id, venta } = await registrarVenta({
         lineas, pagos,
         ajusteUSD: ajusteUSD(),
@@ -734,6 +930,11 @@ async function cobrar() {
     } catch (e) {
       sonidoAlerta();
       avisarMal(e.message || 'No se pudo registrar la venta.');
+      // No se cobró: se devuelven los botones para poder reintentar. Si se
+      // cobró, el cuadro ya se cerró y no hay nada que devolver.
+      cobrando = false;
+      aviso.remove();
+      for (const b of d.querySelectorAll('button')) b.disabled = false;
     }
   }
 
@@ -761,7 +962,10 @@ async function cobrar() {
 /** Elegir (o crear al vuelo) el cliente del fiado. */
 function elegirCliente() {
   return new Promise(async (resolver) => {
-    const clientes = await listarClientes().catch(() => []);
+    // De la caché, que es instantánea: este cuadro se abre en medio de un
+    // cobro y no puede esperar a la señal. La lista del servidor llega abajo y
+    // repinta (ver data/lectura.js).
+    let clientes = await listarClientes({ fuente: CACHE }).catch(() => []);
     const d = abrirDialogo('');
     const entrada = el('input', { placeholder: 'Nombre o teléfono' });
     const lista = el('div', { style: 'max-height:40vh;overflow:auto;margin:.75rem 0' });
@@ -784,6 +988,9 @@ function elegirCliente() {
     };
     entrada.addEventListener('input', () => pintar(entrada.value));
     pintar();
+    listarClientes()
+      .then((lista) => { clientes = lista; if (d.open) pintar(entrada.value); })
+      .catch(() => {});
     pegar(d, 
       el('h2', { texto: 'Fiado — ¿a quién?' }),
       entrada, lista,

@@ -149,6 +149,52 @@ export function olvidarCuadro(d) {
   else { porDevolver += 1; programarAjuste(); }
 }
 
+/**
+ * UN SOLO TOQUE. Envuelve lo que hace un botón para que tocarlo otra vez
+ * mientras trabaja NO lo repita.
+ *
+ * Esto no es un detalle de pulido: es la plata. El 26/10 una venta de dos
+ * llaveros quedó registrada NUEVE VECES —90.000 pesos y 18 unidades de stock
+ * que nunca salieron—, y el 25/10 el cierre de caja se escribió nueve veces
+ * igual. No fueron nueve toques apurados: los nueve pedidos se quedaron
+ * esperando la señal en el mismo `await`, y cuando volvió, los nueve
+ * escribieron dentro del mismo instante.
+ *
+ * Visto desde el mostrador tenía toda la lógica del mundo: se toca "Pesos", el
+ * cuadro se queda ahí sin cerrarse ni decir nada, y uno vuelve a tocar. La app
+ * se veía trabada —"no me deja"— mientras por dentro apuntaba una venta por
+ * cada toque.
+ *
+ * Entonces: al primer toque se apagan los botones del cuadro y el que se tocó
+ * dice qué está pasando. Si la cosa falla, se vuelven a encender para poder
+ * reintentar; si salió bien, el cuadro ya se cerró y no hay nada que encender.
+ */
+export function unSoloToque(accion, { mientras = 'Un momento…' } = {}) {
+  let trabajando = false;
+  return async function (ev) {
+    if (trabajando) return;
+    trabajando = true;
+    const boton = ev?.currentTarget || null;
+    const cuadro = boton?.closest?.('dialog') || boton?.parentNode || null;
+    const botones = cuadro ? [...cuadro.querySelectorAll('button')] : (boton ? [boton] : []);
+    const comoEstaban = botones.map((b) => [b, b.disabled]);
+    const textoAntes = boton ? boton.textContent : null;
+    for (const b of botones) b.disabled = true;
+    if (boton && mientras) boton.textContent = mientras;
+    try {
+      return await accion(ev);
+    } finally {
+      trabajando = false;
+      // Sigue en pantalla = no se terminó (falló, o el usuario canceló por
+      // dentro). Se devuelven los botones tal como estaban.
+      if (boton?.isConnected) {
+        for (const [b, estaba] of comoEstaban) b.disabled = estaba;
+        if (textoAntes !== null) boton.textContent = textoAntes;
+      }
+    }
+  };
+}
+
 /** Fecha corta legible: "7 oct, 2:15 pm" */
 export function fecha(ts) {
   const d = ts?.toDate ? ts.toDate() : ts instanceof Date ? ts : ts ? new Date(ts) : null;

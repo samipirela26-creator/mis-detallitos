@@ -12,6 +12,7 @@ import { ref, col } from '../core/firebase.js';
 import { getDoc, setDoc, getDocs, query, orderBy, limit, serverTimestamp } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js';
 import { usuarioActual, esDueno } from '../core/sesion.js';
 import { escribir } from '../core/estado.js';
+import { encolar } from './cola.js';
 
 export const hoyISO = () => new Date().toISOString().slice(0, 10);
 
@@ -34,7 +35,8 @@ export async function baseBs() {
 
 export async function guardarBaseBs(base) {
   if (!BASES_BS[base]) throw new Error(`Base desconocida: ${base}`);
-  await setDoc(ref('config', 'general'), { baseBs: base }, { merge: true });
+  // Sin `await`: ver data/cola.js.
+  encolar(setDoc(ref('config', 'general'), { baseBs: base }, { merge: true }), 'base-bs');
   return BASES_BS[base];
 }
 
@@ -86,7 +88,7 @@ export async function fijarTasa(moneda, valorMenores) {
   const nuevas = { ...actuales };
   if (valorMenores > 0) nuevas[moneda] = valorMenores;
   else delete nuevas[moneda];
-  await setDoc(ref('config', 'general'), { tasasFijas: nuevas }, { merge: true });
+  encolar(setDoc(ref('config', 'general'), { tasasFijas: nuevas }, { merge: true }), 'tasa-fija');
   return nuevas;
 }
 
@@ -94,7 +96,7 @@ export async function fijarTasa(moneda, valorMenores) {
 export async function guardarTasas({ VES, COP, fuente = 'manual' }) {
   const u = usuarioActual();
   const datos = { VES, COP, fuente, uid: u.uid, nombreUsuario: u.nombre, ts: serverTimestamp() };
-  await setDoc(ref('tasas', hoyISO()), datos);
+  encolar(setDoc(ref('tasas', hoyISO()), datos), 'tasas-del-dia');
   escribir('tasas', { VES, COP });
   escribir('tasaFecha', hoyISO());
 

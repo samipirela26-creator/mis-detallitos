@@ -11,6 +11,7 @@ import { sincronizarCatalogo, parar as pararCatalogo, productos as catalogo } fr
 import { cargarTasas, actualizarTasasAuto } from './data/tasas.js';
 import { ventasEntre } from './data/ventas.js';
 import { gastosEntre } from './data/gastos.js';
+import { pasadas, CACHE } from './data/lectura.js';
 import { bajoMinimo } from './data/inventario.js';
 import { listarClientes, deudaDe, debe } from './data/clientes.js';
 import { resumen } from './reports/analisis.js';
@@ -53,10 +54,15 @@ registrar('panel', {
     ]);
     nodo.appendChild(kpis);
 
-    // Las cuentas del día, cuando lleguen (la pantalla no espera).
+    // Las cuentas del día, cuando lleguen (la pantalla no espera). Dos
+    // pasadas: las de la caché salen enseguida y el servidor repinta encima
+    // (ver data/lectura.js).
     const hoy = diaISO();
-    Promise.all([ventasEntre(hoy, hoy), gastosEntre(hoy, hoy)])
+    const cuentasDelDia = (fuente) => Promise.all([
+      ventasEntre(hoy, hoy, { fuente }), gastosEntre(hoy, hoy, { fuente }),
+    ])
       .then(([ventas, gastos]) => {
+        if (fuente === CACHE && !ventas.length && !gastos.length) return false;
         const costos = Object.fromEntries(catalogo().map((p) => [p.id, p.costoUSD || 0]));
         const r = resumen(ventas, gastos, costos);
         kpis.innerHTML = '';
@@ -76,9 +82,11 @@ registrar('panel', {
           ventasHoy
         );
       })
-      .catch(() => {
+      .catch((e) => {
+        if (fuente === CACHE) throw e;   // la caché no sabe: que conteste el servidor
         kpis.querySelectorAll('.valor').forEach((v) => { if (v.textContent === '…') v.textContent = '—'; });
       });
+    pasadas(cuentasDelDia);
 
     // --- avisos que piden acción ---
     const avisos = el('div');
@@ -111,24 +119,32 @@ registrar('panel', {
     }
     // Los deudores, en el panel. Una deuda que no se ve no se cobra: es la plata
     // que más fácil se pierde, porque no duele hasta que pasan los meses.
-    listarClientes()
+    // Igual que las cuentas: primero los que ya están en el teléfono. La
+    // tarjeta vive en su propia caja porque esto pinta dos veces: si se
+    // agregara a `avisos` saldrían dos tarjetas de deudores.
+    const cajaDeudores = el('div');
+    avisos.appendChild(cajaDeudores);
+    const pintarDeudores = (fuente) => listarClientes({ fuente })
       .then((clientes) => {
+        if (fuente === CACHE && !clientes.length) return false;
         const tasas = leer('tasas') || {};
         const deben = clientes.filter(debe);
+        cajaDeudores.innerHTML = '';
         if (!deben.length) return;
         // En pesos, que es como se fijó la deuda y como la va a decir la gente.
         const d = (c) => deudaDe(c, tasas);
         const totalCOP = deben.reduce((t, c) => t + (d(c).COP || 0), 0);
         const total = deben.reduce((t, c) => t + d(c).USD, 0);
         const monto = (c) => (d(c).COP ? formatear(d(c).COP, 'COP') : formatear(d(c).USD));
-        avisos.appendChild(tarjetaAccion('', `${deben.length} ${deben.length === 1 ? 'persona te debe' : 'personas te deben'} ${totalCOP ? formatear(totalCOP, 'COP') : formatear(total)}`,
+        cajaDeudores.appendChild(tarjetaAccion('', `${deben.length} ${deben.length === 1 ? 'persona te debe' : 'personas te deben'} ${totalCOP ? formatear(totalCOP, 'COP') : formatear(total)}`,
           deben.slice(0, 4).map((c) => `${c.nombre} ${monto(c)}`).join(' · ')
             + (deben.length > 4 ? '…' : ''),
           'Ver deudores', 'clientes'));
         seccionPendiente.style.display = '';
         avisos.style.display = '';
       })
-      .catch(() => {});
+      .catch((e) => { if (fuente === CACHE) throw e; });
+    pasadas(pintarDeudores);
 
     const seccionPendiente = el('div.seccion', {}, [el('h2', { texto: 'Pendiente' })]);
     nodo.appendChild(seccionPendiente);
