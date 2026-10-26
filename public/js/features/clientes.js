@@ -44,7 +44,7 @@ function antiguedad(dias) {
 }
 
 registrar('clientes', {
-  titulo: 'Deudores', icono: '🤝', soloDueno: true,
+  titulo: 'Deudores', icono: '🤝', soloDueno: true, seccion: 'La plata', orden: 40,
   async montar(nodo) {
     nodo.innerHTML = '<div class="cargando">Cargando deudores…</div>';
     let clientes = [];

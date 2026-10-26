@@ -91,7 +91,7 @@ function adivinarMapeo(encabezados) {
 let estado = null;   // { filas, encabezados, mapeo, archivo, existentes }
 
 registrar('importar', {
-  titulo: 'Importar Excel', icono: '📥', soloDueno: true,
+  titulo: 'Importar Excel', icono: '📥', soloDueno: true, seccion: 'Los productos', orden: 40,
   montar(nodo) {
     nodo.innerHTML = `
       <div class="tarjeta">

@@ -12,17 +12,39 @@ let actual = null;
  * `montar` puede devolver una función de limpieza.
  */
 export function registrar(id, def) {
-  pantallas.set(id, { id, menu: false, soloDueno: false, soloEmpleado: false, orden: 99, ...def });
+  pantallas.set(id, { id, menu: false, soloDueno: false, soloEmpleado: false, seccion: '', orden: 99, ...def });
 }
 
-/** Las pantallas del menú de abajo, ya filtradas por rol y en su orden.
- *  Se dejan en 5 como máximo: una barra con más botones deja de ser cómoda. */
+/** Si el que entró puede abrirla. */
+const alcanza = (p) => (!p.soloDueno || esDueno()) && (!p.soloEmpleado || !esDueno());
+
+/** Las ACCIONES de la barra de abajo: lo que se toca a cada rato.
+ *  Son tres o cuatro a propósito. Lo demás no se esconde: vive en la hoja de
+ *  Todo (`pantallasDeTodo`), que sí tiene sitio para las doce. */
 export const pantallasDeMenu = () =>
   [...pantallas.values()]
-    .filter((p) => p.menu
-      && (!p.soloDueno || esDueno())
-      && (!p.soloEmpleado || !esDueno()))
+    .filter((p) => p.menu && alcanza(p))
     .sort((a, b) => (a.orden ?? 99) - (b.orden ?? 99));
+
+/**
+ * TODAS las pantallas que el que entró puede abrir, agrupadas por sección.
+ *
+ * Esto es lo que arregla el problema de fondo: antes una pantalla sin
+ * `menu: true` no tenía botón en ninguna parte y solo se llegaba si alguien se
+ * acordaba de que existía (Mi dinero, Caja, Deudores y Gastos solo se abrían
+ * desde los atajos del Panel; Mis ventas, desde dentro de Mi caja). Aquí sale
+ * el registro completo, así que una pantalla nueva aparece por el solo hecho
+ * de registrarse con su `seccion`.
+ */
+export function pantallasDeTodo() {
+  const grupos = new Map();
+  for (const p of [...pantallas.values()].sort((a, b) => (a.orden ?? 99) - (b.orden ?? 99))) {
+    if (!p.seccion || !p.titulo || !alcanza(p)) continue;
+    if (!grupos.has(p.seccion)) grupos.set(p.seccion, []);
+    grupos.get(p.seccion).push(p);
+  }
+  return [...grupos.entries()].map(([seccion, items]) => ({ seccion, items }));
+}
 
 export function ir(id, params = {}) {
   const query = new URLSearchParams(params).toString();

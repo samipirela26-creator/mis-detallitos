@@ -42,7 +42,7 @@ const opcionesMoneda = () => Object.values(MONEDAS)
   .map((m) => `<option value="${m.codigo}">${esc(m.nombre)}</option>`).join('');
 
 registrar('mi-dinero', {
-  titulo: 'Mi dinero', icono: 'wallet', soloDueno: true, orden: 48,
+  titulo: 'Mi dinero', icono: 'wallet', soloDueno: true, seccion: 'La plata', orden: 5,
   montar: montarMiDinero,
 });
 

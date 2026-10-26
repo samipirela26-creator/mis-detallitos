@@ -17,7 +17,7 @@ import { aMenores, formatear, margenPct, estadoMargen, MARGEN_FLOJO, aMayores, p
 
 
 registrar('inventario', {
-  titulo: 'Inventario', icono: '📦', menu: true, soloDueno: true, orden: 20,
+  titulo: 'Inventario', icono: '📦', soloDueno: true, seccion: 'Los productos', orden: 20,
   montar(nodo) {
     nodo.innerHTML = `
       <div class="campo" style="margin-bottom:.6rem">

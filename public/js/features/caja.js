@@ -18,10 +18,10 @@ import { leer } from '../core/estado.js';
 import { esDueno, usuarioActual } from '../core/sesion.js';
 
 registrar('caja', {
-  titulo: 'Mi caja', icono: '💵', menu: true, soloEmpleado: true, orden: 40,
+  titulo: 'Mi caja', icono: '💵', soloEmpleado: true, seccion: 'La plata', orden: 10,
   montar: montarCaja,
 });
-registrar('caja-dueno', { titulo: 'Caja', icono: '💵', montar: montarCaja });
+registrar('caja-dueno', { titulo: 'Caja', icono: '💵', soloDueno: true, seccion: 'La plata', orden: 20, montar: montarCaja });
 
 // La gaveta solo tiene lo que de verdad está en la gaveta. Los bolívares
 // entran por pago móvil y se quedan en la caja fuerte (ver core/sitios.js):

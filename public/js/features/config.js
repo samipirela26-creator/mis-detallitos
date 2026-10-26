@@ -20,7 +20,7 @@ import {
 } from '../data/estudio-ia.js';
 
 registrar('config', {
-  titulo: 'Configuración', icono: '⚙️', soloDueno: true,
+  titulo: 'Configuración', icono: '⚙️', soloDueno: true, seccion: 'El negocio', orden: 20,
   async montar(nodo) {
     nodo.innerHTML = `
       <div class="tarjeta" id="caja-abierta" style="display:none;margin-bottom:1rem"></div>

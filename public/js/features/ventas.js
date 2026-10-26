@@ -58,10 +58,10 @@ const RANGOS = {
 // Panel y desde Reportes (el dueño) y desde Mi caja (el empleado), que es donde
 // de verdad se hace la pregunta.
 registrar('ventas', {
-  titulo: 'Ventas', icono: 'cart', montar: montarVentas,
+  titulo: 'Ventas', icono: 'cart', soloDueno: true, seccion: 'Las ventas', orden: 30, montar: montarVentas,
 });
 registrar('mis-ventas', {
-  titulo: 'Mis ventas', icono: 'cart', soloEmpleado: true, montar: montarVentas,
+  titulo: 'Mis ventas', icono: 'cart', soloEmpleado: true, seccion: 'Las ventas', orden: 30, montar: montarVentas,
 });
 
 async function montarVentas(nodo, params = {}) {

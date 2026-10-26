@@ -15,7 +15,7 @@ import { ir } from '../core/router.js';
 import { avisarOk } from '../ui/avisos.js';
 
 registrar('buscar', {
-  titulo: 'Buscar', icono: '🔎', menu: true, soloEmpleado: true, orden: 20,
+  titulo: 'Buscar', icono: '🔎', menu: true, soloEmpleado: true, seccion: 'Las ventas', orden: 20,
   montar(nodo) {
     nodo.innerHTML = `
       <div class="buscador-pos">

@@ -25,10 +25,9 @@ teléfono en la mano. **Ninguna sesión debe inventarlos.**
 
 ## Esperan tu respuesta
 
-- [ ] **Publicar.** Lo de poder tocar el precio al vender llevaba días escrito y sin
-      publicar: la app que está en el teléfono sigue pidiendo el precio en DÓLARES, y por
-      eso no había manera de bajarlo a 6.000 pesos. Hasta que no se publique, el arreglo
-      no existe en el mostrador. `npm run publicar`.
+- [x] **Publicar.** Publicado el 26/10 (`detallitos-v82`, commit bea8872): el precio en
+      pesos, el toque que no se repite y la app que responde sin esperar la señal. El
+      teléfono que ya tiene la app instalada lo recibe al volver al frente.
 
 
 - [ ] **Las dos cajas que faltan.** `Resaltador Pointer` (costo $3,50) y `Marcadores para CD`

@@ -2,7 +2,7 @@
 // entra por imports de módulos ES, así que el orden se resuelve solo.
 
 import { iniciar as iniciarSesionVigilada, alCambiarSesion, cerrarSesion, usuarioActual, esDueno, enEspera } from './core/sesion.js';
-import { iniciarRouter, registrar, pantallasDeMenu, ir } from './core/router.js';
+import { iniciarRouter, registrar, ir } from './core/router.js';
 import { observar, leer } from './core/estado.js';
 import { montarEntrar, montarEnEspera } from './ui/pantalla-entrar.js';
 import { el, esc, diaISO, pegar } from './ui/html.js';
@@ -33,13 +33,14 @@ import './features/config.js';
 import './reports/panel.js';
 import { icono } from './ui/iconos.js';
 import { aplicarTema } from './ui/tema.js';
+import { montarBarra, contarPendientes } from './ui/menu.js';
 
 // Antes que nada: si no, se ve un fogonazo claro al abrir en modo oscuro.
 aplicarTema();
 
 // --- inicio del dueño --------------------------------------------------------
 registrar('panel', {
-  titulo: 'Panel', icono: '🏠', menu: true, soloDueno: true, orden: 10,
+  titulo: 'Panel', icono: '🏠', menu: true, soloDueno: true, seccion: 'El negocio', orden: 10,
   async montar(nodo) {
     const productos = catalogo();
     const sinFoto = productos.filter((p) => !p.tieneFoto && p.tipo !== 'servicio').length;
@@ -262,23 +263,18 @@ function pintarCascara() {
     chapitaTasas.style.display = texto ? '' : 'none';
   });
 
-  for (const p of pantallasDeMenu()) {
-    const b = el('button', {
-      'data-id': p.id,
-      class: p.id === 'vender' ? 'destacado' : '',
-      onclick: () => ir(p.id),
-    }, [
-      el('span.ico', { html: icono(p.icono || p.id) }),
-      el('span', { texto: p.titulo }),
-    ]);
-    nav.appendChild(b);
-  }
+  // La barra va partida en acciones y tareas, y la arma `ui/menu.js`: ahí está
+  // el porqué. Devuelve la chapita del número de pendientes.
+  const chapitaPendientes = montarBarra(nav);
 
   document.addEventListener('pantalla-cambiada', (ev) => {
     nav.querySelectorAll('button').forEach((b) => {
       if (b.dataset.id === ev.detail.id) b.setAttribute('aria-current', 'page');
       else b.removeAttribute('aria-current');
     });
+    // Se atendió un pedido de anulación o se puso la tasa: el número tiene que
+    // bajar sin recargar la app.
+    contarPendientes(chapitaPendientes);
   });
 
   iniciarRouter(contenido);

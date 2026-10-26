@@ -25,7 +25,7 @@ const RANGOS = {
 };
 
 registrar('reportes', {
-  titulo: 'Reportes', icono: '📊', menu: true, soloDueno: true, orden: 45,
+  titulo: 'Reportes', icono: '📊', soloDueno: true, seccion: 'Las ventas', orden: 40,
   montar: montarReportes,
 });
 
@@ -68,7 +68,7 @@ async function montarReportes(nodo) {
         (new Date(`${diaISO()}T12:00:00`) - new Date(`${turno.dia}T12:00:00`)) / 86400000));
       caja.appendChild(el('div.tarjeta', {
         style: 'background:var(--rojo-suave);border:1px solid var(--rojo);cursor:pointer;margin-bottom:1rem',
-        onclick: () => ir('caja'),
+        onclick: () => ir('caja-dueno'),
       }, [
         el('div', { style: 'font-weight:700;color:var(--rojo)', texto: dias === 1 ? 'Tienes la caja abierta desde ayer' : `Tienes la caja abierta desde hace ${dias} días` }),
         el('div', { style: 'font-size:var(--t-cuerpo);margin-top:.2rem', texto: 'Toca aquí para cerrarla. Mientras no se cierre, el arqueo no cuadra.' }),

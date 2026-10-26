@@ -37,10 +37,10 @@ import { esDueno } from '../core/sesion.js';
 const RETIROS_A_MANO = CAT_RETIRO.filter((c) => c !== 'Ajuste de conteo');
 
 registrar('gastos', {
-  titulo: 'Gastos', icono: '📤', menu: true, soloEmpleado: true, orden: 50,
+  titulo: 'Gastos', icono: '📤', soloEmpleado: true, seccion: 'La plata', orden: 30,
   montar: montarGastos,
 });
-registrar('gastos-dueno', { titulo: 'Gastos y salidas', icono: '📤', montar: montarGastos });
+registrar('gastos-dueno', { titulo: 'Gastos y salidas', icono: '📤', soloDueno: true, seccion: 'La plata', orden: 30, montar: montarGastos });
 
 async function montarGastos(nodo) {
   const dueno = esDueno();
