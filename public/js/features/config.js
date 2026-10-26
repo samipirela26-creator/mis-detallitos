@@ -9,6 +9,7 @@ import { ref, col } from '../core/firebase.js';
 import { setDoc, getDoc, getDocs, deleteDoc } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js';
 import { cargarTasas, guardarTasas, sugerirTasas, hoyISO, baseBs, guardarBaseBs, BASES_BS, tasasFijas, fijarTasa } from '../data/tasas.js';
 import { pendientes, aprobar, descartar } from '../data/sinonimos.js';
+import { turnosAbiertos } from '../data/caja.js';
 import { productos as catalogo } from '../data/catalogo.js';
 import { hashPin, olvidarHash, salNueva, VUELTAS } from '../ui/pin.js';
 import { MONEDAS, aMenores, tasaAMenores, formatear, aMayores } from '../core/dinero.js';
@@ -22,6 +23,7 @@ registrar('config', {
   titulo: 'Configuración', icono: '⚙️', soloDueno: true,
   async montar(nodo) {
     nodo.innerHTML = `
+      <div class="tarjeta" id="caja-abierta" style="display:none;margin-bottom:1rem"></div>
       <div class="tarjeta" id="tasas"><div class="cargando">Cargando tasas…</div></div>
       <div class="tarjeta" id="sinonimos" style="margin-top:1rem"><div class="cargando">Cargando sinónimos…</div></div>
       <div class="tarjeta" id="pin" style="margin-top:1rem"></div>
@@ -32,6 +34,7 @@ registrar('config', {
       <div class="tarjeta" id="tema" style="margin-top:1rem"></div>
       <div class="tarjeta" id="datos" style="margin-top:1rem"></div>`;
 
+    pintarCajaAbierta($('#caja-abierta', nodo));
     pintarTasas($('#tasas', nodo));
     pintarSinonimos($('#sinonimos', nodo));
     pintarPin($('#pin', nodo));
@@ -43,6 +46,62 @@ registrar('config', {
     pintarDatos($('#datos', nodo));
   },
 });
+
+// --- una caja abierta por error ----------------------------------------------
+//
+// Es el arreglo de un enredo real: se abre caja sin querer y la gaveta queda
+// trancada para todos, porque es una sola. Cerrarla no era la salida —obliga a
+// inventar un arqueo de un turno que no existió—, así que la apertura se anula
+// y aquí está el botón, en la pantalla del dueño, que es el único que puede.
+//
+// La tarjeta no existe mientras no haya nada abierto: un botón para deshacer
+// algo que no pasó solo asusta.
+async function pintarCajaAbierta(caja) {
+  let abiertos = [];
+  try {
+    abiertos = await turnosAbiertos();
+  } catch {
+    return;    // sin internet no se puede saber, y no es nada urgente
+  }
+  if (!abiertos.length) { caja.style.display = 'none'; return; }
+
+  caja.innerHTML = '';
+  caja.style.display = '';
+  pegar(caja,
+    el('h2', { texto: abiertos.length === 1 ? 'Hay una caja abierta' : `Hay ${abiertos.length} cajas abiertas` }),
+    el('p', {
+      style: 'color:var(--texto-suave);font-size:var(--t-cuerpo)',
+      texto: 'Si alguna se abrió por error, anúlala desde aquí: el turno queda anulado con el '
+           + 'motivo y la gaveta se suelta, sin tener que inventar un cierre. Si el turno es de '
+           + 'verdad, déjalo: se cierra contando, en la pantalla de Caja.',
+    })
+  );
+
+  for (const t of abiertos) {
+    const fondo = Object.entries(t.fondo || {})
+      .filter(([, v]) => v)
+      .map(([m, v]) => formatear(v, m)).join('  ·  ');
+    caja.appendChild(el('div', {
+      style: 'display:flex;justify-content:space-between;align-items:center;gap:.5rem;'
+           + 'padding:.6rem 0;border-top:1px solid var(--borde);flex-wrap:wrap',
+    }, [
+      el('div', {}, [
+        el('div', { style: 'font-weight:600', html: esc(t.nombreUsuario || 'Alguien') }),
+        el('div', {
+          style: 'font-size:var(--t-pie);color:var(--texto-suave)',
+          texto: `Abrió el ${fecha(t.apertura)}${fondo ? ` con ${fondo}` : ' sin nada'}`,
+        }),
+      ]),
+      el('button.btn.plano', {
+        style: 'min-height:36px;font-size:var(--t-pie)', texto: 'Fue un error: anularla',
+        onclick: async () => {
+          const { pedirAnularApertura } = await import('./caja.js');
+          pedirAnularApertura(t, () => pintarCajaAbierta(caja));
+        },
+      }),
+    ]));
+  }
+}
 
 // --- tasas del día -----------------------------------------------------------
 // La del bolívar se actualiza sola con el BCV al abrir la app; aquí se puede

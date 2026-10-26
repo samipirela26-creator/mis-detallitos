@@ -15,6 +15,7 @@ import { entraALaGaveta } from '../core/sitios.js';
 import { ventasEntre, hoyISO } from './ventas.js';
 import { gastosEntre } from './gastos.js';
 import { anotar } from './auditoria.js';
+import { encolar } from './cola.js';
 
 // Los billetes viven en dinero.js, que es donde está todo lo que es plata.
 // Aquí se reexporta para no romper a quien ya los importaba de este módulo.
@@ -95,7 +96,13 @@ export async function abrirTurno(fondo) {
       uid: u.uid,
       nombreUsuario: u.nombre,
     });
-    tx.set(marcador, { abierto: true, cajaId: documento.id, uid: u.uid, nombre: u.nombre, dia: hoyISO() });
+    // Con merge: sin él, abrir turno BORRABA del marcador con cuánto quedó la
+    // gaveta en el último cierre, que es justo el dato que se enseña al abrir.
+    // Y si esa apertura se anula por error, hay que poder volver atrás como si
+    // no hubiera pasado nada.
+    tx.set(marcador, {
+      abierto: true, cajaId: documento.id, uid: u.uid, nombre: u.nombre, dia: hoyISO(),
+    }, { merge: true });
   });
 
   anotar('caja-abierta', { cajaId: documento.id, fondo });
@@ -284,10 +291,80 @@ export async function cerrarTurno(turno, contado, { nota = '' } = {}) {
     cierre: serverTimestamp(),
     cerradaPor: u.nombre,
   }, { merge: true });
-  await lote.commit();
+  encolar(lote.commit(), 'cierre-de-turno');
 
   anotar('caja-cerrada', { cajaId: turno.id, diferencia, contado, esperado });
   return { esperado, contado, diferencia, noContadas, totalUSD, gananciaUSD, cantidad };
+}
+
+/**
+ * TODOS los turnos abiertos, sean de quien sean. Es para el dueño: el empleado
+ * por reglas de Firestore solo recibe los suyos, y para él ya está
+ * `turnoAbierto()`.
+ *
+ * Sin `orderBy` a propósito: junto al `where` pediría un índice compuesto en
+ * Firestore, y aquí hablamos de uno o dos documentos. Se ordena en memoria.
+ */
+export async function turnosAbiertos() {
+  const snap = await getDocs(query(col('cajas'), where('estado', '==', 'abierta')));
+  return snap.docs
+    .map((d) => ({ id: d.id, ...d.data() }))
+    .sort((a, b) => (b.apertura?.seconds || 0) - (a.apertura?.seconds || 0));
+}
+
+/**
+ * Un turno que se abrió por error: se ANULA, no se cierra.
+ *
+ * Cerrarlo obligaba a contar e inventar un arqueo de un turno que nunca
+ * existió: quedaba un cierre Z con cifras falsas en el histórico, y encima la
+ * gaveta de verdad quedaba "registrada" con lo que se escribió ahí. Pasó: el
+ * primo abrió caja sin nada por equivocación y nadie podía abrir la de verdad
+ * sin ensuciar el libro.
+ *
+ * El turno no se borra —las reglas no dejan borrar una caja, y está bien: el
+ * rastro de que se abrió y se anuló es parte de lo que hay que poder mirar—.
+ * Queda marcado `anulada`, con el nombre de quien lo anuló y el motivo, y sale
+ * de las consultas de turno abierto porque todas piden `estado == 'abierta'`.
+ *
+ * Y lo importante: se suelta la gaveta, que es lo que tenía trancada a todo el
+ * mundo. En transacción y solo si el marcador apunta a ESTE turno: si mientras
+ * tanto alguien abrió otro, soltarlo dejaría dos turnos contando la misma
+ * plata, que es exactamente lo que el marcador existe para impedir.
+ */
+export async function anularApertura(turno, motivo) {
+  const u = usuarioActual();
+  const marcador = ref('equipo', 'turno');
+
+  await runTransaction(db, async (tx) => {
+    // Las dos lecturas van ANTES de cualquier escritura: Firestore no admite
+    // leer después de escribir dentro de una transacción.
+    const snap = await tx.get(ref('cajas', turno.id));
+    const m = await tx.get(marcador);
+    const actual = snap.exists() ? snap.data() : null;
+    const marca = m.exists() ? m.data() : null;
+
+    if (!actual) throw new Error('Ese turno ya no está.');
+    if (actual.estado === 'cerrada') {
+      throw new Error('Ese turno ya se cerró con su arqueo: un cierre hecho no se anula desde aquí.');
+    }
+    if (actual.estado === 'anulada') return;   // dos toques seguidos: ya está
+
+    tx.set(ref('cajas', turno.id), {
+      estado: 'anulada',
+      motivoAnulacion: motivo,
+      anuladaPor: u.nombre,
+      anuladaTs: serverTimestamp(),
+    }, { merge: true });
+
+    // merge: lo que dejó el último cierre de verdad (con cuánto quedó la
+    // gaveta) sigue ahí y vuelve a enseñarse al abrir, como si esta apertura
+    // no hubiera ocurrido.
+    if (marca?.abierto && marca.cajaId === turno.id) {
+      tx.set(marcador, { abierto: false, cajaId: null }, { merge: true });
+    }
+  });
+
+  anotar('caja-anulada', { cajaId: turno.id, motivo, abiertaPor: turno.nombreUsuario || '' });
 }
 
 export async function turnosRecientes(cuantos = 20) {

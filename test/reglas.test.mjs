@@ -211,6 +211,46 @@ describe('reglas de seguridad', { skip: hayEmulador ? false : 'el emulador de Fi
     assert.equal(r2.status, 200);
   });
 
+  // Abrir caja sin querer tranca la gaveta de todo el mundo, porque es una
+  // sola. La salida es anular esa apertura, y eso lo hace el dueño desde su
+  // pantalla: por eso las reglas tienen que dejarlo tocar un turno que no es
+  // suyo, y seguir impidiendo que un empleado toque el de otro.
+  test('una apertura por error la anula el dueño, también la de otro', async () => {
+    const delPrimo = 'cajas/turno-por-error';
+    assert.equal((await escribir(delPrimo, {
+      estado: { stringValue: 'abierta' },
+      uid: { stringValue: empleado.uid },
+      nombreUsuario: { stringValue: 'Primo' },
+      dia: { stringValue: '2026-01-02' },
+    }, como(empleado))).status, 200, 'el empleado abre su turno');
+
+    // El dueño lo anula: es el arreglo del enredo.
+    assert.equal((await fusionar(delPrimo, {
+      estado: { stringValue: 'anulada' },
+      motivoAnulacion: { stringValue: 'Se abrió sin querer' },
+      anuladaPor: { stringValue: 'Dueño' },
+    }, como(dueno))).status, 200, 'el dueño sí anula la apertura del empleado');
+
+    // Y suelta la gaveta, que es lo que la tenía trancada.
+    assert.equal((await fusionar('equipo/turno', {
+      abierto: { booleanValue: false },
+    }, como(dueno))).status, 200, 'se suelta el marcador de la gaveta');
+
+    // Lo que NO cambia: el turno de otro sigue siendo intocable para el
+    // empleado, y una caja no se borra nunca, ni el dueño.
+    const delDueno = 'cajas/turno-del-dueno';
+    assert.equal((await escribir(delDueno, {
+      estado: { stringValue: 'abierta' },
+      uid: { stringValue: dueno.uid },
+      nombreUsuario: { stringValue: 'Dueño' },
+      dia: { stringValue: '2026-01-02' },
+    }, como(dueno))).status, 200);
+    assert.equal((await fusionar(delDueno, {
+      estado: { stringValue: 'anulada' },
+    }, como(empleado))).status, 403, 'el empleado no anula el turno de otro');
+    assert.notEqual((await borrar(delPrimo, como(dueno))).status, 200, 'una caja no se borra');
+  });
+
   test('las fotos las toma el equipo; de afuera solo se ven', async () => {
     const sinCabecera = { 'Content-Type': 'application/json' };
     await escribir('fotos/prueba-reglas', { datos: { stringValue: 'data:image/webp;base64,xx' } }, comoAdmin);

@@ -5,11 +5,11 @@
 // cual (no se "corrige" para que cuadre).
 
 import { registrar, ir } from '../core/router.js';
-import { el, esc, $, fecha, diaISO, abrirDialogo, pegar } from '../ui/html.js';
+import { el, esc, $, fecha, diaISO, abrirDialogo, pegar, unSoloToque } from '../ui/html.js';
 import { avisarOk, avisarMal, confirmar } from '../ui/avisos.js';
 import {
   DENOMINACIONES, turnoAbierto, abrirTurno, reporteX, cerrarTurno, quienTieneLaCaja,
-  turnosRecientes, sumarConteo, comoQuedoLaGaveta,
+  turnosRecientes, sumarConteo, comoQuedoLaGaveta, turnosAbiertos, anularApertura,
 } from '../data/caja.js';
 import { MONEDAS, formatear, aMenores, aMayores } from '../core/dinero.js';
 import { detectarCambioDeMoneda, RESTO_TOLERADO } from '../core/cambio-moneda.js';
@@ -188,6 +188,18 @@ async function montarCaja(nodo) {
              + 'Hay que cerrar ese turno primero.',
       }),
       el('button.btn.plano.ancho', { texto: 'Volver a mirar', onclick: () => montarCaja(nodo) }),
+      // El dueño se topa con esta pantalla justo cuando la apertura fue un
+      // error, y hasta ahora no había salida: había que pedirle al otro que
+      // cerrara un turno que nunca existió. Desde aquí se anula.
+      esDueno() ? el('button.btn.plano.ancho', {
+        style: 'margin-top:.5rem', texto: 'Esa apertura fue un error: anularla',
+        onclick: async () => {
+          const abiertos = await turnosAbiertos().catch(() => []);
+          const turnoDelOtro = abiertos.find((t) => t.id === otro.cajaId) || abiertos[0];
+          if (!turnoDelOtro) return avisarMal('No se pudo leer ese turno. Prueba otra vez.');
+          pedirAnularApertura(turnoDelOtro, () => montarCaja(nodo));
+        },
+      }) : null,
     ]));
   }
 
@@ -394,7 +406,10 @@ async function montarCaja(nodo) {
       ]),
       el('div.fila', {}, [
         el('button.btn.callado', { texto: 'Cancelar', onclick: () => d.close() }),
-        el('button.btn.principal', { texto: 'Cerrar caja', onclick: async () => {
+        // Un toque, un cierre. El 25/10 el cierre se escribió nueve veces:
+        // los nueve toques se quedaron esperando señal en el mismo await y al
+        // volver escribieron todos. Ver `unSoloToque` en ui/html.js.
+        el('button.btn.principal', { texto: 'Cerrar caja', onclick: unSoloToque(async () => {
           // Solo las monedas que de verdad se escribieron. Una vacía queda
           // fuera y el cierre la reporta como "no contada".
           const contado = {};
@@ -413,7 +428,7 @@ async function montarCaja(nodo) {
           } catch (e) {
             avisarMal('No se pudo cerrar: ' + (e.message || e));
           }
-        } }),
+        }, { mientras: 'Cerrando…' }) }),
       ])
     );
   }
@@ -470,7 +485,10 @@ async function montarCaja(nodo) {
     const caja = el('div', { style: 'margin-top:1.5rem' });
     caja.appendChild(el('div.seccion', {}, [el('h2', { texto: 'Cierres anteriores' })]));
     const lista = await turnosRecientes(10).catch(() => []);
-    const cerrados = lista.filter((t) => t.estado === 'cerrada');
+    // Las anuladas también se enseñan: un turno que se abrió por error y se
+    // anuló es parte de lo que pasó en la caja, y esconderlo deja al dueño
+    // sin manera de saber si eso se repite.
+    const cerrados = lista.filter((t) => t.estado === 'cerrada' || t.estado === 'anulada');
     if (!cerrados.length) {
       caja.appendChild(el('div.vacio', { texto: 'Todavía no hay cierres.' }));
       return caja;
@@ -478,6 +496,22 @@ async function montarCaja(nodo) {
     const tarjeta = el('div.tarjeta', { style: 'padding:.5rem' });
     const tasas = leer('tasas') || {};
     for (const t of cerrados) {
+      if (t.estado === 'anulada') {
+        tarjeta.appendChild(el('div', {
+          style: 'display:flex;justify-content:space-between;align-items:center;padding:.55rem;'
+               + 'border-bottom:1px solid var(--borde);opacity:.65',
+        }, [
+          el('div', {}, [
+            el('div', { style: 'font-weight:600;text-decoration:line-through', texto: t.nombreUsuario }),
+            el('div', {
+              style: 'font-size:var(--t-pie);color:var(--texto-suave)',
+              texto: `${fecha(t.anuladaTs || t.apertura)} · ${t.motivoAnulacion || 'sin motivo escrito'}`,
+            }),
+          ]),
+          el('span.etiqueta.mal', { texto: 'apertura anulada' }),
+        ]));
+        continue;
+      }
       const difUSD = t.diferencia?.USD || 0;
       const cuadro = Object.values(t.diferencia || {}).every((x) => !x);
       // Un cierre viejo que solo cambió moneda no se marca en rojo: no hubo
@@ -502,6 +536,116 @@ async function montarCaja(nodo) {
     caja.appendChild(tarjeta);
     return caja;
   }
+}
+
+/**
+ * Anular una apertura de caja que fue un error.
+ *
+ * El caso real: se abre caja sin querer —a veces sin nada, de un toque de
+ * más— y a partir de ahí la gaveta queda trancada para todo el mundo, porque
+ * es una sola y el marcador dice que ya hay un turno. La única salida era
+ * cerrarla, o sea inventar un arqueo de un turno que no existió y ensuciar el
+ * libro de cierres con cifras falsas.
+ *
+ * Esto es la otra salida: el turno queda marcado como anulado, con quién lo
+ * anuló y por qué, y la gaveta se suelta. No se borra nada: el rastro queda.
+ *
+ * Se pide el motivo escrito a propósito. "Alguien anuló una apertura" sin
+ * motivo, visto dentro de tres meses, no se puede distinguir de tapar algo.
+ */
+export function pedirAnularApertura(turno, alTerminar) {
+  const d = abrirDialogo('');
+  let motivo = '';
+  const campo = el('input', {
+    placeholder: 'Por qué se anula', value: '',
+    oninput: (ev) => { motivo = ev.target.value; },
+  });
+  // Los motivos de siempre en botones: con el teléfono en la mano nadie
+  // escribe una frase, y un motivo vacío no explica nada después.
+  const MOTIVOS = ['Se abrió sin querer', 'Se abrió dos veces', 'La abrió quien no era', 'El fondo estaba mal'];
+
+  const fondo = Object.entries(turno.fondo || {})
+    .filter(([, v]) => v)
+    .map(([m, v]) => formatear(v, m)).join('  ·  ');
+
+  // Si ese turno ya alcanzó a cobrar algo, hay que decirlo ANTES: anularlo no
+  // borra esas ventas, y la plata de verdad sigue en la gaveta.
+  const aviso = el('div');
+  reporteX(turno).then((datos) => {
+    if (!datos?.cantidad) return;
+    aviso.appendChild(el('div', {
+      style: 'background:var(--ambar-suave);border:1px solid var(--ambar);border-radius:.6rem;'
+           + 'padding:.7rem;margin:.75rem 0',
+    }, [
+      el('strong', {
+        texto: datos.cantidad === 1
+          ? 'Ojo: este turno ya tiene una venta'
+          : `Ojo: este turno ya tiene ${datos.cantidad} ventas`,
+      }),
+      el('p', {
+        style: 'font-size:var(--t-cuerpo);margin:.35rem 0 0',
+        texto: `Se cobraron ${formatear(datos.cobradoUSD ?? datos.totalUSD)}. Anular la apertura no `
+             + 'borra esas ventas —quedan registradas— pero ya no las va a arquear nadie. Cuenta la '
+             + 'gaveta completa al abrir el turno nuevo: ese dinero entra como fondo.',
+      }),
+    ]));
+  }).catch(() => {});
+
+  pegar(d,
+    el('h2', { texto: 'Anular esta apertura' }),
+    el('p', {
+      style: 'font-size:var(--t-cuerpo);color:var(--texto-suave)',
+      texto: 'Para cuando la caja se abrió por error. El turno no se cierra ni se cuenta: '
+           + 'queda anulado, con tu nombre y el motivo, y la gaveta se suelta para poder abrir de nuevo.',
+    }),
+    el('div', {
+      style: 'background:var(--fondo-suave,rgba(127,127,127,.08));border:1px solid var(--borde);'
+           + 'border-radius:.6rem;padding:.7rem;margin:.5rem 0',
+    }, [
+      el('div', { style: 'font-weight:700', html: esc(turno.nombreUsuario || 'Alguien') }),
+      el('div', {
+        style: 'font-size:var(--t-pie);color:var(--texto-suave)',
+        texto: `Abrió el ${fecha(turno.apertura)}${fondo ? ` con ${fondo}` : ' sin nada'}`,
+      }),
+    ]),
+    aviso,
+    el('div.fila', { style: 'margin:.5rem 0' }, MOTIVOS.map((m) => el('button.chip', {
+      type: 'button', style: 'flex:0 1 auto', texto: m,
+      onclick: () => { motivo = m; campo.value = m; },
+    }))),
+    el('div.campo', {}, [el('label', { texto: 'Motivo' }), campo]),
+    el('div.fila', {}, [
+      el('button.btn.callado', { texto: 'Mejor no', onclick: () => d.close() }),
+      el('button.btn.peligro', {
+        texto: 'Anular la apertura',
+        onclick: async (ev) => {
+          // El botón se guarda AHORA: `ev.currentTarget` queda en null en
+          // cuanto el evento termina de repartirse, y entre medio hay un
+          // `await` esperando la confirmación.
+          const boton = ev.currentTarget;
+          motivo = (motivo || campo.value || '').trim();
+          if (!motivo) return avisarMal('Escribe por qué se anula.');
+          if (!await confirmar('¿Anular esta apertura?', {
+            detalle: 'El turno queda anulado y la gaveta se suelta. Esto no se deshace: '
+                   + 'si hacía falta un turno, hay que abrirlo otra vez con el fondo de hoy.',
+            aceptar: 'Sí, anular', cancelar: 'No', peligro: true,
+          })) return;
+          boton.disabled = true;
+          boton.textContent = 'Anulando…';
+          try {
+            await anularApertura(turno, motivo);
+            d.close();
+            avisarOk('Apertura anulada. Ya se puede abrir la caja.');
+            alTerminar?.();
+          } catch (e) {
+            avisarMal('No se pudo anular: ' + (e?.message || e));
+            boton.disabled = false;
+            boton.textContent = 'Anular la apertura';
+          }
+        },
+      }),
+    ])
+  );
 }
 
 /**
