@@ -11,7 +11,7 @@
 // decir el número, y cada una sabe a qué pantalla manda.
 
 import { col } from '../core/firebase.js';
-import { getDocs } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js';
+import { traer, SERVIDOR } from './lectura.js';
 import { esDueno, usuarioActual } from '../core/sesion.js';
 import { leer } from '../core/estado.js';
 import { anulacionesPendientes } from './ventas.js';
@@ -19,12 +19,9 @@ import { pendientes as sinonimosPendientes } from './sinonimos.js';
 import { diaISO } from '../ui/html.js';
 
 /** Las cuentas que todavía no ha encendido el dueño. */
-async function solicitudesDeAcceso() {
-  const snap = await getDocs(col('usuarios'));
-  return snap.docs
-    .map((d) => d.data())
-    .filter((u) => u.rol !== 'dueno' && u.activo !== true)
-    .length;
+async function solicitudesDeAcceso(fuente) {
+  const lista = await traer(col('usuarios'), fuente);
+  return lista.filter((u) => u.rol !== 'dueno' && u.activo !== true).length;
 }
 
 /** La tasa de hoy: sin poner, o arrastrada de un día anterior. */
@@ -47,12 +44,12 @@ function tasaPendiente() {
  * del empleado ni siquiera puede hacer tres de ellas (las reglas de Firestore
  * se lo niegan, y está bien). Lo que falle se calla y las demás siguen.
  */
-export async function pendientes() {
+export async function pendientes({ fuente = SERVIDOR } = {}) {
   const lista = [];
   const dueno = esDueno();
   const uid = usuarioActual()?.uid;
 
-  const anulaciones = await anulacionesPendientes().catch(() => []);
+  const anulaciones = await anulacionesPendientes({ fuente }).catch(() => []);
   // El dueño ve todos los pedidos; al empleado solo le importan los suyos, que
   // es lo que todavía no le han contestado.
   const mios = dueno ? anulaciones : anulaciones.filter((a) => a.uid === uid);
@@ -78,7 +75,7 @@ export async function pendientes() {
   const tasa = tasaPendiente();
   if (tasa) lista.push({ cuantos: 1, ...tasa, urgente: true, destino: 'config' });
 
-  const esperando = await solicitudesDeAcceso().catch(() => 0);
+  const esperando = await solicitudesDeAcceso(fuente).catch(() => 0);
   if (esperando) {
     lista.push({
       cuantos: esperando,
@@ -88,7 +85,7 @@ export async function pendientes() {
     });
   }
 
-  const sinonimos = await sinonimosPendientes().catch(() => []);
+  const sinonimos = await sinonimosPendientes({ fuente }).catch(() => []);
   if (sinonimos.length) {
     lista.push({
       cuantos: sinonimos.length,

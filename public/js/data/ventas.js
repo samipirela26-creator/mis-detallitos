@@ -449,10 +449,9 @@ export async function ventaPorId(id) {
  * pantalla. Se ordena en memoria a propósito: filtrar por `estado` y ordenar
  * por `ts` en Firestore pediría un índice compuesto, y son cuatro documentos.
  */
-export async function anulacionesPendientes() {
-  const snap = await getDocs(query(col('anulaciones'), where('estado', '==', 'pendiente')));
-  return snap.docs.map((x) => ({ id: x.id, ...x.data() }))
-    .sort((a, b) => (b.ts?.seconds || 0) - (a.ts?.seconds || 0));
+export async function anulacionesPendientes({ fuente = SERVIDOR } = {}) {
+  const lista = await traer(query(col('anulaciones'), where('estado', '==', 'pendiente')), fuente);
+  return lista.sort((a, b) => (b.ts?.seconds || 0) - (a.ts?.seconds || 0));
 }
 
 /** Cerrar el pedido: 'aprobada' si se anuló, 'rechazada' si la venta se queda. */

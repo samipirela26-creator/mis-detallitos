@@ -11,6 +11,7 @@ import { usuarioActual } from '../core/sesion.js';
 import { normalizar } from '../core/texto.js';
 import { agregarAlias } from './productos.js';
 import { encolar } from './cola.js';
+import { traer, SERVIDOR } from './lectura.js';
 
 let ultimaBusqueda = '';
 
@@ -46,13 +47,12 @@ export async function aprenderDe(producto) {
   }
 }
 
-export async function pendientes() {
-  const snap = await getDocs(query(
+export async function pendientes({ fuente = SERVIDOR } = {}) {
+  const lista = await traer(query(
     col('sinonimos_pendientes'),
-    where('estado', '==', 'pendiente'),
-    orderBy('ts', 'desc')
-  ));
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    where('estado', '==', 'pendiente')
+  ), fuente);
+  return lista.sort((a, b) => (b.ts?.seconds || 0) - (a.ts?.seconds || 0));
 }
 
 /** El dueño aprueba: pasa a ser alias de verdad del producto. */

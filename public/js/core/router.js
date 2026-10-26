@@ -36,6 +36,8 @@ export const pantallasDeMenu = () =>
  * el registro completo, así que una pantalla nueva aparece por el solo hecho
  * de registrarse con su `seccion`.
  */
+const ORDEN_SECCIONES = ['Las ventas', 'La plata', 'Los productos', 'El negocio'];
+
 export function pantallasDeTodo() {
   const grupos = new Map();
   for (const p of [...pantallas.values()].sort((a, b) => (a.orden ?? 99) - (b.orden ?? 99))) {
@@ -43,7 +45,12 @@ export function pantallasDeTodo() {
     if (!grupos.has(p.seccion)) grupos.set(p.seccion, []);
     grupos.get(p.seccion).push(p);
   }
-  return [...grupos.entries()].map(([seccion, items]) => ({ seccion, items }));
+  // Las secciones van en el orden del negocio —primero vender, después la
+  // plata—, no en el que se hayan registrado las pantallas.
+  const puesto = (s) => (ORDEN_SECCIONES.indexOf(s) + 1 || 99);
+  return [...grupos.entries()]
+    .sort(([a], [b]) => puesto(a) - puesto(b))
+    .map(([seccion, items]) => ({ seccion, items }));
 }
 
 export function ir(id, params = {}) {

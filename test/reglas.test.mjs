@@ -216,7 +216,8 @@ describe('reglas de seguridad', { skip: hayEmulador ? false : 'el emulador de Fi
   // pantalla: por eso las reglas tienen que dejarlo tocar un turno que no es
   // suyo, y seguir impidiendo que un empleado toque el de otro.
   test('una apertura por error la anula el dueño, también la de otro', async () => {
-    const delPrimo = 'cajas/turno-por-error';
+    const id = Date.now();
+    const delPrimo = `cajas/turno-por-error-${id}`;
     assert.equal((await escribir(delPrimo, {
       estado: { stringValue: 'abierta' },
       uid: { stringValue: empleado.uid },
@@ -238,7 +239,7 @@ describe('reglas de seguridad', { skip: hayEmulador ? false : 'el emulador de Fi
 
     // Lo que NO cambia: el turno de otro sigue siendo intocable para el
     // empleado, y una caja no se borra nunca, ni el dueño.
-    const delDueno = 'cajas/turno-del-dueno';
+    const delDueno = `cajas/turno-del-dueno-${id}`;
     assert.equal((await escribir(delDueno, {
       estado: { stringValue: 'abierta' },
       uid: { stringValue: dueno.uid },

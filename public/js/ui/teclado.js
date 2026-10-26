@@ -28,7 +28,7 @@ import { formatear, MONEDAS, aMenores, aUSD, desdeUSD } from '../core/dinero.js'
  */
 export function pedirMonto({
   titulo, moneda = 'USD', inicial = 0, nota = '', aceptar = 'Listo',
-  monedas = null, tasas = null,
+  monedas = null, tasas = null, permiteCero = false,
 } = {}) {
   return new Promise((resolver) => {
     // Las que de verdad se pueden usar: sin tasa del día no hay con qué pasar
@@ -71,10 +71,19 @@ export function pedirMonto({
     const enDolares = () => (moneda === 'USD' ? menores : aUSD(menores, moneda, (tasas || {})[moneda]));
 
     const pintar = () => {
-      eco.textContent = menores ? `= ${formatear(menores, moneda)}` : 'Escribe cuánto, o usa los botones';
-      botonOk.textContent = menores ? `${aceptar} ${formatear(menores, moneda)}` : aceptar;
-      botonOk.disabled = menores ? null : true;
-      botonOk.style.opacity = menores ? '' : '.5';
+      const valido = menores > 0 || (permiteCero && menores === 0);
+      eco.textContent = menores
+        ? `= ${formatear(menores, moneda)}`
+        : permiteCero && menores === 0
+          ? '= $ 0 (gratis / regalo)'
+          : 'Escribe cuánto, o usa los botones';
+      botonOk.textContent = menores
+        ? `${aceptar} ${formatear(menores, moneda)}`
+        : permiteCero && menores === 0
+          ? `${aceptar} ($ 0 - regalo)`
+          : aceptar;
+      botonOk.disabled = valido ? null : true;
+      botonOk.style.opacity = valido ? '' : '.5';
       if (!eligeMoneda) return;
       for (const b of botonesMoneda) {
         b.classList.toggle('acento', b.dataset.moneda === moneda);

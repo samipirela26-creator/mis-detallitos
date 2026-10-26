@@ -86,6 +86,7 @@ function agregar(producto, { cantidad = 1, precioUSD = null } = {}) {
  * está mirando es el que el cliente acaba de oír.
  */
 function precioDeEtiqueta(linea, tasas = {}) {
+  if (linea.precioCOP === 0 || linea.precioUSD === 0) return 'Gratis ($ 0)';
   if (linea.precioCOP > 0) return formatear(linea.precioCOP, 'COP');
   if (tasas.COP) return formatear(desdeUSD(linea.precioUSD, 'COP', tasas.COP), 'COP');
   return formatear(linea.precioUSD);
@@ -386,7 +387,10 @@ registrar('vender', {
           const nueva = Math.max(0, (Number(l.cantidad) || 0) + delta);
           if (nueva === 0) return quitar(i);
           const copia = [...carrito()];
-          copia[i] = { ...copia[i], cantidad: nueva, precioUSD: precioPorCantidad(copia[i], nueva) };
+          const precioUSD = copia[i].precioEditado
+            ? copia[i].precioUSD
+            : precioPorCantidad(copia[i], nueva);
+          copia[i] = { ...copia[i], cantidad: nueva, precioUSD };
           ponerCarrito(copia);
         };
         const botonCantidad = (signo, delta, etiqueta) => el('button.btn.plano', {
@@ -436,11 +440,13 @@ registrar('vender', {
             // En la misma moneda que el precio de arriba y que el TOTAL de
             // abajo. Con la fila en dólares y el total en pesos, los números de
             // la misma pantalla no sumaban y parecía que faltaba plata.
-            texto: l.precioCOP > 0
-              ? formatear(Math.round(l.cantidad * l.precioCOP), 'COP')
-              : tasas.COP
-                ? formatear(desdeUSD(Math.round(l.cantidad * l.precioUSD), 'COP', tasas.COP), 'COP')
-                : formatear(Math.round(l.cantidad * l.precioUSD)),
+            texto: (l.precioCOP === 0 || l.precioUSD === 0)
+              ? 'Gratis'
+              : l.precioCOP > 0
+                ? formatear(Math.round(l.cantidad * l.precioCOP), 'COP')
+                : tasas.COP
+                  ? formatear(desdeUSD(Math.round(l.cantidad * l.precioUSD), 'COP', tasas.COP), 'COP')
+                  : formatear(Math.round(l.cantidad * l.precioUSD)),
           }),
           el('button.btn.plano', {
             type: 'button', 'aria-label': `Quitar ${l.nombre} de la venta`, title: 'Quitar',
@@ -505,16 +511,67 @@ registrar('vender', {
       // igual en pesos, que es lo que el cliente está mirando.
       const tasas = leer('tasas') || {};
       const monedas = ['COP', 'VES', 'USD'].filter((m) => m === 'USD' || tasas[m] > 0);
+
+      let modoTotal = false;
+      if (l.cantidad > 1) {
+        const totalActualCOP = l.precioCOP > 0
+          ? Math.round(l.cantidad * l.precioCOP)
+          : tasas.COP ? desdeUSD(Math.round(l.cantidad * l.precioUSD), 'COP', tasas.COP) : 0;
+        
+        const dOpcion = abrirDialogo('');
+        const seleccion = await new Promise((res) => {
+          pegar(dOpcion,
+            el('h2', { html: esc(l.nombre) }),
+            el('p', {
+              style: 'color:var(--texto-suave);font-size:var(--t-cuerpo)',
+              texto: `Lleva ${l.cantidad} unidades. ¿Cómo quieres fijar el precio?`,
+            }),
+            el('div.fila', { style: 'margin:1rem 0;flex-direction:column;gap:.5rem' }, [
+              el('button.btn.principal.grande', {
+                type: 'button',
+                texto: 'Precio por unidad (cada uno)',
+                onclick: () => { dOpcion.close(); res('unitario'); },
+              }),
+              el('button.btn.plano.grande', {
+                type: 'button',
+                texto: `Precio total por las ${l.cantidad} uds ${totalActualCOP ? '(' + formatear(totalActualCOP, 'COP') + ')' : ''}`,
+                onclick: () => { dOpcion.close(); res('total'); },
+              }),
+              el('button.btn.callado', {
+                type: 'button',
+                texto: 'Cancelar',
+                onclick: () => { dOpcion.close(); res(null); },
+              }),
+            ])
+          );
+        });
+        if (!seleccion) return;
+        modoTotal = seleccion === 'total';
+      }
+
+      const inicialUnitarioCOP = monedas[0] === 'COP' && l.precioCOP >= 0 ? l.precioCOP
+        : monedas[0] === 'COP' && tasas.COP ? desdeUSD(l.precioUSD, 'COP', tasas.COP)
+        : l.precioUSD;
+      const inicialMonto = modoTotal ? Math.round(inicialUnitarioCOP * l.cantidad) : inicialUnitarioCOP;
+
       const r = await pedirMonto({
-        titulo: `Precio de ${l.nombre}`,
-        nota: l.cantidad > 1 ? `Es el precio de CADA UNO. Se llevan ${l.cantidad}.` : '',
-        inicial: monedas[0] === 'COP' && l.precioCOP > 0 ? l.precioCOP
-          : monedas[0] === 'COP' && tasas.COP ? desdeUSD(l.precioUSD, 'COP', tasas.COP)
-          : l.precioUSD,
+        titulo: modoTotal ? `Precio total por ${l.cantidad} uds` : `Precio c/u de ${l.nombre}`,
+        nota: modoTotal
+          ? `Pon el monto total que vas a cobrar por las ${l.cantidad} unidades.`
+          : l.cantidad > 1 ? `Es el precio de CADA UNO. Se llevan ${l.cantidad}.` : '',
+        inicial: inicialMonto,
         moneda: monedas[0], monedas, tasas,
+        permiteCero: true,
       });
       if (r === null) return;
-      const p = r.montoUSD;
+
+      let p = r.montoUSD;
+      let pesoAcordado = r.moneda === 'COP' ? r.menores : 0;
+      if (modoTotal && l.cantidad > 1) {
+        p = Math.round(p / l.cantidad);
+        pesoAcordado = Math.round(pesoAcordado / l.cantidad);
+      }
+
       const producto = catalogo().find((x) => x.id === l.productoId) || { costoUSD: l.costoUSD };
       if (requiereAutorizacion(producto, p)) {
         const quien = await pedirAutorizacion(`${l.nombre} a ${formatear(p)} está por debajo del mínimo.`);
@@ -522,10 +579,9 @@ registrar('vender', {
         l.autorizadoPor = quien;
       }
       l.precioUSD = p;
-      const pesoAcordado = r.moneda === 'COP' ? r.menores : 0;
       l.precioCOP = pesoAcordado;
       l.precioCOPOriginal = pesoAcordado;
-      l.precioEditado = p !== l.precioOriginalUSD;
+      l.precioEditado = true;
       lineas[i] = l;
       ponerCarrito(lineas);
     }
@@ -859,10 +915,11 @@ async function cobrar() {
   /** Ajustar el total: quitarle los 20 que no se pueden dar. */
   async function ajustar() {
     const nuevo = await pedirMonto({
-      titulo: 'Ajustar el monto',
+      titulo: 'Rebajar o ajustar total',
       nota: `El total es ${formatear(totalDeEtiqueta, monedaMonto)}. `
-          + 'Déjalo en lo que de verdad vas a cobrar.',
+          + 'Escribe en cuánto lo vas a dejar.',
       moneda: monedaMonto, inicial: montoCobrado, aceptar: 'Dejarlo en',
+      permiteCero: true,
     });
     if (nuevo === null || nuevo === montoCobrado) return;
     // Subirlo o bajarlo lo decide el dueño, o el código. Sin esto, cualquiera
@@ -941,8 +998,9 @@ async function cobrar() {
   pegar(d,
     el('h2', { texto: 'Cobrar' }),
     resumen,
-    el('button.btn.callado.ancho', {
-      style: 'margin-top:.5rem', texto: 'Ajustar el monto', onclick: ajustar,
+    el('button.btn.plano.ancho', {
+      style: 'margin-top:.5rem;font-weight:600;border-style:dashed',
+      texto: '✎ Rebajar o ajustar el total', onclick: ajustar,
     }),
     el('p', { style: 'color:var(--texto-suave);font-size:var(--t-pie);margin-top:1rem', texto: '¿Con qué te pagó?' }),
     botonesMoneda,

@@ -263,3 +263,13 @@ test('un pago que cubre la venta no deja saldo por el redondeo', () => {
   assert.equal(pago.monto, 3000, 'y lo que entró a la gaveta siguen siendo 3.000 pesos');
   assert.equal(d.totalPagadoUSD([pago]) - t.totalUSD, 0, 'ni debe ni le deben');
 });
+
+test('un producto regalado a $0 conserva el totalCOP sin volverse null', () => {
+  const lineas = [
+    { cantidad: 2, precioUSD: 100, precioCOP: 4000, costoUSD: 50 },
+    { cantidad: 1, precioUSD: 0, precioCOP: 0, costoUSD: 20, precioEditado: true }, // regalo
+  ];
+  const t = d.totalesVenta(lineas);
+  assert.equal(t.totalCOP, 8000, 'el regalo suma 0 pesos y el totalCOP se mantiene exacto');
+  assert.equal(t.totalUSD, 200);
+});

@@ -21,6 +21,7 @@ import { icono } from './iconos.js';
 import { pantallasDeMenu, pantallasDeTodo, ir } from '../core/router.js';
 import { esDueno } from '../core/sesion.js';
 import { pendientes, cuantos } from '../data/pendientes.js';
+import { pasadas, CACHE } from '../data/lectura.js';
 
 /** Un botón de la píldora, igual que los de siempre. */
 function boton(id, titulo, nombreIcono, { destacado = false, chapita = null } = {}) {
@@ -69,7 +70,9 @@ export function montarBarra(nav) {
   } else {
     // Al empleado la tarea que le toca es la suya: lo que pidió anular y
     // todavía no le han contestado. Y de paso deja de estar escondida.
-    nav.appendChild(boton('mis-ventas', 'Mis ventas', 'cart', { chapita: marca }));
+    // "Ventas" y no "Mis ventas": el empleado solo ve las suyas, y el rótulo
+    // largo se parte en dos líneas dentro de la píldora.
+    nav.appendChild(boton('mis-ventas', 'Ventas', 'cart', { chapita: marca }));
   }
 
   nav.appendChild(el('button.nav-tarea', {
@@ -89,14 +92,20 @@ export function montarBarra(nav) {
  *  pantalla: así baja sola cuando se atiende algo. */
 export async function contarPendientes(marca) {
   if (!marca?.isConnected) return;
-  try {
-    const lista = await pendientes();
+  const poner = (fuente) => pendientes({ fuente }).then((lista) => {
+    if (!marca.isConnected) return;
     const n = cuantos(lista);
     marca.textContent = n > 9 ? '9+' : String(n);
     marca.style.display = n ? '' : 'none';
+  });
+  // Dos pasadas, como el resto de la app (data/lectura.js): primero lo que ya
+  // está en el teléfono, que contesta al instante, y encima lo del servidor.
+  // Con una sola pasada, sin señal, el número se quedaba esperando para
+  // siempre y la chapita no aparecía nunca.
+  try {
+    await pasadas(poner);
   } catch (e) {
     console.warn('[menu] pendientes:', e?.code || e);
-    marca.style.display = 'none';
   }
 }
 
@@ -111,8 +120,12 @@ function abrirPendientes() {
   d.querySelector('#cerrar-pendientes').onclick = () => d.close();
 
   const caja = d.querySelector('#lista-pendientes');
-  pendientes()
+  const pintar = (fuente) => pendientes({ fuente })
     .then((lista) => {
+      if (!d.isConnected) return;
+      // La caché vacía no se pinta: puede ser que todavía no haya leído nada,
+      // y un "todo al día" mentiroso es peor que esperar un segundo.
+      if (fuente === CACHE && !lista.length) return false;
       caja.innerHTML = '';
       if (!lista.length) {
         caja.appendChild(el('div.vacio', { texto: 'Nada esperando. Todo al día.' }));
@@ -132,12 +145,14 @@ function abrirPendientes() {
           el('p', { style: 'margin:.2rem 0 0;font-size:var(--t-pie)', texto: p.detalle }),
         ]));
       }
-    })
-    .catch((e) => {
-      console.warn('[menu] pendientes:', e?.code || e);
-      caja.innerHTML = '';
-      caja.appendChild(el('div.vacio', { texto: 'No se pudo revisar (¿sin internet?).' }));
     });
+
+  pasadas(pintar).catch((e) => {
+    console.warn('[menu] pendientes:', e?.code || e);
+    if (!d.isConnected) return;
+    caja.innerHTML = '';
+    caja.appendChild(el('div.vacio', { texto: 'No se pudo revisar (¿sin internet?).' }));
+  });
 }
 
 /** La hoja de Todo: el registro completo de pantallas, por sección. */

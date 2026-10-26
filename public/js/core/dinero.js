@@ -375,7 +375,13 @@ export function totalesVenta(lineas = []) {
       acc.costoUSD += t.costoUSD;
       acc.gananciaUSD += t.gananciaUSD;
       if (acc.totalCOP !== null) {
-        acc.totalCOP = l.precioCOP > 0 ? acc.totalCOP + redondear(l.cantidad * l.precioCOP) : null;
+        if (l.precioCOP > 0) {
+          acc.totalCOP += redondear(l.cantidad * l.precioCOP);
+        } else if (l.precioUSD === 0 && (l.precioCOP === 0 || l.precioCOP === undefined || l.precioCOP === null)) {
+          acc.totalCOP += 0; // Regalo / gratis: 0 pesos
+        } else {
+          acc.totalCOP = null; // No sabe su peso (precioCOP es 0 pero tiene precio en dólares)
+        }
       }
       return acc;
     },
