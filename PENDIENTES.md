@@ -25,9 +25,10 @@ teléfono en la mano. **Ninguna sesión debe inventarlos.**
 
 ## Esperan tu respuesta
 
-- [x] **Publicar.** Publicado el 26/10 (`detallitos-v82`, commit bea8872): el precio en
-      pesos, el toque que no se repite y la app que responde sin esperar la señal. El
-      teléfono que ya tiene la app instalada lo recibe al volver al frente.
+- [x] **Publicar.** Publicado el 26/10 (`detallitos-v90`, commit ba8c996): precios en pesos,
+      regalo a $0, ajuste total de lote (ej. 100 uds), fiados del empleado, barra de menú
+      completa con tareas y respuestas sin esperar la señal. El teléfono que ya tiene la
+      app instalada lo recibe al volver al frente.
 
 
 - [ ] **Las dos cajas que faltan.** `Resaltador Pointer` (costo $3,50) y `Marcadores para CD`
