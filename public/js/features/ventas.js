@@ -68,6 +68,8 @@ async function montarVentas(nodo, params = {}) {
   let rango = RANGOS[params.rango] ? params.rango : 'hoy';
   let dia = null;             // un día exacto elegido en el calendario
   let filtro = '';
+  let tipoFiltro = 'todas';   // todas | fiadas | anuladas | corregidas
+  let empleadoFiltro = '';     // uid del empleado, o '' = todos
   let ventas = [];
   let pedidos = [];           // anulaciones que el empleado pidió
   let clientes = new Map();
@@ -173,11 +175,17 @@ async function montarVentas(nodo, params = {}) {
     ]));
   }
 
-  // --- el filtro de la lista -------------------------------------------------
-  // Busca por producto, por quién vendió, por el código del recibo y por el
-  // nombre del fiado: son las cuatro cosas con las que alguien llega a
-  // preguntar ("la venta de los cuadernos", "lo de Yenifer", "el recibo 4F2A1C").
+  // --- filtros de la lista ----------------------------------------------------
   function coincide(v) {
+    // Filtro por tipo
+    if (tipoFiltro === 'fiadas' && !quedoDebiendo(v)) return false;
+    if (tipoFiltro === 'anuladas' && v.estado !== 'anulada') return false;
+    if (tipoFiltro === 'corregidas' && !v.corregida) return false;
+
+    // Filtro por empleado
+    if (empleadoFiltro && v.uid !== empleadoFiltro) return false;
+
+    // Búsqueda de texto
     if (!filtro) return true;
     const aguja = normalizar(filtro);
     const paja = normalizar([
@@ -188,6 +196,17 @@ async function montarVentas(nodo, params = {}) {
       codigo(v),
     ].filter(Boolean).join(' '));
     return paja.includes(aguja);
+  }
+
+  /** Los empleados distintos que aparecen en las ventas cargadas. */
+  function empleadosEnVentas() {
+    const vistos = new Map();
+    for (const v of ventas) {
+      if (v.uid && v.nombreUsuario && !vistos.has(v.uid)) {
+        vistos.set(v.uid, v.nombreUsuario);
+      }
+    }
+    return vistos;
   }
 
   function pintar() {
@@ -204,6 +223,45 @@ async function montarVentas(nodo, params = {}) {
     const cobradoUSD = vivas.reduce((t, v) => t + (v.totalUSD || 0), 0) - fiadoUSD;
 
     cabeza.innerHTML = '';
+
+    // --- chips de tipo: Todas · Fiadas · Anuladas · Corregidas ---
+    const TIPOS = [
+      { clave: 'todas', titulo: 'Todas' },
+      { clave: 'fiadas', titulo: 'Fiadas', hay: ventas.some((v) => quedoDebiendo(v)) },
+      { clave: 'anuladas', titulo: 'Anuladas', hay: anuladas > 0 },
+      { clave: 'corregidas', titulo: 'Corregidas', hay: ventas.some((v) => v.corregida) },
+    ];
+    const chipsTipo = el('div.chips-barra', { style: 'margin-bottom:.5rem' },
+      TIPOS.filter((t) => t.clave === 'todas' || t.hay).map((t) =>
+        el('button.chip', {
+          type: 'button',
+          'aria-pressed': String(tipoFiltro === t.clave),
+          texto: t.titulo,
+          onclick: () => { tipoFiltro = t.clave; pintar(); },
+        })
+      )
+    );
+
+    // --- selector de empleado (solo el dueño, y solo si hay más de uno) ---
+    const empleados = empleadosEnVentas();
+    const selectEmpleado = esDueno() && empleados.size > 1
+      ? el('select', {
+          style: 'min-height:var(--toque);padding:0 .6rem;font-size:var(--t-pie);'
+               + 'border:1px solid var(--borde);border-radius:.5rem;background:var(--blanco);color:var(--texto)',
+          onchange: (ev) => { empleadoFiltro = ev.target.value; pintar(); },
+        }, [
+          el('option', { value: '', texto: 'Todos' }),
+          ...[...empleados].map(([uid, nombre]) =>
+            el('option', { value: uid, texto: nombre, selected: empleadoFiltro === uid })
+          ),
+        ])
+      : null;
+
+    // Si hay select de empleado, ponerlo al lado de los chips de tipo
+    const barraFiltros = el('div', {
+      style: 'display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;margin-bottom:.5rem',
+    }, [chipsTipo, selectEmpleado]);
+
     pegar(cabeza,
       el('div.kpis', { style: 'margin:.85rem 0' }, [
         kpi('Ventas', String(vivas.length)),
@@ -213,6 +271,7 @@ async function montarVentas(nodo, params = {}) {
           'acento', fiadoCOP ? formatear(fiadoUSD) : '')] : []),
         ...(anuladas ? [kpi('Anuladas', String(anuladas), 'malo')] : []),
       ]),
+      barraFiltros,
       ventas.length > 4 ? el('input#buscar-venta', {
         type: 'search', autocomplete: 'off', value: filtro,
         placeholder: 'Producto, quién vendió, recibo…',
@@ -234,7 +293,8 @@ async function montarVentas(nodo, params = {}) {
       ]));
     }
     if (!visibles.length) {
-      return caja.appendChild(el('div.vacio', { texto: `Ninguna venta coincide con "${filtro}".` }));
+      const razon = filtro ? `"${filtro}"` : tipoFiltro !== 'todas' ? `"${tipoFiltro}"` : 'los filtros';
+      return caja.appendChild(el('div.vacio', { texto: `Ninguna venta coincide con ${razon}.` }));
     }
 
     // Agrupadas por día, con el total del día al lado: así se ve de una si el
