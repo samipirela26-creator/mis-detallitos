@@ -28,6 +28,7 @@ import { registrarVenta } from '../data/ventas.js';
 import { turnoAbierto } from '../data/caja.js';
 import { listarClientes, guardarCliente, deudaDe } from '../data/clientes.js';
 import { CACHE } from '../data/lectura.js';
+import { puede } from '../core/sesion.js';
 import { leer, escribir, observar } from '../core/estado.js';
 import {
   MONEDAS, formatear, desdeUSD, aUSD, crearPago,
@@ -1004,7 +1005,7 @@ async function cobrar() {
     }),
     el('p', { style: 'color:var(--texto-suave);font-size:var(--t-pie);margin-top:1rem', texto: '¿Con qué te pagó?' }),
     botonesMoneda,
-    el('button.btn.plano.ancho', {
+    !puede('fiar') ? null : el('button.btn.plano.ancho', {
       style: 'margin-top:.25rem', texto: 'Dejarlo fiado',
       onclick: async () => {
         const elegido = await elegirCliente();

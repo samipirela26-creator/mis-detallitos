@@ -9,8 +9,8 @@
 // Lo que NO enseña, y es a propósito: ni costos, ni ganancia, ni márgenes.
 // Esta pantalla contesta una sola pregunta —quién debe, cuánto y desde
 // cuándo—, igual que la de Deudores del dueño pero sin tocar nada: sin crear
-// clientes, sin editarlos y sin cobrar. Cobrar un fiado mueve la plata de la
-// caja y eso sigue siendo del dueño.
+// clientes y sin editarlos. Cobrar sí puede (permiso `cobrarFiados`): el abono
+// queda con su nombre y entra a la caja como cualquier venta.
 //
 // La ficha muestra los abonos, que el empleado sí puede leer. Lo que la
 // persona se llevó NO sale aquí: las reglas de Firestore solo le dejan leer
@@ -21,6 +21,8 @@ import { el, esc, $, fecha, abrirDialogo, pegar } from '../ui/html.js';
 import { listarClientes, abonosDe, deudaDe, debe } from '../data/clientes.js';
 import { formatear } from '../core/dinero.js';
 import { leer } from '../core/estado.js';
+import { abrirAbono } from './abono.js';
+import { puede } from '../core/sesion.js';
 import { buscarClientes } from '../data/busqueda.js';
 import { pasadas, CACHE } from '../data/lectura.js';
 
@@ -71,7 +73,7 @@ registrar('fiados', {
         el('p', {
           style: 'color:var(--texto-suave);font-size:var(--t-pie);margin:-.3rem 0 1rem',
           texto: todosDeben.length
-            ? 'Antes de fiar otra vez, mira si la persona ya debe. Para cobrar un fiado, el dueño.'
+            ? 'Antes de fiar otra vez, mira si la persona ya debe. '
             : 'Nadie debe nada ahora mismo.',
         }),
         clientes.length > 6 ? el('input#buscar-fiado', {
@@ -142,8 +144,12 @@ registrar('fiados', {
         el('div', { id: 'abonos-fiado', class: 'cargando', texto: 'Buscando lo que ha abonado…' }),
         el('p', {
           style: 'color:var(--texto-suave);font-size:var(--t-pie)',
-          texto: 'El detalle de lo que se llevó y el cobro de la deuda los lleva el dueño.',
+          texto: 'El detalle de lo que se llevó lo lleva el dueño.',
         }),
+        puede('cobrarFiados') ? el('button.btn.principal.ancho', {
+          style: 'margin-top:.5rem', texto: 'Registrar abono',
+          onclick: () => { d.close(); abrirAbono(c, deuda(c).USD, recargar); },
+        }) : null,
         el('button.btn.plano.ancho', { style: 'margin-top:.5rem', texto: 'Cerrar', onclick: () => d.close() })
       );
 
@@ -182,6 +188,8 @@ registrar('fiados', {
         caja.textContent = 'No se pudo cargar lo abonado (¿sin internet?).';
       });
     }
+
+    const recargar = () => listarClientes().then((l) => { clientes = l; pintar(); }).catch(() => {});
 
     try {
       await pasadas(async (fuente) => {

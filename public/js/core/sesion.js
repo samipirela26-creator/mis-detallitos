@@ -23,12 +23,12 @@ export const PERMISOS = {
   dueno: {
     verCostos: true, verGanancias: true, verReportes: true, verAuditoria: true,
     editarCatalogo: true, importar: true, anularVentas: true, configurar: true,
-    fijarTasas: true, aprobarSinonimos: true,
+    fijarTasas: true, aprobarSinonimos: true, fiar: true, cobrarFiados: true,
   },
   empleado: {
     verCostos: false, verGanancias: false, verReportes: false, verAuditoria: false,
     editarCatalogo: false, importar: false, anularVentas: false, configurar: false,
-    fijarTasas: false, aprobarSinonimos: false,
+    fijarTasas: false, aprobarSinonimos: false, fiar: true, cobrarFiados: true,
   },
 };
 

@@ -8,10 +8,10 @@
 //  - El SDK de Firebase (gstatic): stale-while-revalidate, también cacheado.
 //  - Los datos NO pasan por aquí: de eso se encarga el caché propio de Firestore.
 
-const CACHE_NAME = 'detallitos-v95';
+const CACHE_NAME = 'detallitos-v97';
 // Huella de todo lo que se cachea. La pone `npm run precache`: si no coincide,
 // sube CACHE_NAME solo. No se edita a mano.
-const HUELLA = 'b407a2c4fbb7';
+const HUELLA = 'dcaececd2cdf';
 
 const PRECACHE_URLS = [
   './',
@@ -66,6 +66,7 @@ const PRECACHE_URLS = [
   'js/data/webp.js',
   'js/data/estudio-ia.js',
   'js/data/gastos.js',
+  'js/data/pendientes.js',
   'js/data/idb.js',
   'js/data/ingresos.js',
   'js/data/inventario.js',
@@ -80,16 +81,19 @@ const PRECACHE_URLS = [
   'js/core/estado.js',
   'js/core/firebase-config.js',
   'js/core/firebase.js',
+  'js/core/pendientes-dia.js',
   'js/core/router.js',
   'js/core/sesion.js',
   'js/core/sitios.js',
   'js/core/texto.js',
   'js/features/buscador.js',
   'js/features/caja.js',
+  'js/features/abono.js',
   'js/features/clientes.js',
   'js/features/config.js',
   'js/features/escaner.js',
   'js/features/fiados.js',
+  'js/features/pendientes-diarios.js',
   'js/features/estudio-fotos.js',
   'js/features/gastos.js',
   'js/features/importar-excel.js',
