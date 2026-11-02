@@ -24,6 +24,7 @@ import { MONEDAS, formatear, crearPago, totalPagadoUSD, abonoEnPesos, aMenores }
 import { leer } from '../core/estado.js';
 import { buscarClientes } from '../data/busqueda.js';
 import { pasadas, CACHE } from '../data/lectura.js';
+import { abrirCobro } from '../reports/cobro.js';
 
 /** Hace cuántos días es esa fecha. Null si no hay fecha. */
 function diasDesde(ts) {
@@ -253,6 +254,15 @@ registrar('clientes', {
             onclick: () => { d.close(); abonar(c, debeUSD); },
           }) : null,
         ]),
+        debeUSD > 0 ? el('button.btn.callado.ancho', {
+          style: 'margin-bottom:.5rem', texto: '📤 Enviar cobro (WhatsApp)',
+          onclick: async () => {
+            const [fiadas, abonos] = await Promise.all([
+              ventasFiadasDe(c.id).catch(() => []), abonosDe(c.id).catch(() => []),
+            ]);
+            abrirCobro({ cliente: c, deuda: deuda(c), fiadas, abonos });
+          },
+        }) : null,
         debeUSD > 0 ? el('button.btn.plano.ancho', { style: 'margin-bottom:1rem', texto: 'Abonar otra cantidad', onclick: () => { d.close(); abonar(c, 0); } }) : null,
         el('div', { id: 'movimientos', class: 'cargando', texto: 'Buscando lo que se llevó…' }),
         el('button.btn.plano.ancho', { style: 'margin-top:1rem', texto: 'Cerrar', onclick: () => d.close() })

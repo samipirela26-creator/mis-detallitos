@@ -40,6 +40,7 @@ const PRECACHE_URLS = [
   'js/reports/graficos.js',
   'js/reports/panel.js',
   'js/reports/recibo.js',
+  'js/reports/cobro.js',
   'js/core/producto-publico.js',
   'js/core/respaldo-formato.js',
   'js/data/respaldo.js',
