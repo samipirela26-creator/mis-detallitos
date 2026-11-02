@@ -71,6 +71,17 @@ npm run publicar            # firebase deploy
 Para probar el importador sin inventar datos:
 `node scripts/inventario-de-prueba.mjs > /tmp/prueba.csv`
 
+## Demo para que otros prueben la app
+
+En **Atajos → Probar la app (demo)** se copia el enlace `…/?demo`. Abre un
+negocio aparte (`negocios/demo`) con datos inventados; todos los que entren ven
+y comparten lo mismo. Las cuentas demo llevan la marca `demo` en el token y las
+reglas (`firestore.rules`, `storage.rules`) les impiden tocar el negocio real.
+
+```bash
+node scripts/sembrar-demo.mjs --guardar   # crea o RESETEA el demo
+```
+
 ## Reglas para quien toque el código
 
 - **Si agregas un archivo a `public/`, agrégalo a `PRECACHE_URLS` del service

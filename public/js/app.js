@@ -6,6 +6,7 @@ import { iniciarRouter, registrar, pantallasDeMenu, ir } from './core/router.js'
 import { observar, leer } from './core/estado.js';
 import { montarEntrar, montarEnEspera } from './ui/pantalla-entrar.js';
 import { el, esc, diaISO, pegar } from './ui/html.js';
+import { modoDemo, salirDelDemo } from './core/firebase.js';
 import { avisar } from './ui/avisos.js';
 import { sincronizarCatalogo, parar as pararCatalogo, productos as catalogo } from './data/catalogo.js';
 import { cargarTasas, actualizarTasasAuto } from './data/tasas.js';
@@ -179,6 +180,7 @@ registrar('panel', {
       atajo('camera', 'Estudio de fotos', 'Toma fotos directas a los productos.', 'fotos'),
       atajo('upload', 'Importar Excel', 'Sube catálogo masivo desde hojas de cálculo.', 'importar'),
       atajoCatalogo(),
+      modoDemo ? null : atajoDemo(),
       atajo('settings', 'Configuración', 'Tasas del día, PIN, usuarios y sinónimos.', 'config'),
     ]));
 
@@ -218,6 +220,23 @@ function atajoCatalogo() {
   ]);
 }
 
+/** Copia el enlace del demo (datos inventados) para que alguien pruebe la app sin ver el negocio. */
+function atajoDemo() {
+  const base = location.pathname.replace(/\/[^\/]*$/, '/');
+  const url = `${location.origin}${base}?demo`;
+  return el('div.atajo-card', {
+    onclick: () => {
+      const copiado = navigator.clipboard ? navigator.clipboard.writeText(url) : Promise.reject();
+      copiado.then(() => avisar('Enlace del demo copiado'))
+        .catch(() => prompt('Copia este enlace para que alguien pruebe la app:', url));
+    },
+  }, [
+    el('div.ico-wrap', { html: icono('check') }),
+    el('h2', { texto: 'Probar la app (demo)' }),
+    el('p', { texto: 'Copia un enlace con datos inventados para que alguien la pruebe sin ver tu negocio.' }),
+  ]);
+}
+
 function atajo(iconoNombre, titulo, texto, destino) {
   return el('div.atajo-card', { onclick: () => ir(destino) }, [
     el('div.ico-wrap', { html: icono(iconoNombre) }),
@@ -245,6 +264,9 @@ function pintarCascara() {
   const contenido = el('main', { id: 'contenido' });
   pegar(app, 
     el('div.sin-conexion', { texto: 'Sin conexión — puedes seguir trabajando, se sube solo' }),
+    modoDemo ? el('div', {
+      style: 'background:#b45309;color:#fff;text-align:center;padding:.35rem .75rem;font-size:var(--t-pie);font-weight:600',
+    }, ['DEMO — datos inventados · ', el('a', { href: '#', style: 'color:#fff;text-decoration:underline', texto: 'Salir del demo', onclick: (ev) => { ev.preventDefault(); salirDelDemo(); } })]) : null,
     el('header.barra', {}, [
       el('div', { class: 'crece' }, [
         el('div', { style: 'color:var(--texto-suave);font-size:var(--t-pie);font-weight:500', texto: `${saludo},` }),

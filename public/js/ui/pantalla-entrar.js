@@ -6,6 +6,7 @@
 
 import { iniciarSesion, crearCuenta, refrescarUsuario } from '../core/sesion.js';
 import { avisarMal } from './avisos.js';
+import { modoDemo, salirDelDemo } from '../core/firebase.js';
 import { el, $, pegar } from './html.js';
 
 const MENSAJES = {
@@ -45,7 +46,21 @@ export function montarEntrar(nodo) {
     const caja = el('div.forma', {}, [form]);
     pegar(nodo, el('div.login', {}, [panel, caja]));
 
-    if (modo === 'entrar') {
+    if (modoDemo) {
+      // Demo: nadie tiene que escribir nada, se entra de un toque.
+      pegar(form,
+        el('h1', { texto: 'Probar el demo' }),
+        el('p', {
+          style: 'color:var(--texto-suave);font-size:var(--t-cuerpo);margin-top:-.5rem',
+          texto: 'Todo lo que ves aquí es inventado: productos, ventas y precios. Toca, vende, borra, haz lo que quieras.',
+        }),
+        el('div.acciones', { style: 'flex-direction:column' }, [
+          el('button.btn.principal.grande', { type: 'button', texto: 'Entrar como dueño (ve todo)', onclick: (ev) => entrarDemo(ev, 'dueno@demo.misdetallitos') }),
+          el('button.btn.grande', { type: 'button', texto: 'Entrar como empleado (sin costos)', onclick: (ev) => entrarDemo(ev, 'empleado@demo.misdetallitos') }),
+          el('button.btn.plano', { type: 'button', texto: 'Salir del demo', onclick: salirDelDemo }),
+        ])
+      );
+    } else if (modo === 'entrar') {
       pegar(form,
         el('h1', { texto: 'Entrar' }),
         campo('email', 'Correo', { type: 'email', autocomplete: 'username', placeholder: 'tucorreo@gmail.com' }),
@@ -102,6 +117,17 @@ export function montarEntrar(nodo) {
   }
 
   pintar();
+}
+
+async function entrarDemo(ev, email) {
+  const boton = ev.currentTarget;
+  boton.disabled = true;
+  try {
+    await iniciarSesion(email, 'demo1234');
+  } catch (e) {
+    avisarMal(MENSAJES[e.code] || 'No se pudo entrar al demo. Intenta otra vez.');
+    boton.disabled = false;
+  }
 }
 
 function campo(nombre, etiqueta, props = {}) {

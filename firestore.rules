@@ -19,8 +19,14 @@ service cloud.firestore {
       function autenticado() {
         return request.auth != null;
       }
+      // Las cuentas del demo llevan la marca `demo` en el token (la pone
+      // scripts/sembrar-demo.mjs). Solo valen dentro de `negocios/demo`: en
+      // cualquier otro negocio son como un extraño, aunque estén autenticadas.
+      function demoFueraDeSuNegocio() {
+        return autenticado() && request.auth.token.get('demo', false) == true && negocioId != 'demo';
+      }
       function miRol() {
-        return autenticado() && exists(/databases/$(database)/documents/negocios/$(negocioId)/usuarios/$(request.auth.uid))
+        return autenticado() && !demoFueraDeSuNegocio() && exists(/databases/$(database)/documents/negocios/$(negocioId)/usuarios/$(request.auth.uid))
           ? miDoc().data.rol : 'ninguno';
       }
       function esDueno()    { return miRol() == 'dueno'; }
@@ -42,7 +48,7 @@ service cloud.firestore {
       // ventas, y que un empleado se ascienda a dueño editando su propio
       // documento.
       match /usuarios/{uid} {
-        function soyEsteUsuario() { return request.auth != null && request.auth.uid == uid; }
+        function soyEsteUsuario() { return request.auth != null && request.auth.uid == uid && !demoFueraDeSuNegocio(); }
 
         // El que está en espera tiene que poder leer SU propio documento, si no
         // la app no sabría que está esperando.

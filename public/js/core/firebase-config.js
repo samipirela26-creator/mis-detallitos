@@ -17,7 +17,19 @@ export const firebaseConfig = {
 };
 
 // Id del negocio dentro de Firestore. Con un solo local, se deja así.
-export const NEGOCIO_ID = 'mis-detallitos';
+//
+// MODO DEMO: entrar con `?demo` (por ejemplo https://.../?demo) cambia a otro
+// negocio, `demo`, que tiene datos inventados (scripts/sembrar-demo.mjs). Se
+// recuerda en este navegador hasta que se pulse "Salir del demo". Las reglas se
+// evalúan por negocio, así que las cuentas demo no ven nada del negocio real.
+function esModoDemo() {
+  try {
+    if (new URLSearchParams(location.search).has('demo')) localStorage.setItem('detallitos_demo', '1');
+    return localStorage.getItem('detallitos_demo') === '1';
+  } catch { return false; }
+}
+export const MODO_DEMO = esModoDemo();
+export const NEGOCIO_ID = MODO_DEMO ? 'demo' : 'mis-detallitos';
 
 // En localhost usa los emuladores (datos de mentira, no toca lo real).
 // Publicado en mis-detallitos.web.app usa Firebase de verdad. Esto se decide

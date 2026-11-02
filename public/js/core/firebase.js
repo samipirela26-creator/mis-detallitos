@@ -25,7 +25,7 @@ import {
   connectStorageEmulator,
 } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-storage.js';
 
-import { firebaseConfig, NEGOCIO_ID, USAR_EMULADORES } from './firebase-config.js';
+import { firebaseConfig, NEGOCIO_ID, USAR_EMULADORES, MODO_DEMO } from './firebase-config.js';
 
 export const app = initializeApp(firebaseConfig);
 
@@ -39,6 +39,13 @@ export const db = initializeFirestore(app, {
 export const auth = getAuth(app);
 export const storage = getStorage(app);
 export const negocioId = NEGOCIO_ID;
+export const modoDemo = MODO_DEMO;
+
+/** Vuelve al negocio de verdad (quita la marca del demo y recarga limpio). */
+export function salirDelDemo() {
+  try { localStorage.removeItem('detallitos_demo'); } catch { /* da igual */ }
+  location.href = location.pathname;
+}
 
 const enLocal = ['localhost', '127.0.0.1'].includes(location.hostname);
 export const usandoEmuladores = enLocal && USAR_EMULADORES;
