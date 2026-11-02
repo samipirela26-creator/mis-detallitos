@@ -32,7 +32,8 @@ registrar('config', {
       <div class="tarjeta" id="catalogo-config" style="margin-top:1rem"></div>
       <div class="tarjeta" id="estudio-ia" style="margin-top:1rem"></div>
       <div class="tarjeta" id="tema" style="margin-top:1rem"></div>
-      <div class="tarjeta" id="datos" style="margin-top:1rem"></div>`;
+      <div class="tarjeta" id="datos" style="margin-top:1rem"></div>
+      <div class="tarjeta" id="version" style="margin-top:1rem"></div>`;
 
     pintarCajaAbierta($('#caja-abierta', nodo));
     pintarTasas($('#tasas', nodo));
@@ -44,6 +45,7 @@ registrar('config', {
     pintarEstudioIA($('#estudio-ia', nodo));
     pintarTema($('#tema', nodo));
     pintarDatos($('#datos', nodo));
+    pintarVersion($('#version', nodo));
   },
 });
 
@@ -845,4 +847,41 @@ function pintarDeshacerImportacion(caja) {
       },
     }),
   ]);
+}
+
+// --- forzar actualización ------------------------------------------------------
+//
+// Safari (sobre todo la app instalada) a veces se queda con el service worker y
+// el caché viejos y no toma la versión nueva. Esto los borra y recarga la app
+// de cero. NO toca la sesión ni las ventas guardadas en el teléfono: eso vive en
+// IndexedDB/Firestore, no en el caché de archivos.
+function pintarVersion(caja) {
+  pegar(caja,
+    el('h2', { texto: 'Actualizar la app' }),
+    el('p', {
+      style: 'color:var(--texto-suave);font-size:var(--t-cuerpo)',
+      texto: 'Si la app se quedó con una versión vieja (pasa en Safari), esto la descarga de nuevo.',
+    }),
+    el('button.btn.plano', {
+      texto: 'Forzar actualización',
+      onclick: async () => {
+        const esperando = leer('pendientes') || 0;
+        if (!await confirmar('¿Forzar actualización?', {
+          detalle: esperando
+            ? `Hay ${esperando} cosa(s) esperando señal para subir. Se conservan, pero conviene tener internet.`
+            : 'La app se recarga con la última versión. No pierdes ventas ni la sesión.',
+          aceptar: 'Actualizar',
+        })) return;
+        avisar('Actualizando…');
+        try {
+          const registros = await navigator.serviceWorker?.getRegistrations?.() || [];
+          await Promise.all(registros.map((r) => r.unregister()));
+          if (self.caches) await Promise.all((await caches.keys()).map((k) => caches.delete(k)));
+        } catch (e) { console.warn('[actualizar]', e); }
+        const url = new URL(location.href);
+        url.searchParams.set('v', Date.now());
+        location.replace(url.toString());
+      },
+    })
+  );
 }

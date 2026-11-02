@@ -34,6 +34,7 @@ import './features/config.js';
 import './reports/panel.js';
 import { icono } from './ui/iconos.js';
 import './features/pendientes-diarios.js';
+import './features/trabajador.js';
 import { aplicarTema } from './ui/tema.js';
 
 // Antes que nada: si no, se ve un fogonazo claro al abrir en modo oscuro.
@@ -173,6 +174,7 @@ registrar('panel', {
       atajo('wallet', 'Mi dinero', 'Cuánto gané y cuánto puedo sacar.', 'mi-dinero'),
       atajo('expense', 'Gastos y salidas', 'Salidas de caja por categoría.', 'gastos-dueno'),
       atajo('cash', 'Caja', 'Abrir turno, reporte X y cierre Z.', 'caja-dueno'),
+      atajo('wallet', 'Sueldos', 'Pagar el sueldo y ver si lo que vende cubre lo que cobra.', 'trabajador'),
       atajo('check', 'Pendientes', 'Lo que tiene que hacer el empleado, y lo que ya marcó hoy.', 'pendientes'),
       atajo('camera', 'Estudio de fotos', 'Toma fotos directas a los productos.', 'fotos'),
       atajo('upload', 'Importar Excel', 'Sube catálogo masivo desde hojas de cálculo.', 'importar'),
