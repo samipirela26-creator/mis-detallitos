@@ -224,8 +224,12 @@ export function formulario(p = null) {
         <small style="color:var(--texto-suave)">Esto es lo que hace que aparezca aunque lo escriban mal o le digan de otra forma.</small></div>
 
       <div class="campo"><label>Categoría</label>
-        <input name="categoria" list="cats" value="${esc(p?.categoria || '')}">
-        <datalist id="cats">${categorias().map((c) => `<option value="${esc(c)}">`).join('')}</datalist></div>
+        <select name="catSel">
+          <option value="">Sin categoría</option>
+          ${[...new Set([...categorias(), p?.categoria].filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es')).map((c) => `<option value="${esc(c)}" ${c === p?.categoria ? 'selected' : ''}>${esc(c)}</option>`).join('')}
+          <option value="__nueva__">+ Categoría nueva…</option>
+        </select>
+        <input name="categoria" placeholder="Nombre de la categoría nueva" style="display:none;margin-top:.4rem"></div>
 
       <div class="campo"><label>¿Le llevas la cuenta de cuántos quedan?</label>
         <select name="tipo">
@@ -289,6 +293,10 @@ export function formulario(p = null) {
     </form>`);
 
   const f = $('#f', d);
+  f.catSel?.addEventListener('change', () => {
+    f.categoria.style.display = f.catSel.value === '__nueva__' ? '' : 'none';
+    if (f.catSel.value === '__nueva__') f.categoria.focus();
+  });
   const cajaEscalas = $('#escalas', d);
 
   // Si no lleva stock, los dos campos de stock no pintan nada y confundían:
@@ -393,7 +401,7 @@ export function formulario(p = null) {
       await guardarProducto({
         nombre: f.nombre.value,
         alias: f.alias.value.split(',').map((s) => s.trim()).filter(Boolean),
-        categoria: f.categoria.value,
+        categoria: (f.catSel.value === '__nueva__' ? f.categoria.value : f.catSel.value).trim(),
         tipo: f.tipo.value,
         tipoPrecio: f.tipoPrecio.value,
         precioCOP: precioCop,
