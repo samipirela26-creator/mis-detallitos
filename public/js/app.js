@@ -174,6 +174,7 @@ registrar('panel', {
       atajo('cash', 'Caja', 'Abrir turno, reporte X y cierre Z.', 'caja-dueno'),
       atajo('camera', 'Estudio de fotos', 'Toma fotos directas a los productos.', 'fotos'),
       atajo('upload', 'Importar Excel', 'Sube catálogo masivo desde hojas de cálculo.', 'importar'),
+      atajoCatalogo(),
       atajo('settings', 'Configuración', 'Tasas del día, PIN, usuarios y sinónimos.', 'config'),
     ]));
 
@@ -193,6 +194,23 @@ function tarjetaAccion(clase, titulo, texto, boton, destino) {
     el('h2', { texto: titulo }),
     el('p', { style: 'font-size:var(--t-cuerpo)', texto }),
     el('button.btn.principal', { texto: boton, onclick: () => ir(destino) }),
+  ]);
+}
+
+/** Tarjeta que copia el enlace de la tienda en línea (catalogo.html) para mandarlo al cliente. */
+function atajoCatalogo() {
+  const base = location.pathname.replace(/\/[^\/]*$/, '/');
+  const url = `${location.origin}${base}catalogo.html`;
+  return el('div.atajo-card', {
+    onclick: () => {
+      const copiado = navigator.clipboard ? navigator.clipboard.writeText(url) : Promise.reject();
+      copiado.then(() => avisar('Enlace de la tienda copiado'))
+        .catch(() => prompt('Copia este enlace para enviarlo a tus clientes:', url));
+    },
+  }, [
+    el('div.ico-wrap', { html: icono('cart') }),
+    el('h2', { texto: 'Tienda en línea' }),
+    el('p', { texto: 'Copia el enlace del catálogo para que el cliente compre desde su celular.' }),
   ]);
 }
 
