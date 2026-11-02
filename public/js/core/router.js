@@ -38,7 +38,7 @@ function parsear() {
 function inicioSegunRol() {
   const u = usuarioActual();
   if (!u) return 'entrar';
-  return esDueno() ? 'panel' : 'vender';
+  return esDueno() ? 'panel' : 'hoy';
 }
 
 async function pintar() {

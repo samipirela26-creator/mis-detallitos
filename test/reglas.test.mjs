@@ -120,6 +120,19 @@ describe('reglas de seguridad', { skip: hayEmulador ? false : 'el emulador de Fi
     assert.equal(r.status, 403);
   });
 
+  test('pendientes: el dueño los define, el empleado los lee y marca los suyos', async () => {
+    const id = `pend-${Date.now()}`;
+    const plantilla = { titulo: { stringValue: 'Barrer' }, tipo: { stringValue: 'diario' } };
+    assert.equal((await escribir(`pendientes/${id}`, plantilla, como(empleado))).status, 403, 'empleado no crea');
+    assert.equal((await escribir(`pendientes/${id}`, plantilla, como(dueno))).status, 200, 'dueño sí');
+    assert.equal((await leer(`pendientes/${id}`, como(empleado))).status, 200, 'empleado lee');
+    const marca = `2026-11-02_${id}`;
+    const suya = { uid: { stringValue: empleado.uid }, dia: { stringValue: '2026-11-02' }, pendienteId: { stringValue: id } };
+    assert.equal((await escribir(`pendientes_hechos/${marca}`, suya, como(empleado))).status, 200, 'marca la suya');
+    assert.equal((await escribir(`pendientes_hechos/otra-${id}`, { ...suya, uid: { stringValue: 'ajeno' } }, como(empleado))).status, 403, 'no a nombre de otro');
+    assert.equal((await borrar(`pendientes_hechos/${marca}`, como(empleado))).status, 200, 'desmarca');
+  });
+
   test('la auditoría es solo del dueño y nadie la borra', async () => {
     assert.equal((await leer('auditoria', como(empleado))).status, 403);
     const rastro = `rastro-${Date.now()}`;

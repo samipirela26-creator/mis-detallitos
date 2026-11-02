@@ -197,3 +197,8 @@
   background: #0c1e24; border-radius: var(--r-bloque);
 }
 .estudio .contador { color: var(--texto-suave); font-size: var(--t-cuerpo); font-weight: 500; }
+
+/* Pendientes del empleado: la casilla marcada tacha el texto. */
+.pendiente.hecho span, .pendiente.hecho { color: var(--texto-suave); }
+label.pendiente.hecho span { text-decoration: line-through; }
+.chip-hoy { font-size: var(--t-pie); font-style: normal; color: var(--marca); margin-left: auto; }

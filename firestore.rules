@@ -218,6 +218,21 @@ service cloud.firestore {
         allow update, delete: if esDueno();
       }
 
+      // --- pendientes del empleado ---
+      // Las plantillas las define el dueño; el equipo las lee. Las marcas de
+      // cada día las crea y borra el equipo (id `{dia}_{pendienteId}`), siempre
+      // con su propio uid.
+      match /pendientes/{id} {
+        allow read: if delEquipo();
+        allow write: if esDueno();
+      }
+      match /pendientes_hechos/{id} {
+        allow read: if delEquipo();
+        allow create: if delEquipo() && soyYo();
+        allow update: if esDueno();
+        allow delete: if delEquipo();
+      }
+
       match /{documento=**} {
         allow read, write: if false;
       }
