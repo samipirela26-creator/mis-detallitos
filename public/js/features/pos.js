@@ -88,6 +88,7 @@ function agregar(producto, { cantidad = 1, precioUSD = null } = {}) {
  */
 function precioDeEtiqueta(linea, tasas = {}) {
   if (linea.precioCOP === 0 || linea.precioUSD === 0) return 'Gratis ($ 0)';
+  if (linea.precioVES > 0 && !(linea.precioCOP > 0)) return formatear(linea.precioVES, 'VES');
   if (linea.precioCOP > 0) return formatear(linea.precioCOP, 'COP');
   if (tasas.COP) return formatear(desdeUSD(linea.precioUSD, 'COP', tasas.COP), 'COP');
   return formatear(linea.precioUSD);
@@ -443,6 +444,8 @@ registrar('vender', {
             // la misma pantalla no sumaban y parecía que faltaba plata.
             texto: (l.precioCOP === 0 || l.precioUSD === 0)
               ? 'Gratis'
+              : (l.precioVES > 0 && !(l.precioCOP > 0))
+                ? formatear(Math.round(l.cantidad * l.precioVES), 'VES')
               : l.precioCOP > 0
                 ? formatear(Math.round(l.cantidad * l.precioCOP), 'COP')
                 : tasas.COP
@@ -465,7 +468,10 @@ registrar('vender', {
       const totalEnPesos = tasas.COP
         ? (t.totalCOP != null ? t.totalCOP : desdeUSD(t.totalUSD, 'COP', tasas.COP))
         : null;
-      const totalGrande = totalEnPesos != null
+      // Si TODO lo del carrito se acordó en bolívares, el total se dice en Bs.
+      const totalGrande = t.totalVES != null && t.totalVES > 0 && tasas.VES
+        ? formatear(t.totalVES, 'VES')
+        : totalEnPesos != null
         ? formatear(totalEnPesos, 'COP')
         : formatear(t.totalUSD);
       tabla.appendChild(el('div', { style: 'padding-top:.9rem' }, [
@@ -773,6 +779,8 @@ function pedirVentaLibre(nombreSugerido = '') {
         // otra moneda no hay peso acordado, y el total se convierte.
         precioCOP: moneda === 'COP' ? (montoTal || 0) : 0,
         precioCOPOriginal: moneda === 'COP' ? (montoTal || 0) : 0,
+        // Igual en bolívares: lo tecleado en Bs se cobra exacto (ver totalesVenta).
+        precioVES: moneda === 'VES' ? (montoTal || 0) : 0,
         // La ganancia estimada se guarda como costo: así los reportes, el
         // margen y el cierre de caja la cuentan sin tocar nada más.
         costoUSD: Math.max(0, monto - ganancia),
@@ -843,7 +851,10 @@ async function cobrar() {
 
   // El monto se piensa y se ajusta en PESOS, que es la moneda de la etiqueta.
   // Si no hay tasa cargada, se trabaja en dólares y el ajuste también.
-  const monedaMonto = tasas.COP ? 'COP' : 'USD';
+  // Salvo que todo lo del carrito se acordara en bolívares: entonces el monto se
+  // piensa y se cobra en Bs (la venta libre de 100 Bs cobra 100 Bs).
+  const todoEnBs = t.totalVES != null && t.totalVES > 0 && !!tasas.VES;
+  const monedaMonto = todoEnBs ? 'VES' : tasas.COP ? 'COP' : 'USD';
   const enMoneda = (usd) => (monedaMonto === 'USD' ? usd : desdeUSD(usd, monedaMonto, tasas[monedaMonto]));
   const aDolares = (monto) => (monedaMonto === 'USD' ? monto : aUSD(monto, monedaMonto, tasas[monedaMonto]));
 
@@ -853,6 +864,7 @@ async function cobrar() {
   // que es lo que se hacía siempre.
   let montoCobrado = (monedaMonto === 'COP' && t.totalCOP != null)
     ? t.totalCOP
+    : monedaMonto === 'VES' ? t.totalVES
     : enMoneda(t.totalUSD);
   const totalDeEtiqueta = montoCobrado;        // sin ajustar, para comparar
   let ajustadoPor = null;

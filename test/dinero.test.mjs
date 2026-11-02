@@ -273,3 +273,20 @@ test('un producto regalado a $0 conserva el totalCOP sin volverse null', () => {
   assert.equal(t.totalCOP, 8000, 'el regalo suma 0 pesos y el totalCOP se mantiene exacto');
   assert.equal(t.totalUSD, 200);
 });
+
+test('una venta libre de 100 Bs se cobra como 100 Bs exactos, no 99,90', () => {
+  const tasas = { VES: 4500, COP: 3900 };
+  const usd = d.aUSD(10000, 'VES', tasas.VES);
+  const lineas = [{ cantidad: 1, precioUSD: usd, precioCOP: 0, precioVES: 10000, costoUSD: 0 }];
+  const t = d.totalesVenta(lineas);
+  assert.equal(t.totalVES, 10000);
+  assert.equal(d.desdeUSD(t.totalUSD, 'VES', tasas.VES), 9990, 'por el dólar se perdería plata');
+});
+
+test('con un producto del catálogo en el carrito, el total en Bs no es exacto (null)', () => {
+  const lineas = [
+    { cantidad: 1, precioUSD: 222, precioVES: 10000, costoUSD: 0 },
+    { cantidad: 1, precioUSD: 100, precioCOP: 3900, costoUSD: 50 },
+  ];
+  assert.equal(d.totalesVenta(lineas).totalVES, null);
+});

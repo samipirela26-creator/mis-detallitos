@@ -374,6 +374,15 @@ export function totalesVenta(lineas = []) {
       acc.totalUSD += t.totalUSD;
       acc.costoUSD += t.costoUSD;
       acc.gananciaUSD += t.gananciaUSD;
+      // Lo mismo en bolívares, pero SOLO para lo que se acordó en bolívares (la
+      // venta libre tecleada en Bs): ahí 100 Bs tienen que cobrarse como 100,
+      // no como 99,90 por pasar por el dólar. Un producto del catálogo no trae
+      // `precioVES`, así que en cuanto entra uno el total en Bs queda en null.
+      if (acc.totalVES !== null) {
+        if (l.precioVES > 0) acc.totalVES += redondear(l.cantidad * l.precioVES);
+        else if (l.precioUSD === 0) acc.totalVES += 0;
+        else acc.totalVES = null;
+      }
       if (acc.totalCOP !== null) {
         if (l.precioCOP > 0) {
           acc.totalCOP += redondear(l.cantidad * l.precioCOP);
@@ -385,7 +394,7 @@ export function totalesVenta(lineas = []) {
       }
       return acc;
     },
-    { totalUSD: 0, costoUSD: 0, gananciaUSD: 0, totalCOP: 0 }
+    { totalUSD: 0, costoUSD: 0, gananciaUSD: 0, totalCOP: 0, totalVES: 0 }
   );
 }
 
