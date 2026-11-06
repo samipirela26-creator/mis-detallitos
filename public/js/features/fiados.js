@@ -22,6 +22,7 @@ import { listarClientes, abonosDe, deudaDe, debe, vencimiento } from '../data/cl
 import { formatear } from '../core/dinero.js';
 import { leer } from '../core/estado.js';
 import { abrirAbono } from './abono.js';
+import { abrirCobro } from '../reports/cobro.js';
 import { puede } from '../core/sesion.js';
 import { buscarClientes } from '../data/busqueda.js';
 import { pasadas, CACHE } from '../data/lectura.js';
@@ -151,6 +152,14 @@ registrar('fiados', {
           style: 'margin-top:.5rem', texto: 'Registrar abono',
           onclick: () => { d.close(); abrirAbono(c, deuda(c).USD, recargar); },
         }) : null,
+        el('button.btn.callado.ancho', {
+          style: 'margin-top:.5rem', texto: '📤 Enviar cobro (WhatsApp)',
+          // Sin lo que se llevó: el empleado solo puede leer SUS ventas.
+          onclick: async () => {
+            const abonos = await abonosDe(c.id).catch(() => []);
+            abrirCobro({ cliente: c, deuda: deuda(c), fiadas: [], abonos });
+          },
+        }),
         el('button.btn.plano.ancho', { style: 'margin-top:.5rem', texto: 'Cerrar', onclick: () => d.close() })
       );
 
