@@ -18,7 +18,7 @@
 // comentario de `ventasEntre` en data/ventas.js).
 import { registrar } from '../core/router.js';
 import { el, esc, $, fecha, abrirDialogo, pegar } from '../ui/html.js';
-import { listarClientes, abonosDe, deudaDe, debe } from '../data/clientes.js';
+import { listarClientes, abonosDe, deudaDe, debe, vencimiento } from '../data/clientes.js';
 import { formatear } from '../core/dinero.js';
 import { leer } from '../core/estado.js';
 import { abrirAbono } from './abono.js';
@@ -45,7 +45,7 @@ function antiguedad(dias) {
 }
 
 registrar('fiados', {
-  titulo: 'Fiados', icono: '🤝', soloEmpleado: true, seccion: 'La plata', orden: 40,
+  titulo: 'Fiados', icono: '🤝', menu: true, soloEmpleado: true, seccion: 'La plata', orden: 40,
   async montar(nodo) {
     nodo.innerHTML = '<div class="cargando">Cargando fiados…</div>';
     let clientes = [];
@@ -123,6 +123,7 @@ registrar('fiados', {
           el('div', { style: 'text-align:right' }, [
             el('div.cifra', { style: 'font-weight:700;color:var(--rojo)', texto: monto(c) }),
             a.texto ? el('div', { style: `font-size:var(--t-pie);color:${a.color}`, texto: a.texto }) : null,
+            vencimiento(c) ? el('div', { style: `font-size:var(--t-pie);font-weight:600;color:${vencimiento(c).color}`, texto: vencimiento(c).texto }) : null,
           ]),
         ]));
       }

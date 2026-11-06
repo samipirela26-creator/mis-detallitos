@@ -16,15 +16,16 @@
 //    para los reportes del dueño y para nada más.
 import { registrar } from '../core/router.js';
 import { el, esc, $, fecha, abrirDialogo, pegar } from '../ui/html.js';
-import { avisarOk } from '../ui/avisos.js';
+import { avisarOk, confirmar } from '../ui/avisos.js';
 import {
-  listarClientes, guardarCliente, abonosDe, ventasFiadasDe, deudaDe, debe,
+  listarClientes, guardarCliente, abonosDe, ventasFiadasDe, deudaDe, debe, vencimiento, eliminarCliente,
 } from '../data/clientes.js';
 import { formatear } from '../core/dinero.js';
 import { leer } from '../core/estado.js';
 import { buscarClientes } from '../data/busqueda.js';
 import { pasadas, CACHE } from '../data/lectura.js';
 import { abrirAbono } from './abono.js';
+import { esDueno } from '../core/sesion.js';
 import { abrirCobro } from '../reports/cobro.js';
 
 /** Hace cuántos días es esa fecha. Null si no hay fecha. */
@@ -190,6 +191,9 @@ registrar('clientes', {
             debiendo && a.texto
               ? el('div', { style: `font-size:var(--t-pie);color:${a.color}`, texto: a.texto })
               : null,
+            debiendo && vencimiento(c)
+              ? el('div', { style: `font-size:var(--t-pie);font-weight:600;color:${vencimiento(c).color}`, texto: vencimiento(c).texto })
+              : null,
           ]),
         ]));
       }
@@ -230,6 +234,7 @@ registrar('clientes', {
 
     /** La ficha del deudor: cuánto debe, qué se llevó y qué ha abonado. */
     async function detalle(c) {
+      const puedeBorrar = esDueno();
       const d0 = deuda(c);
       const debeUSD = d0.USD;
       const a = antiguedad(diasDesde(c.ultimaCompra));
@@ -266,7 +271,21 @@ registrar('clientes', {
         }) : null,
         debeUSD > 0 ? el('button.btn.plano.ancho', { style: 'margin-bottom:1rem', texto: 'Abonar otra cantidad', onclick: () => { d.close(); abrirAbono(c, 0, recargar); } }) : null,
         el('div', { id: 'movimientos', class: 'cargando', texto: 'Buscando lo que se llevó…' }),
-        el('button.btn.plano.ancho', { style: 'margin-top:1rem', texto: 'Cerrar', onclick: () => d.close() })
+        el('button.btn.plano.ancho', { style: 'margin-top:1rem', texto: 'Cerrar', onclick: () => d.close() }),
+        puedeBorrar ? el('button.btn.plano.ancho', {
+          style: 'margin-top:.5rem;color:var(--rojo)', texto: 'Eliminar cliente',
+          onclick: async () => {
+            if (!await confirmar(`¿Eliminar a ${c.nombre}?`, {
+              detalle: (debeUSD > 0 ? 'Todavía debe: esa deuda desaparece de la lista. ' : '')
+                     + 'Sus ventas y abonos se quedan en los reportes y el borrado queda anotado en los movimientos.',
+              aceptar: 'Eliminar',
+            })) return;
+            await eliminarCliente(c);
+            d.close();
+            avisarOk('Cliente eliminado');
+            recargar();
+          },
+        }) : null
       );
 
       async function movimientos(fuente) {

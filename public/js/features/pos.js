@@ -432,9 +432,11 @@ registrar('vender', {
             ]),
           ]),
           botonCantidad('−', -1, `Quitar uno de ${l.nombre}`),
-          el('span', {
-            style: 'min-width:2ch;text-align:center;font-weight:700;font-size:1.05rem',
-            texto: String(l.cantidad),
+          el('button.btn.plano', {
+            type: 'button', title: `Escribir la cantidad de ${l.nombre}`,
+            'aria-label': `Escribir la cantidad de ${l.nombre}`,
+            style: 'min-width:3.2ch;min-height:44px;padding:0 .4rem;font-weight:700;font-size:1.05rem;border-style:dashed;flex:0 0 auto',
+            texto: String(l.cantidad), onclick: () => cambiarCantidad(i),
           }),
           botonCantidad('+', 1, `Agregar otro de ${l.nombre}`),
           el('div.cifra', {
@@ -593,6 +595,25 @@ registrar('vender', {
       ponerCarrito(lineas);
     }
 
+    /** Escribir la cantidad exacta (200, 400 copias) en vez de dar clic en +/−. */
+    async function cambiarCantidad(i) {
+      const lineas = [...carrito()];
+      const l = { ...lineas[i] };
+      const c = await pedirCantidad({ titulo: l.nombre, inicial: l.cantidad, unidad: l.unidad });
+      if (c === null || c <= 0) return;
+      l.cantidad = c;
+      if (l.tipoPrecio !== 'variable' && !l.precioEditado) {
+        // Escalas: 200 copias cuestan menos que 10, sin que nadie se acuerde.
+        const nuevo = precioPorCantidad({ precioUSD: l.precioOriginalUSD, escalas: l.escalas }, c);
+        if (nuevo !== l.precioUSD) {
+          l.precioUSD = nuevo;
+          avisar(`Precio por cantidad: ${formatear(nuevo)} c/u`);
+        }
+      }
+      lineas[i] = l;
+      ponerCarrito(lineas);
+    }
+
     async function editarLinea(i) {
       const lineas = [...carrito()];
       const l = lineas[i];
@@ -600,22 +621,7 @@ registrar('vender', {
       pegar(d,
         el('h2', { html: esc(l.nombre) }),
         el('div.fila', { style: 'margin:1rem 0' }, [
-          el('button.btn.plano', { texto: 'Cantidad', onclick: async () => {
-            d.close();
-            const c = await pedirCantidad({ titulo: l.nombre, inicial: l.cantidad, unidad: l.unidad });
-            if (c === null || c <= 0) return;
-            l.cantidad = c;
-            if (l.tipoPrecio !== 'variable' && !l.precioEditado) {
-              // Escalas: 200 copias cuestan menos que 10, sin que nadie se acuerde.
-              const nuevo = precioPorCantidad({ precioUSD: l.precioOriginalUSD, escalas: l.escalas }, c);
-              if (nuevo !== l.precioUSD) {
-                l.precioUSD = nuevo;
-                avisar(`Precio por cantidad: ${formatear(nuevo)} c/u`);
-              }
-            }
-            lineas[i] = l;
-            ponerCarrito(lineas);
-          } }),
+          el('button.btn.plano', { texto: 'Cantidad', onclick: () => { d.close(); cambiarCantidad(i); } }),
           el('button.btn.plano', { texto: 'Precio', onclick: () => { d.close(); cambiarPrecio(i); } }),
         ]),
         el('button.btn.plano.ancho', { texto: 'Cerrar', onclick: () => d.close() })
@@ -709,16 +715,21 @@ function pedirVentaLibre(nombreSugerido = '') {
       botonMonto.textContent = monto
         ? `Monto: ${comoSeVe(monto, montoTal)}`
         : 'Pon el monto que entró';
+      // El costo se pregunta SIEMPRE: antes la ganancia arrancaba igual al
+      // monto y una mercancía comprada se contaba toda como ganancia.
       botonGanancia.textContent = !monto
-        ? 'Ganancia: se pone después del monto'
-        : ganancia >= monto
-          ? `Ganancia estimada: todo (${comoSeVe(monto, montoTal)})`
-          : `Ganancia estimada: ${comoSeVe(ganancia, gananciaTal)} de ${comoSeVe(monto, montoTal)}`;
+        ? 'Costo de compra: se pone después del monto'
+        : !gananciaTocada
+          ? '¿Cuánto te costó? (toca para poner el costo)'
+          : ganancia >= monto
+            ? `Costo: nada. Ganancia: todo (${comoSeVe(monto, montoTal)})`
+            : `Costo: ${comoSeVe(monto - ganancia, null)} · Ganancia: ${comoSeVe(ganancia, gananciaTal)}`;
       // La misma plata en las otras dos, para no tener que salir a calcularla.
       eco.textContent = monto ? otrasMonedas(monto) : '';
       botonGanancia.disabled = monto ? null : true;
-      aceptar.disabled = monto ? null : true;
-      aceptar.style.opacity = monto ? '' : '.5';
+      const listo = monto && gananciaTocada;
+      aceptar.disabled = listo ? null : true;
+      aceptar.style.opacity = listo ? '' : '.5';
     };
 
     botonMonto.addEventListener('click', async () => {
@@ -732,13 +743,15 @@ function pedirVentaLibre(nombreSugerido = '') {
       // pensando el monto, y la ganancia se le pregunta en la misma.
       const cambioMoneda = m.moneda !== moneda;
       moneda = m.moneda;
+      const costoPuesto = gananciaTocada ? monto - ganancia : 0;
       monto = m.montoUSD;
       montoTal = m.menores;
       // Mientras no la toquen, la ganancia sigue al monto. Si ya la fijaron, se
       // respeta, pero nunca por encima de lo que entró.
       if (!gananciaTocada) { ganancia = monto; gananciaTal = montoTal; }
       else {
-        ganancia = Math.min(ganancia, monto);
+        // Lo que se fija es el COSTO: si cambia el monto, la ganancia se mueve.
+        ganancia = Math.max(0, monto - costoPuesto);
         // Lo tecleado de la ganancia era de la moneda vieja, o quedó capado
         // por el monto: en los dos casos deja de valer como cifra exacta.
         gananciaTal = (cambioMoneda || ganancia === monto) ? null : gananciaTal;
@@ -748,19 +761,21 @@ function pedirVentaLibre(nombreSugerido = '') {
     });
 
     botonGanancia.addEventListener('click', async () => {
-      const g = await pedirMonto({
-        titulo: '¿Cuánto de eso es ganancia?',
-        nota: `Entraron ${comoSeVe(monto, montoTal)}. Si no te costó nada, déjalo completo.`,
-        inicial: gananciaTal || enMoneda(ganancia), aceptar: 'Listo',
+      const c = await pedirMonto({
+        titulo: '¿Cuánto te costó?',
+        nota: `Entraron ${comoSeVe(monto, montoTal)}. Pon lo que pagaste por eso; si no te costó nada, pon 0.`,
+        inicial: gananciaTocada ? enMoneda(monto - ganancia) : 0, aceptar: 'Listo',
         moneda, monedas: MONEDAS_LIBRE, tasas,
       });
-      if (g === null) return;
+      if (c === null) return;
+      // El costo no puede pasar de lo que entró; la ganancia es lo que sobra.
+      const g = { moneda: c.moneda, montoUSD: Math.max(0, monto - Math.min(c.montoUSD, monto)), menores: null };
       // La ganancia se pregunta en la moneda del monto, pero si la cambian
       // allá adentro, el monto se pasa a esa misma: los dos números se leen
       // juntos ("500 de 20.000") y en dos monedas distintas no se leen.
       if (g.moneda !== moneda) { moneda = g.moneda; montoTal = null; }
       ganancia = Math.min(g.montoUSD, monto);
-      gananciaTal = ganancia === g.montoUSD ? g.menores : null;
+      gananciaTal = null;
       gananciaTocada = true;
       pintar();
     });
@@ -809,8 +824,8 @@ function pedirVentaLibre(nombreSugerido = '') {
       botonGanancia,
       el('p', {
         style: 'color:var(--texto-suave);font-size:var(--t-pie);margin:.4rem 0 0',
-        texto: 'La ganancia es estimada: sirve para que el reporte del mes no cuente '
-             + 'como ganancia una plata que ya te había costado.',
+        texto: 'El costo de compra es lo que descuenta la ganancia: así el reporte del mes '
+             + 'no cuenta como ganancia una plata que ya te había costado.',
       }),
       el('div.fila', { style: 'margin-top:1rem' }, [
         el('button.btn.callado', { type: 'button', texto: 'Cancelar', onclick: () => { d.close(); resolver(null); } }),
@@ -956,7 +971,7 @@ async function cobrar() {
   // al volver la señal, nueve ventas iguales dentro de 15 milisegundos.
   let cobrando = false;
 
-  async function terminar(moneda, monto, { fiadoA = null } = {}) {
+  async function terminar(moneda, monto, { fiadoA = null, plazo = null } = {}) {
     if (cobrando) return;
     cobrando = true;
     // Que se VEA que está cobrando, o el que atiende vuelve a tocar con razón.
@@ -974,7 +989,17 @@ async function cobrar() {
       // Los botones de moneda pagan la venta ENTERA, así que este pago la
       // cubre: su valor en dólares es el de la venta, no uno recalculado que
       // puede caer a un centavo y dejar un saldo que nadie debe.
-      const pagos = fiadoA ? [] : [crearPago(moneda, monto, tasas, { montoUSD: totalUSD() })];
+      // Un fiado a plazo puede traer un abono inicial (normalmente el 50%): esa
+      // plata entra a la caja ahora y el resto queda como deuda.
+      const abonoUSD = fiadoA && plazo ? Math.round(totalUSD() * plazo.abonoPct / 100) : 0;
+      const pagos = fiadoA
+        ? (abonoUSD ? [crearPago('USD', abonoUSD, tasas, { montoUSD: abonoUSD })] : [])
+        : [crearPago(moneda, monto, tasas, { montoUSD: totalUSD() })];
+      let vence = null;
+      if (fiadoA && plazo?.dias) {
+        const f = new Date(); f.setDate(f.getDate() + plazo.dias);
+        vence = `${f.getFullYear()}-${String(f.getMonth() + 1).padStart(2, '0')}-${String(f.getDate()).padStart(2, '0')}`;
+      }
       const { id, venta } = await registrarVenta({
         lineas, pagos,
         ajusteUSD: ajusteUSD(),
@@ -984,6 +1009,7 @@ async function cobrar() {
         totalCOP: monedaMonto === 'COP' ? montoCobrado : null,
         clienteId: fiadoA?.id || null,
         fiado: !!fiadoA,
+        vence,
         sinTurno: !turno,
       });
       d.close();
@@ -1022,12 +1048,53 @@ async function cobrar() {
       onclick: async () => {
         const elegido = await elegirCliente();
         if (!elegido) return;
-        terminar(null, 0, { fiadoA: elegido });
+        const plazo = await pedirPlazo(totalUSD());
+        if (!plazo) return;
+        terminar(null, 0, { fiadoA: elegido, plazo });
       },
     }),
     el('button.btn.callado.ancho', { style: 'margin-top:.5rem', texto: 'Cancelar', onclick: () => d.close() })
   );
   pintar();
+}
+
+/** Plazo y abono inicial de un fiado. Devuelve { dias, abonoPct } o null. */
+function pedirPlazo(totalUSD) {
+  return new Promise((resolver) => {
+    let dias = 25;
+    let abonoPct = 50;
+    const d = abrirDialogo('');
+    const eco = el('p', { style: 'text-align:center;color:var(--texto-suave);margin:.6rem 0' });
+    const fila = (opciones, actual, poner, etiqueta) => el('div.fila', { style: 'margin:.4rem 0;flex-wrap:wrap' },
+      opciones.map((v) => el('button.btn', {
+        type: 'button',
+        class: v === actual() ? 'principal' : 'plano',
+        texto: etiqueta(v),
+        onclick: () => { poner(v); repintar(); },
+      })));
+    const cuerpo = el('div');
+    const repintar = () => {
+      cuerpo.innerHTML = '';
+      const abono = Math.round(totalUSD * abonoPct / 100);
+      eco.textContent = abonoPct
+        ? `Hoy paga ${formatear(abono)} y queda debiendo ${formatear(totalUSD - abono)}`
+        : `Queda debiendo ${formatear(totalUSD)}`;
+      pegar(cuerpo,
+        el('p', { style: 'color:var(--texto-suave);font-size:var(--t-pie)', texto: '¿EN CUÁNTOS DÍAS PAGA?' }),
+        fila([15, 25, 30], () => dias, (v) => { dias = v; }, (v) => `${v} días`),
+        el('p', { style: 'color:var(--texto-suave);font-size:var(--t-pie)', texto: 'ABONO DE HOY' }),
+        fila([0, 30, 50], () => abonoPct, (v) => { abonoPct = v; }, (v) => (v ? `${v}%` : 'Sin abono')),
+        eco);
+    };
+    repintar();
+    pegar(d,
+      el('h2', { texto: 'Plazo del fiado' }),
+      cuerpo,
+      el('div.fila', {}, [
+        el('button.btn.callado', { texto: 'Cancelar', onclick: () => { d.close(); resolver(null); } }),
+        el('button.btn.principal', { texto: 'Fiar', onclick: () => { d.close(); resolver({ dias, abonoPct }); } }),
+      ]));
+  });
 }
 
 /** Elegir (o crear al vuelo) el cliente del fiado. */

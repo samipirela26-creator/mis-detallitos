@@ -24,6 +24,10 @@ export const listarPendientes = ({ fuente = SERVIDOR } = {}) =>
 export const hechosDelDia = (dia, { fuente = SERVIDOR } = {}) =>
   traer(query(col('pendientes_hechos'), where('dia', '==', dia)), fuente);
 
+/** Las marcas de un rango de días, para ver qué cumple y qué no el equipo. */
+export const hechosEntre = (desde, hasta, { fuente = SERVIDOR } = {}) =>
+  traer(query(col('pendientes_hechos'), where('dia', '>=', desde), where('dia', '<=', hasta)), fuente);
+
 /** Crea o corrige una plantilla. `datos`: titulo, tipo, dias, fecha, ancla, activo. */
 export function guardarPendiente(id, datos) {
   const limpio = {

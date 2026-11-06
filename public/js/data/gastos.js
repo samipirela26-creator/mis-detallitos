@@ -15,7 +15,8 @@ import { traer, SERVIDOR } from './lectura.js';
 export const CATEGORIAS = [
   'Mercancía', 'Herramientas o artículos para el negocio',
   'Servicios (luz, agua, internet)', 'Alquiler', 'Sueldos / pago de trabajador',
-  'Transporte / flete', 'Mantenimiento', 'Impuestos', 'Otros',
+  'Transporte / flete', 'Mantenimiento', 'Impuestos',
+  'Envíos', 'Pasajes', 'Comisiones por cambio', 'Bolsas', 'Otros',
 ];
 
 /**

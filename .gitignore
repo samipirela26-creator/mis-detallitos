@@ -30,3 +30,5 @@ respaldo-cuentas-*.json
 
 # Entorno de Python para las pruebas de quitar fondo (se regenera con requirements.txt)
 .venv/
+scripts/video-tutorial/.venv/
+scripts/video-tutorial/trabajo/

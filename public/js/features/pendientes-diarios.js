@@ -9,7 +9,7 @@ import { usuarioActual } from '../core/sesion.js';
 import { avisarOk, avisarMal, confirmar } from '../ui/avisos.js';
 import { pasadas, CACHE } from '../data/lectura.js';
 import {
-  listarPendientes, hechosDelDia, guardarPendiente, pausarPendiente, borrarPendiente,
+  listarPendientes, hechosDelDia, hechosEntre, guardarPendiente, pausarPendiente, borrarPendiente,
   marcarHecho, desmarcarHecho,
 } from '../data/pendientes.js';
 import { tocaHoy, describirRepeticion, NOMBRES_DIA } from '../core/pendientes-dia.js';
@@ -19,14 +19,28 @@ const saludo = () => {
   return h < 12 ? 'Buenos días' : h < 19 ? 'Buenas tardes' : 'Buenas noches';
 };
 
-/** Carga plantillas + marcas de hoy y llama a `pintar` (caché y luego servidor). */
+/**
+ * Carga plantillas + marcas de hoy y llama a `pintar` (caché y luego servidor).
+ *
+ * Si el servidor no contesta (señal mala, la app despertando), se deja lo que
+ * ya se pintó desde el teléfono. Antes el error borraba la lista y el empleado
+ * veía "Hoy no tienes pendientes" hasta cerrar y abrir la app.
+ */
 async function cargarHoy(dia, pintar) {
+  let pintado = false;
   await pasadas(async (fuente) => {
-    const [plantillas, hechos] = await Promise.all([
-      listarPendientes({ fuente }), hechosDelDia(dia, { fuente }),
-    ]);
-    if (fuente === CACHE && !plantillas.length) return false;
-    pintar(plantillas, hechos);
+    try {
+      const [plantillas, hechos] = await Promise.all([
+        listarPendientes({ fuente }), hechosDelDia(dia, { fuente }),
+      ]);
+      if (fuente === CACHE && !plantillas.length) return false;
+      if (fuente !== CACHE && !plantillas.length && pintado) return; // vacío raro: no pisar lo bueno
+      pintar(plantillas, hechos);
+      pintado = true;
+    } catch (e) {
+      if (fuente === CACHE || !pintado) throw e;
+      console.warn('[pendientes] sin servidor, se queda lo del teléfono', e?.code || e);
+    }
   });
 }
 
@@ -85,8 +99,10 @@ registrar('hoy', {
       });
     } catch (e) {
       console.warn('[hoy]', e?.code || e);
-      lista = [];
-      pintar();
+      if (!lista.length) {
+        nodo.innerHTML = '<div class="vacio">No se pudieron cargar tus pendientes (¿sin internet?).</div>';
+        nodo.appendChild(el('button.btn.principal.ancho', { style: 'margin-top:1rem', texto: 'Reintentar', onclick: () => ir('hoy') }));
+      }
     }
   },
 });
@@ -106,6 +122,7 @@ registrar('pendientes', {
       nodo.innerHTML = '';
       pegar(nodo,
         el('button.btn.principal.ancho', { texto: '+ Nuevo pendiente', onclick: () => formulario() }),
+        el('button.btn.plano.ancho', { style: 'margin-top:.5rem', texto: 'Ver qué hace y qué no', onclick: () => cumplimiento() }),
         el('div.seccion', {}, [el('h2', { texto: `Hoy · ${marcas.filter((m) => deHoy.some((p) => p.id === m.pendienteId)).length} de ${deHoy.length}` })]),
         deHoy.length ? el('div.tarjeta', { style: 'padding:.4rem .9rem' }, deHoy.map((p) => {
           const m = hechos.get(p.id);
@@ -135,6 +152,48 @@ registrar('pendientes', {
       }
       nodo.appendChild(tarjeta);
     };
+
+    /** Por pendiente: de los días que le tocaban, en cuáles se marcó. */
+    async function cumplimiento(dias = 14) {
+      const d = abrirDialogo('');
+      d.innerHTML = '<div class="cargando">Revisando…</div>';
+      let hechosRango;
+      try {
+        hechosRango = await hechosEntre(sumarDias(dia, -(dias - 1)), dia);
+      } catch (e) {
+        console.warn('[cumplimiento]', e?.code || e);
+        d.innerHTML = '<div class="vacio">No se pudo cargar (¿sin internet?).</div>';
+        pegar(d, el('button.btn.plano.ancho', { texto: 'Cerrar', onclick: () => d.close() }));
+        return;
+      }
+      const marcado = new Set(hechosRango.map((m) => `${m.dia}_${m.pendienteId}`));
+      const fechas = Array.from({ length: dias }, (_, i) => sumarDias(dia, -(dias - 1) + i));
+      const filas = [...plantillas].sort((a, b) => a.titulo.localeCompare(b.titulo, 'es')).map((p) => {
+        const creado = p.creado?.toDate ? diaISO(p.creado.toDate()) : null;
+        const toco = fechas.filter((f) => (!creado || f >= creado) && tocaHoy({ ...p, activo: true }, f));
+        // Hoy todavía puede hacerse: solo cuenta como falta si ya pasó el día.
+        const hechas = toco.filter((f) => marcado.has(`${f}_${p.id}`));
+        const faltas = toco.filter((f) => f < dia && !marcado.has(`${f}_${p.id}`));
+        return { p, toco, hechas, faltas };
+      }).filter((x) => x.toco.length);
+
+      d.innerHTML = '';
+      pegar(d,
+        el('h2', { texto: `Últimos ${dias} días` }),
+        filas.length ? el('div', {}, filas.map(({ p, toco, hechas, faltas }) => el('div', {
+          style: 'padding:.6rem 0;border-bottom:1px solid var(--borde)',
+        }, [
+          el('div', { style: 'font-weight:600', html: esc(p.titulo) }),
+          el('div', { style: `font-size:var(--t-pie);color:var(--${faltas.length ? 'rojo' : 'verde'})`,
+            texto: `Lo hizo ${hechas.length} de ${toco.length} días${faltas.length ? ` · no lo hizo ${faltas.length}` : ''}` }),
+          el('div', { style: 'display:flex;gap:2px;margin-top:.3rem;flex-wrap:wrap' }, toco.map((f) => el('span', {
+            title: f, style: 'width:1.1rem;text-align:center;font-size:var(--t-pie)',
+            texto: marcado.has(`${f}_${p.id}`) ? '✓' : f === dia ? '○' : '✗',
+          }))),
+        ]))) : el('div.vacio', { texto: 'Todavía no hay pendientes con días para revisar.' }),
+        el('button.btn.plano.ancho', { style: 'margin-top:.5rem', texto: 'Cerrar', onclick: () => d.close() })
+      );
+    }
 
     function formulario(p = null) {
       const d = abrirDialogo('');

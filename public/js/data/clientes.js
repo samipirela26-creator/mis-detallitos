@@ -13,7 +13,7 @@
 // para poder ordenar sin tener la tasa a mano, pero el que manda es `saldoCOP`.
 import { db, col, ref, refNuevo } from '../core/firebase.js';
 import {
-  writeBatch, setDoc, query, orderBy, serverTimestamp, increment, where, Timestamp,
+  writeBatch, setDoc, deleteDoc, query, orderBy, serverTimestamp, increment, where, Timestamp,
 } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js';
 import { usuarioActual } from '../core/sesion.js';
 import { normalizar } from '../core/texto.js';
@@ -103,4 +103,30 @@ export async function abonosEntre(desde, hasta, { fuente = SERVIDOR } = {}) {
 
 export async function abonosDe(clienteId, { fuente = SERVIDOR } = {}) {
   return traer(query(col('abonos'), where('clienteId', '==', clienteId), orderBy('ts', 'desc')), fuente);
+}
+
+/**
+ * Cómo va el plazo de un deudor: "vence en 12 días", "vence hoy" o
+ * "atrasado 3 días". Null si no tiene deuda o no se le puso plazo.
+ */
+export function vencimiento(c, hoy = new Date()) {
+  if (!c?.vence || !debe(c)) return null;
+  const limite = new Date(`${c.vence}T23:59:59`);
+  const dias = Math.ceil((limite - hoy) / 86400000) - 1;
+  if (dias < 0) return { atrasado: true, dias: -dias, texto: `atrasado ${-dias} ${-dias === 1 ? 'día' : 'días'}`, color: 'var(--rojo)' };
+  if (dias === 0) return { atrasado: false, dias, texto: 'vence hoy', color: 'var(--ambar)' };
+  return { atrasado: false, dias, texto: `vence en ${dias} ${dias === 1 ? 'día' : 'días'}`, color: dias <= 3 ? 'var(--ambar)' : 'var(--texto-suave)' };
+}
+
+/**
+ * Borra un cliente y deja constancia en la auditoría (los movimientos): quién
+ * era, cuánto debía y quién lo borró. Sus ventas y abonos NO se tocan: la plata
+ * que entró sigue contando en la caja y en los reportes.
+ */
+export async function eliminarCliente(c) {
+  anotar('cliente-eliminado', {
+    clienteId: c.id, nombre: c.nombre, telefono: c.telefono || '',
+    saldoCOP: c.saldoCOP || 0, saldoUSD: c.saldoUSD || 0,
+  });
+  encolar(deleteDoc(ref('clientes', c.id)), 'cliente-borrado');
 }

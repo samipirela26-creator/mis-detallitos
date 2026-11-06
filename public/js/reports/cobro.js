@@ -4,12 +4,19 @@
 // tipo factura (se comparte como foto). La imagen se dibuja en un canvas, sin
 // librerías: funciona sin internet y pesa poco.
 import { el, abrirDialogo, fecha, pegar } from '../ui/html.js';
-import { formatear } from '../core/dinero.js';
+import { formatear, desdeUSD } from '../core/dinero.js';
+import { leer } from '../core/estado.js';
 import { avisar, avisarOk } from '../ui/avisos.js';
 
 const NEGOCIO = 'Mis Detallitos G&M C.A';
 
 const monto = (deuda) => (deuda.COP ? formatear(deuda.COP, 'COP') : formatear(deuda.USD));
+
+/** Lo que debe en bolívares a la tasa de hoy, o null si no hay tasa. */
+function enBolivares(deuda) {
+  const tasa = (leer('tasas') || {}).VES;
+  return tasa > 0 && deuda.USD > 0 ? formatear(desdeUSD(deuda.USD, 'VES', tasa), 'VES') : null;
+}
 
 /** El mensaje en texto, con el formato de WhatsApp (*negrita*). */
 export function textoCobro({ cliente, deuda, fiadas = [], abonos = [] }) {
@@ -30,6 +37,8 @@ export function textoCobro({ cliente, deuda, fiadas = [], abonos = [] }) {
   }
   filas.push(`*Total a pagar: ${monto(deuda)}*`);
   if (deuda.COP) filas.push(`(${formatear(deuda.USD)} al dólar de hoy)`);
+  const bs = enBolivares(deuda);
+  if (bs) filas.push(`*En bolívares: ${bs}* (a la tasa de hoy)`);
   filas.push('', 'Gracias por tu compra 🙏');
   return filas.join('\n');
 }
@@ -61,7 +70,7 @@ export function imagenCobro({ cliente, deuda, fiadas = [], abonos = [] }) {
     filas.push({ tipo: 'abono', izq: `Abono ${fecha(x.ts)}`, der: `- ${formatear(x.montoUSD || 0)}`, det: [] });
   }
   const altoFilas = filas.reduce((t, f) => t + 44 + f.det.length * 28, 0);
-  const H = 330 + altoFilas + 150;
+  const H = 330 + altoFilas + 200;
 
   const c = document.createElement('canvas');
   c.width = W; c.height = H;
@@ -101,6 +110,11 @@ export function imagenCobro({ cliente, deuda, fiadas = [], abonos = [] }) {
   if (deuda.COP) {
     ctx.fillStyle = '#777'; ctx.font = '20px sans-serif'; ctx.textAlign = 'right';
     ctx.fillText(`${formatear(deuda.USD)} al dólar de hoy`, W - M, y + 30); ctx.textAlign = 'left';
+  }
+  const bs = enBolivares(deuda);
+  if (bs) {
+    ctx.fillStyle = '#222'; ctx.font = 'bold 26px sans-serif'; ctx.textAlign = 'right';
+    ctx.fillText(`En bolívares: ${bs}`, W - M, y + (deuda.COP ? 70 : 45)); ctx.textAlign = 'left';
   }
   ctx.fillStyle = '#666'; ctx.font = '22px sans-serif'; ctx.textAlign = 'center';
   ctx.fillText('Gracias por tu compra', W / 2, H - 30); ctx.textAlign = 'left';

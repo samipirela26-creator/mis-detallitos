@@ -13,17 +13,21 @@ import { getFirestore } from 'firebase-admin/firestore';
 export const NEGOCIO = process.env.NEGOCIO || 'mis-detallitos';
 const RUTA_LLAVE = process.env.LLAVE_ADMIN || '.secretos/clave-admin.json';
 
-if (!existsSync(RUTA_LLAVE)) {
+// Con FIRESTORE_EMULATOR_HOST (p. ej. para grabar el video tutorial) se conecta
+// al emulador local: no hace falta llave y no se toca nada real.
+const ENEMULADOR = !!process.env.FIRESTORE_EMULATOR_HOST;
+
+if (!ENEMULADOR && !existsSync(RUTA_LLAVE)) {
   console.error(`No encuentro la llave en ${RUTA_LLAVE}.`);
   console.error('Descárgala en Firebase → Configuración → Cuentas de servicio y guárdala ahí.');
   process.exit(1);
 }
 
-const llave = JSON.parse(readFileSync(RUTA_LLAVE, 'utf8'));
-initializeApp({ credential: cert(llave), projectId: llave.project_id });
+export const proyecto = ENEMULADOR ? 'mis-detallitos' : JSON.parse(readFileSync(RUTA_LLAVE, 'utf8')).project_id;
+if (ENEMULADOR) initializeApp({ projectId: proyecto });
+else initializeApp({ credential: cert(JSON.parse(readFileSync(RUTA_LLAVE, 'utf8'))), projectId: proyecto });
 
 export const db = getFirestore();
-export const proyecto = llave.project_id;
 
 /** Colección del negocio: col('productos') */
 export const col = (nombre) => db.collection('negocios').doc(NEGOCIO).collection(nombre);

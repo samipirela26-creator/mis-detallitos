@@ -31,7 +31,7 @@ import { traer, SERVIDOR } from './lectura.js';
  */
 export async function registrarVenta({
   lineas, pagos, vuelto = null, ajusteUSD = 0, ajustadoPor = null, totalCOP = null,
-  clienteId = null, fiado = false, nota = '', sinTurno = false,
+  clienteId = null, fiado = false, nota = '', sinTurno = false, vence = null,
 }) {
   const u = usuarioActual();
   if (!lineas?.length) throw new Error('La venta no tiene productos.');
@@ -107,6 +107,8 @@ export async function registrarVenta({
     // mientras tanto ningún arqueo lo pide.
     lugar: sinTurno && esDueno() ? LUGAR_AFUERA : LUGAR_VENTAS,
     clienteId,
+    // Fecha límite de pago (AAAA-MM-DD) de un fiado a plazo. Null = sin plazo.
+    vence: fiado ? vence : null,
     nota,
     estado: 'ok',
     uid: u.uid,
@@ -144,6 +146,7 @@ export async function registrarVenta({
       saldoCOP: increment(deudaEnPesos(venta)),
       saldoUSD: increment(venta.saldoUSD),
       ultimaCompra: serverTimestamp(),
+      ...(vence ? { vence } : {}),
     }, { merge: true });
   }
 
