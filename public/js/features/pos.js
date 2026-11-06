@@ -888,8 +888,11 @@ async function cobrar() {
   // un centavo: la venta quedaba marcada como "subida" sin que nadie la
   // tocara, y pidiendo un autorizante que no existía.
   let ajustado = false;
-  const totalUSD = () => (ajustado ? aDolares(montoCobrado) : t.totalUSD);
-  const ajusteUSD = () => (ajustado ? aDolares(montoCobrado) - t.totalUSD : 0);
+  // Si el monto se ajustó en dólares, ese dólar es el exacto: convertirlo a
+  // pesos y volver podría dejarlo a un centavo.
+  let usdAjustado = null;
+  const totalUSD = () => (!ajustado ? t.totalUSD : usdAjustado ?? aDolares(montoCobrado));
+  const ajusteUSD = () => (ajustado ? totalUSD() - t.totalUSD : 0);
 
   const d = abrirDialogo('');
   const resumen = el('div');
@@ -941,23 +944,27 @@ async function cobrar() {
   }
 
   /** Ajustar el total: quitarle los 20 que no se pueden dar. */
-  async function ajustar() {
+  async function ajustar(enDolares = false) {
+    const usd = enDolares && monedaMonto !== 'USD';
+    const moneda = usd ? 'USD' : monedaMonto;
+    const actual = usd ? totalUSD() : montoCobrado;
     const nuevo = await pedirMonto({
-      titulo: 'Rebajar o ajustar total',
-      nota: `El total es ${formatear(totalDeEtiqueta, monedaMonto)}. `
+      titulo: usd ? 'Ajustar total en dólares' : 'Rebajar o ajustar total',
+      nota: `El total es ${formatear(usd ? t.totalUSD : totalDeEtiqueta, moneda)}. `
           + 'Escribe en cuánto lo vas a dejar.',
-      moneda: monedaMonto, inicial: montoCobrado, aceptar: 'Dejarlo en',
+      moneda, inicial: actual, aceptar: 'Dejarlo en',
       permiteCero: true,
     });
-    if (nuevo === null || nuevo === montoCobrado) return;
+    if (nuevo === null || nuevo === actual) return;
     // Subirlo o bajarlo lo decide el dueño, o el código. Sin esto, cualquiera
     // podría rebajar una venta y nadie se enteraría.
     const quien = await pedirAutorizacion(
-      `Cambiar el total de ${formatear(totalDeEtiqueta, monedaMonto)} `
-      + `a ${formatear(nuevo, monedaMonto)}.`);
+      `Cambiar el total de ${formatear(usd ? t.totalUSD : totalDeEtiqueta, moneda)} `
+      + `a ${formatear(nuevo, moneda)}.`);
     if (!quien) return avisarMal('Sin autorización no se puede cambiar el total.');
     ajustadoPor = quien;
-    montoCobrado = nuevo;
+    if (usd) { usdAjustado = nuevo; montoCobrado = enMoneda(nuevo); }
+    else { usdAjustado = null; montoCobrado = nuevo; }
     ajustado = true;
     pintar();
   }
@@ -1006,7 +1013,7 @@ async function cobrar() {
         ajustadoPor,
         // El monto en pesos se guarda siempre que se haya pensado en pesos,
         // aunque pague en otra moneda: es el precio que se acordó.
-        totalCOP: monedaMonto === 'COP' ? montoCobrado : null,
+        totalCOP: monedaMonto === 'COP' && usdAjustado == null ? montoCobrado : null,
         clienteId: fiadoA?.id || null,
         fiado: !!fiadoA,
         vence,
@@ -1039,7 +1046,11 @@ async function cobrar() {
     resumen,
     el('button.btn.plano.ancho', {
       style: 'margin-top:.5rem;font-weight:600;border-style:dashed',
-      texto: '✎ Rebajar o ajustar el total', onclick: ajustar,
+      texto: '✎ Rebajar o ajustar el total', onclick: () => ajustar(false),
+    }),
+    monedaMonto === 'USD' ? null : el('button.btn.plano.ancho', {
+      style: 'margin-top:.25rem;font-weight:600;border-style:dashed',
+      texto: '✎ Ajustar el total en dólares', onclick: () => ajustar(true),
     }),
     el('p', { style: 'color:var(--texto-suave);font-size:var(--t-pie);margin-top:1rem', texto: '¿Con qué te pagó?' }),
     botonesMoneda,
