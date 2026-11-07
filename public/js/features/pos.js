@@ -709,6 +709,15 @@ function pedirVentaLibre(nombreSugerido = '') {
       style: 'text-align:center;color:var(--texto-suave);font-size:var(--t-pie);min-height:1.2em;margin-top:.25rem',
     });
     const botonGanancia = el('button.btn.plano.ancho', { type: 'button', style: 'margin-top:.4rem' });
+    // Atajo: lo que no costó nada (un trabajo a mano, algo que investigaste).
+    const botonSinCosto = el('button.btn.plano.ancho', {
+      type: 'button', style: 'margin-top:.4rem',
+      texto: 'Sin costo: solo mano de obra',
+      onclick: () => {
+        ganancia = monto; gananciaTal = montoTal; gananciaTocada = true;
+        pintar();
+      },
+    });
     const aceptar = el('button.btn.principal', { type: 'button', style: 'flex:2', texto: 'Agregar' });
 
     const pintar = () => {
@@ -722,11 +731,12 @@ function pedirVentaLibre(nombreSugerido = '') {
         : !gananciaTocada
           ? '¿Cuánto te costó? (toca para poner el costo)'
           : ganancia >= monto
-            ? `Costo: nada. Ganancia: todo (${comoSeVe(monto, montoTal)})`
+            ? `Sin costo (solo mano de obra). Ganancia: todo (${comoSeVe(monto, montoTal)})`
             : `Costo: ${comoSeVe(monto - ganancia, null)} · Ganancia: ${comoSeVe(ganancia, gananciaTal)}`;
       // La misma plata en las otras dos, para no tener que salir a calcularla.
       eco.textContent = monto ? otrasMonedas(monto) : '';
       botonGanancia.disabled = monto ? null : true;
+      botonSinCosto.disabled = monto ? null : true;
       const listo = monto && gananciaTocada;
       aceptar.disabled = listo ? null : true;
       aceptar.style.opacity = listo ? '' : '.5';
@@ -763,9 +773,11 @@ function pedirVentaLibre(nombreSugerido = '') {
     botonGanancia.addEventListener('click', async () => {
       const c = await pedirMonto({
         titulo: '¿Cuánto te costó?',
-        nota: `Entraron ${comoSeVe(monto, montoTal)}. Pon lo que pagaste por eso; si no te costó nada, pon 0.`,
+        nota: `Entraron ${comoSeVe(monto, montoTal)}. Pon lo que pagaste por eso; si no invertiste nada (solo tu trabajo), déjalo en 0.`,
         inicial: gananciaTocada ? enMoneda(monto - ganancia) : 0, aceptar: 'Listo',
         moneda, monedas: MONEDAS_LIBRE, tasas,
+        // Un trabajo a mano o una investigación no costó nada: solo mano de obra.
+        permiteCero: true, textoCero: 'sin costo: solo mano de obra',
       });
       if (c === null) return;
       // El costo no puede pasar de lo que entró; la ganancia es lo que sobra.
@@ -822,6 +834,7 @@ function pedirVentaLibre(nombreSugerido = '') {
       botonMonto,
       eco,
       botonGanancia,
+      botonSinCosto,
       el('p', {
         style: 'color:var(--texto-suave);font-size:var(--t-pie);margin:.4rem 0 0',
         texto: 'El costo de compra es lo que descuenta la ganancia: así el reporte del mes '

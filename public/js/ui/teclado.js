@@ -29,6 +29,7 @@ import { formatear, MONEDAS, aMenores, aUSD, desdeUSD } from '../core/dinero.js'
 export function pedirMonto({
   titulo, moneda = 'USD', inicial = 0, nota = '', aceptar = 'Listo',
   monedas = null, tasas = null, permiteCero = false,
+  textoCero = 'gratis / regalo',
 } = {}) {
   return new Promise((resolver) => {
     // Las que de verdad se pueden usar: sin tasa del día no hay con qué pasar
@@ -75,12 +76,12 @@ export function pedirMonto({
       eco.textContent = menores
         ? `= ${formatear(menores, moneda)}`
         : permiteCero && menores === 0
-          ? '= $ 0 (gratis / regalo)'
+          ? `= 0 (${textoCero})`
           : 'Escribe cuánto, o usa los botones';
       botonOk.textContent = menores
         ? `${aceptar} ${formatear(menores, moneda)}`
         : permiteCero && menores === 0
-          ? `${aceptar} ($ 0 - regalo)`
+          ? `${aceptar} (${textoCero})`
           : aceptar;
       botonOk.disabled = valido ? null : true;
       botonOk.style.opacity = valido ? '' : '.5';
@@ -154,7 +155,7 @@ export function pedirMonto({
       pintar();
     });
     campo.addEventListener('keydown', (ev) => {
-      if (ev.key === 'Enter' && menores) { ev.preventDefault(); listo(); }
+      if (ev.key === 'Enter' && (menores || permiteCero)) { ev.preventDefault(); listo(); }
     });
 
     const teclas = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'C', '0', '←'];
